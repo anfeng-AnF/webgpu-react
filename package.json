@@ -6,7 +6,11 @@
     "cra-template": "1.2.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "react-scripts": "5.0.1"
+    "react-resizable": "^3.0.5",
+    "react-scripts": "5.0.1",
+    "react-split": "^2.0.14",
+    "styled-components": "^6.1.14",
+    "web-vitals": "^4.2.4"
   },
   "scripts": {
     "start": "react-scripts start",

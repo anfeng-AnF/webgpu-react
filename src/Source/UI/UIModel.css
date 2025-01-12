@@ -1,0 +1,658 @@
+.ui-model-container {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Split 容器样式 */
+.split-vertical {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.split-horizontal {
+    display: flex;
+    flex-direction: row;
+    height: 100% !important;
+}
+
+/* 通用面板样式 */
+.top-panel,
+.left-panel,
+.main-content-top,
+.main-content-bottom,
+.right-panel-top,
+.right-panel-bottom {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    padding: 10px;
+    border: 1px solid #2d2d2d;
+}
+
+/* 分割线样式 */
+.gutter {
+    position: relative;
+    background-color: #2d2d2d;
+    transition: background-color 0.2s;
+}
+
+.gutter:hover {
+    background-color: #3d3d3d;
+}
+
+.gutter.gutter-horizontal {
+    cursor: col-resize;
+    width: 4px;
+}
+
+.gutter.gutter-horizontal::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 20px;
+    background-color: #4d4d4d;
+    border-radius: 1px;
+}
+
+.gutter.gutter-vertical {
+    cursor: row-resize;
+    height: 4px;
+}
+
+.gutter.gutter-vertical::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    height: 2px;
+    width: 20px;
+    background-color: #4d4d4d;
+    border-radius: 1px;
+}
+
+/* 面板特定样式 */
+.top-panel {
+    background-color: #e3f2fd;
+    height: 60px !important;
+    min-height: 60px !important;
+    overflow: hidden;
+}
+
+.left-panel {
+    background-color: #1e1e1e;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
+.main-content-container {
+    display: flex;
+    flex-direction: column;
+    height: 100% !important;
+}
+
+.main-content-top {
+    background-color: #2d2d2d;
+    position: relative;
+}
+
+.main-content-bottom {
+    display: flex;
+    flex-direction: row;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    position: relative;
+}
+
+.main-content-bottom .split {
+    width: 100%;
+    height: 100%;
+}
+
+.main-content-bottom .split.split-horizontal {
+    flex-direction: row;
+}
+
+.file-tree {
+    background-color: #252525;
+    padding: 10px;
+    height: 100%;
+    overflow: auto;
+    border-right: 1px solid #3d3d3d;
+    position: relative;
+    min-height: 0;
+}
+
+.file-details {
+    background-color: #2d2d2d;
+    padding: 10px;
+    height: 100%;
+    overflow: auto;
+    position: relative;
+    min-height: 0;
+}
+
+.right-panel-container {
+    display: flex;
+    flex-direction: column;
+    height: 100% !important;
+}
+
+.right-panel-top {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    background-color: #1e1e1e;
+}
+
+.right-panel-bottom {
+    background-color: #252525;
+}
+
+/* 确保Split容器正确填充空间 */
+.split {
+    display: flex;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.split.split-horizontal {
+    flex-direction: row;
+}
+
+.split.split-vertical {
+    flex-direction: column;
+}
+
+.split.split-horizontal > * {
+    height: 100%;
+}
+
+.split.split-vertical > * {
+    width: 100%;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #3d3d3d;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #4d4d4d;
+}
+
+/* 文件管理区域的Split特定样式 */
+.file-management-split {
+    position: absolute !important;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+/* 标签页样式 */
+.tab-header {
+    display: flex;
+    background-color: #1a1a1a;
+    border-bottom: 1px solid #3d3d3d;
+    padding: 0;
+    margin: -10px -10px 10px -10px; /* 抵消父容器的padding */
+}
+
+.tab-button {
+    background: none;
+    border: none;
+    color: #888;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    position: relative;
+    transition: color 0.2s;
+}
+
+.tab-button:hover {
+    color: #fff;
+}
+
+.tab-button.active {
+    color: #fff;
+    background-color: #252525;
+}
+
+.tab-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: #0078d4;
+}
+
+.tab-content {
+    height: calc(100% - 37px); /* 减去tab-header的高度 */
+    overflow: auto;
+}
+
+/* 内容区域样式 */
+.details-content,
+.world-settings-content {
+    height: 100%;
+}
+
+/* 右下面板调整 */
+.right-panel-bottom {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    overflow: hidden; /* 防止内容溢出 */
+}
+
+/* 内容浏览器样式 */
+.content-browser {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: #1e1e1e;
+}
+
+.browser-header {
+    display: none;
+}
+
+.browser-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.browser-btn {
+    background-color: #333333;
+    border: 1px solid #3d3d3d;
+    color: #cccccc;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.browser-btn:hover {
+    background-color: #404040;
+}
+
+.browser-path {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    color: #cccccc;
+    font-size: 12px;
+}
+
+.browser-path span {
+    color: #888888;
+}
+
+.browser-path span:last-child {
+    color: #cccccc;
+}
+
+.browser-search {
+    margin: 0;
+}
+
+.browser-search input {
+    width: 100%;
+    background-color: #3d3d3d;
+    border: 1px solid #4d4d4d;
+    color: #ffffff;
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 2px;
+}
+
+.browser-search input::placeholder {
+    color: #888888;
+}
+
+.browser-content {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+/* 调整文件树和详情区域的样式 */
+.file-tree {
+    background-color: #252525;
+    padding: 10px;
+}
+
+.file-details {
+    background-color: #1e1e1e;
+    padding: 10px;
+}
+
+.file-details {
+    display: flex;
+    flex-direction: column;
+    padding: 0 !important; /* 覆盖之前的padding */
+}
+
+.file-details-header {
+    padding: 8px;
+    background-color: #252525;
+    border-bottom: 1px solid #3d3d3d;
+}
+
+.file-details-content {
+    flex: 1;
+    padding: 10px;
+    overflow: auto;
+}
+
+/* 搜索框样式调整 */
+.browser-search {
+    margin: 0;
+}
+
+.browser-search input {
+    width: 100%;
+    background-color: #3d3d3d;
+    border: 1px solid #4d4d4d;
+    color: #ffffff;
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 2px;
+}
+
+/* 左侧面板样式 */
+.left-panel {
+    background-color: #1e1e1e;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: #252525;
+    border-bottom: 1px solid #3d3d3d;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: normal;
+    color: #ffffff;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.close-button:hover {
+    color: #fff;
+}
+
+.search-box {
+    padding: 8px;
+    border-bottom: 1px solid #3d3d3d;
+}
+
+.search-box input {
+    width: 100%;
+    background-color: #3d3d3d;
+    border: 1px solid #4d4d4d;
+    color: #ffffff;
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 2px;
+}
+
+.category-icons {
+    padding: 8px;
+    border-bottom: 1px solid #3d3d3d;
+}
+
+.category-group {
+    margin-bottom: 8px;
+}
+
+.category-label {
+    color: #888;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.icon-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+}
+
+.icon-button {
+    background-color: #252525;
+    border: 1px solid #3d3d3d;
+    color: #888;
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+}
+
+.icon-button:hover {
+    background-color: #333333;
+    color: #fff;
+}
+
+.icon-button.active {
+    background-color: #0078d4;
+    color: #fff;
+    border-color: #0078d4;
+}
+
+.actor-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.actor-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: #cccccc;
+    font-size: 12px;
+}
+
+.actor-item:hover {
+    background-color: #2d2d2d;
+}
+
+.actor-icon {
+    margin-right: 8px;
+    font-size: 14px;
+}
+
+.actor-name {
+    flex: 1;
+}
+
+.help-icon {
+    color: #666;
+    font-size: 12px;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #666;
+    border-radius: 50%;
+}
+
+.help-icon:hover {
+    color: #fff;
+    border-color: #fff;
+}
+
+/* 大纲视图样式 */
+.right-panel-top {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    background-color: #1e1e1e;
+}
+
+.outline-header {
+    padding: 8px;
+    border-bottom: 1px solid #3d3d3d;
+}
+
+.outline-controls {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 4px;
+}
+
+.outline-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 12px;
+}
+
+.outline-btn:hover {
+    color: #fff;
+}
+
+.item-label, .type-label {
+    color: #888;
+    font-size: 12px;
+    padding: 4px 8px;
+}
+
+.type-label {
+    margin-left: auto;
+}
+
+.outline-search {
+    display: flex;
+    gap: 8px;
+}
+
+.outline-search input {
+    flex: 1;
+    background-color: #3d3d3d;
+    border: 1px solid #4d4d4d;
+    color: #fff;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 2px;
+}
+
+.filter-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.outline-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.outline-tree {
+    padding: 8px;
+}
+
+.outline-item {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    color: #ccc;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.outline-item:hover {
+    background-color: #2d2d2d;
+}
+
+.item-icon {
+    margin-right: 8px;
+    font-size: 14px;
+    color: #888;
+}
+
+.item-text {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.item-type {
+    color: #666;
+    margin-left: 8px;
+    font-size: 11px;
+}
+
+.item-children {
+    margin-left: 20px;
+    border-left: 1px dotted #3d3d3d;
+}
+
+.outline-footer {
+    padding: 8px;
+    color: #666;
+    font-size: 12px;
+    border-top: 1px solid #3d3d3d;
+    margin-top: 8px;
+}
+
+/* 特定项目类型的样式 */
+.outline-item.project {
+    font-weight: bold;
+}
+
+.outline-item.folder {
+    color: #deb887;
+}
+
+.outline-item.mesh {
+    padding-left: 12px;
+} 
