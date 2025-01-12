@@ -1,0 +1,89 @@
+.details-section {
+    background-color: rgb(30, 30, 30);
+}
+
+/* 最外层section的样式 */
+.details-content > .details-section {
+    background-color: rgb(42, 42, 42);  /* 更深的背景色 */
+}
+
+.details-content > .details-section > .section-header {
+    background-color: rgb(42, 42, 42);
+}
+
+.details-content > .details-section > .section-header:hover {
+    background-color: rgb(50, 50, 50);  /* 更深的悬停色 */
+}
+
+.details-content > .details-section > .section-content {
+    background-color: rgb(42, 42, 42);
+}
+
+/* 内层section保持原来的颜色 */
+.details-content > .details-section .details-section {
+    background-color: rgb(30, 30, 30);
+}
+
+.details-content > .details-section .details-section .section-header {
+    background-color: rgb(30, 30, 30);
+}
+
+.details-content > .details-section .details-section .section-header:hover {
+    background-color: rgb(42, 42, 42);
+}
+
+.details-content > .details-section .details-section .section-content {
+    background-color: rgb(30, 30, 30);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    padding: 2px 8px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    height: 20px;
+}
+
+.expand-icon {
+    font-size: 8px;
+    width: 16px;
+    color: #888;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-origin: center;
+    margin-top: 1px;
+}
+
+.section-title {
+    color: #888;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+/* 嵌套Section的标题缩进 */
+.details-section .details-section .section-title {
+    padding-left: 8px;
+}
+
+.section-header:hover .section-title {
+    color: #ffffff;
+}
+
+.section-content {
+    padding: 1px 0;
+    position: relative;
+}
+
+/* 展开/收起动画 */
+.section-header.expanded .expand-icon {
+    transform: rotate(0deg);
+    transition: transform 0.15s ease;
+}
+
+.section-header:not(.expanded) .expand-icon {
+    transform: rotate(-90deg);
+    transition: transform 0.15s ease;
+} 

@@ -1,0 +1,95 @@
+.details-editor {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) 300px;
+    align-items: center;
+    padding: 1px 8px;
+    height: 22px;
+    background-color: rgb(30, 30, 30);
+}
+
+.details-editor:hover {
+    background-color: rgb(42, 42, 42);
+}
+
+.editor-label {
+    color: #888;
+    font-size: 11px;
+    white-space: nowrap;
+    padding-right: 8px;
+}
+
+.editor-input {
+    width: 100%;
+}
+
+/* Vector3Editor特殊处理 */
+.vector3-editor .editor-input {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+}
+
+/* Boolean Editor */
+.boolean-editor .editor-input {
+    width: auto;
+}
+
+/* Enum Editor */
+.enum-editor .editor-input {
+    display: block;
+}
+
+.enum-editor select {
+    width: 100%;
+    height: 20px;
+    background-color: rgb(30, 30, 30);
+    border: 1px solid rgb(45, 45, 45);
+    color: #ffffff;
+    font-size: 11px;
+    padding: 0 20px 0 4px;
+    display: block;
+    margin: 0 auto;
+}
+
+/* Float Editor */
+.float-editor .editor-input {
+    display: block;
+}
+
+.float-editor input {
+    width: 100%;
+    height: 20px;
+    background-color: rgb(30, 30, 30);
+    border: 1px solid rgb(45, 45, 45);
+    color: #ffffff;
+    padding: 0 4px;
+    font-size: 11px;
+}
+
+/* Text Display */
+.text-display {
+    grid-column: 1 / -1;
+    padding: 2px 8px;
+}
+
+.display-text {
+    opacity: 0.8;
+}
+
+/* 移除输入框的默认箭头 */
+.float-editor input::-webkit-inner-spin-button,
+.float-editor input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* 下拉选项样式 */
+.enum-editor select option {
+    background-color: rgb(30, 30, 30);
+    color: #ffffff;
+    padding: 4px;
+}
+
+.enum-editor select option:hover {
+    background-color: rgb(42, 42, 42);
+} 

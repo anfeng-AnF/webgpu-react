@@ -1,21 +1,53 @@
 import React, { useState } from 'react';
 import Split from 'react-split';
 import './UIModel.css';
+import UIModelManager from './UIModelManager';
 
 class UIModel extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
       activeTab: 'details', // 'details' 或 'worldSettings'
+      updateCounter: 0
     };
+    this.manager = new UIModelManager();
+  }
+
+  componentDidMount() {
+    this.manager.addListener(this.handleUpdate);
+  }
+
+  componentWillUnmount() {
+    this.manager.removeListener(this.handleUpdate);
+  }
+
+  handleUpdate = () => {
+    this.setState(state => ({
+      updateCounter: state.updateCounter + 1
+    }));
+  }
+
+  addComponent = (area, section, component, renderFunction = null) => {
+    this.manager.setComponent(area, section, component, renderFunction);
+  }
+
+  // 获取组件的方法
+  getComponents = (area, section, subSection = null) => {
+    return this.manager.getComponents(area, section, subSection);
   }
 
   switchTab = (tab) => {
     this.setState({ activeTab: tab });
   };
 
+  // 添加更新组件的方法
+  updateComponent = (area, section, tab) => {
+    this.manager.updateComponent(area, section, tab);
+  }
+
   render() {
     const { activeTab } = this.state;
+    const { children } = this.props;
 
     return (
       <div className="ui-model-container">
@@ -29,6 +61,11 @@ class UIModel extends React.Component {
               <input type="text" placeholder="搜索类" />
             </div>
             <div className="category-icons"></div>
+            <div className="actor-list">
+              {this.getComponents('leftPanel', 'actorList').map((component, index) => (
+                <React.Fragment key={index}>{component}</React.Fragment>
+              ))}
+            </div>
           </div>
 
           <Split
@@ -38,7 +75,11 @@ class UIModel extends React.Component {
             gutterSize={4}
             className="main-content-container"
           >
-            <div className="main-content-top"></div>
+            <div className="main-content-top">
+              {this.getComponents('mainContent', 'top').map((component, index) => (
+                <React.Fragment key={index}>{component}</React.Fragment>
+              ))}
+            </div>
             <div className="main-content-bottom">
               <div className="content-browser">
                 <div className="browser-content">
@@ -82,6 +123,9 @@ class UIModel extends React.Component {
               </div>
               <div className="outline-content">
                 <div className="outline-tree">
+                  {this.getComponents('rightPanel', 'top', 'outlineTree').map((component, index) => (
+                    <React.Fragment key={index}>{component}</React.Fragment>
+                  ))}
                 </div>
               </div>
             </div>
@@ -102,9 +146,15 @@ class UIModel extends React.Component {
               </div>
               <div className="tab-content">
                 {activeTab === 'details' ? (
-                  <div className="details-content">{/* 细节内容 */}</div>
+                  <div className="details-content">
+                    {children}
+                  </div>
                 ) : (
-                  <div className="world-settings-content">{/* 世界场景设置内容 */}</div>
+                  <div className="world-settings-content">
+                    {this.getComponents('rightPanel', 'bottom', 'worldSettings').map((component, index) => (
+                      <React.Fragment key={index}>{component}</React.Fragment>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
