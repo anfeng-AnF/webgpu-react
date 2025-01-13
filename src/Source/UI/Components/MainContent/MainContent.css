@@ -1,0 +1,12 @@
+.main-content-view {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-color: #1e1e1e;
+    overflow: hidden;
+}
+
+.main-content-view .canvas-container {
+    width: 100%;
+    height: 100%;
+} 

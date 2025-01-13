@@ -134,10 +134,7 @@ class DetailBuilder {
 
     // 构建整个细节面板
     build() {
-        // 添加调试日志
-        console.log('Building details panel');
-        console.log('Properties:', this.properties);
-        console.log('Sections:', this.sections);
+
 
         // 获取顶层section
         const topLevelSections = Array.from(this.sections.keys())
@@ -148,10 +145,6 @@ class DetailBuilder {
         const ungroupedProperties = Array.from(this.properties.keys())
             .filter(path => !path.includes('.'))
             .map(path => this.buildComponent(path));
-
-        // 添加调试日志
-        console.log('Ungrouped properties:', ungroupedProperties);
-        console.log('Top level sections:', topLevelSections);
 
         return (
             <React.Fragment>

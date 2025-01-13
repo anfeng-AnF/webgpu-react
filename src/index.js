@@ -1,16 +1,16 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
 import './index.css';
-import App from './App';
-import reportWebVitals from './reportWebVitals';
+import Main from './Main';
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+// 启动应用
+Main.Initialize().catch(error => {
+    console.error('Failed to start application:', error);
+});
 
-// 如果你想要测量应用性能，可以传递一个函数
-// 来记录结果（例如: reportWebVitals(console.log))
-reportWebVitals();
+// 处理窗口关闭
+window.addEventListener('beforeunload', () => {
+    // 获取ModuleManager实例并关闭
+    const moduleManager = Main.ModuleManager;
+    if (moduleManager) {
+        moduleManager.Shutdown();
+    }
+});

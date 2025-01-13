@@ -1,0 +1,129 @@
+@startuml EngineModules
+
+' 基础模块接口
+interface IModule {
+    +Initialize(): Promise<void>
+    +Shutdown(): Promise<void>
+    +Update(deltaTime: float)
+}
+
+' 核心系统类
+class ModuleManager {
+    -modules: Map<string, IModule>
+    -dependencies: Map<string, string[]>
+    +RegisterModule(name: string, module: IModule, dependencies: string[])
+    +UnregisterModule(name: string)
+    +GetModule<T extends IModule>(name: string): T
+    +InitializeAll(): Promise<void>
+    +ShutdownAll(): Promise<void>
+    +UpdateAll(deltaTime: float)
+}
+
+' UI模块系统
+class UIModule implements IModule {
+    -root: ReactRoot
+    -component: UIModelComponent
+    -manager: UIModelManager
+    -detailBuilder: DetailBuilder
+    +Initialize()
+    +Shutdown()
+    +Update(deltaTime: float)
+    +GetUIManager(): UIModelManager
+    +GetDetailBuilder(): DetailBuilder
+}
+
+class UIModelManager {
+    -components: Map<string, Map<string, Component[]>>
+    -listeners: Set<Function>
+    +AddComponent(area: string, section: string, component: Component)
+    +RemoveComponent(area: string, section: string, component: Component)
+    +GetComponents(area: string, section: string): Component[]
+    +AddListener(listener: Function)
+    +RemoveListener(listener: Function)
+}
+
+class DetailBuilder {
+    -properties: Map<string, PropertyInfo>
+    -sections: Map<string, Set<string>>
+    -onChange: Function
+    +AddProperty(path: string, value: any, options: object)
+    +UpdateProperty(path: string, value: any)
+    +Build(): ReactElement
+}
+
+' 渲染模块
+class RendererModule implements IModule {
+    -canvas: HTMLCanvasElement
+    -gl: WebGL2RenderingContext
+    +Initialize()
+    +Shutdown()
+    +Update(deltaTime: float)
+    +Render()
+    +SetViewport(width: int, height: int)
+    +Clear(color: Color)
+}
+
+' 资源管理模块
+class ResourceModule implements IModule {
+    -cache: Map<string, Asset>
+    -loadingAssets: Map<string, Promise<Asset>>
+    +Initialize()
+    +Shutdown()
+    +Update(deltaTime: float)
+    +LoadAsset<T extends Asset>(path: string): Promise<T>
+    +UnloadAsset(path: string)
+    +GetAsset<T extends Asset>(path: string): T
+}
+
+' 调试模块
+class DebugModule implements IModule {
+    -enabled: boolean
+    -stats: Map<string, any>
+    +Initialize()
+    +Shutdown()
+    +Update(deltaTime: float)
+    +Log(message: string, level: LogLevel)
+    +StartProfiling(name: string)
+    +EndProfiling(name: string)
+}
+
+' UI组件类
+class UIModelComponent {
+    -state: object
+    -manager: UIModelManager
+    -detailBuilder: DetailBuilder
+    +HandleStateChange(path: string, value: any)
+    +UpdateAllProperties()
+    +Render(): ReactElement
+}
+
+' 关系定义
+ModuleManager "1" o-- "0..*" IModule
+UIModule "1" *-- "1" UIModelManager
+UIModule "1" *-- "1" DetailBuilder
+UIModule "1" *-- "1" UIModelComponent
+RendererModule ..> ResourceModule
+DebugModule ..> ResourceModule
+
+' 模块配置类
+class ModuleConfig {
+    +name: string
+    +enabled: boolean
+    +priority: number
+    +params: Map<string, any>
+}
+
+' 模块工厂
+class ModuleFactory {
+    +{static} CreateModule(config: ModuleConfig): IModule
+    +{static} RegisterModuleType(name: string, constructor: Function)
+}
+
+ModuleManager ..> ModuleFactory
+ModuleFactory ..> ModuleConfig
+
+' UI组件关系
+UIModelComponent ..> UIModelManager
+UIModelComponent ..> DetailBuilder
+
+@enduml
