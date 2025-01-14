@@ -1,0 +1,740 @@
+@startuml Resources
+skinparam backgroundColor LightGray
+' GPU资源基类
+abstract class FRenderResource {
+    + name: string
+    + id: string
+    + device: GPUDevice
+    + refCount: number
+    + {abstract} Initialize()
+    + {abstract} Destroy()
+    + {abstract} Update()
+    + {abstract} BindToRenderPass(renderPass: GPURenderPassEncoder)
+    + {abstract} BindToComputePass(computePass: GPUComputePassEncoder)
+    + GetGPUResource()
+}
+
+' 资源管理器
+class FResourceManager {
+    - {static} instance: FResourceManager
+    + {static} Get(): FResourceManager
+    - device: GPUDevice
+    + cache: FResourceCache
+    + monitor: FResourceMonitor
+    - resources: Map<string, FRenderResource>
+    - pipelineStates: Map<string, FPipelineState>
+    - constructor()
+    + Initialize(device: GPUDevice)
+    + CreateBuffer(desc: GPUBufferDescriptor): FBuffer
+    + CreateTexture(desc: GPUTextureDescriptor): FTexture
+    + CreatePipelineState(desc: PipelineStateDesc): FPipelineState
+    + GetResource(id: string): FRenderResource
+    + AddRef(resource: FRenderResource)
+    + Release(resource: FRenderResource)
+    - DestroyResource(resource: FRenderResource)
+    + Cleanup()
+
+    + CreateResourceHandle(resource: FRenderResource): FResourceHandle
+    + LoadResource(url: string): Promise<FResourceHandle>
+    + LoadResourceGroup(group: FResourceGroup): Promise<void>
+    + GetResourceStats(): ResourceStats
+    + HandleResourceError(error: FResourceError)
+}
+
+' 缓冲区资源基类
+class FBuffer {
+    + buffer: GPUBuffer
+    + size: number
+    + usage: GPUBufferUsage
+    + data: ArrayBuffer
+    + offset: number
+    + stride: number
+    # {abstract} GetUsage(): GPUBufferUsage
+    # {abstract} ValidateData(data: ArrayBuffer)
+    + Initialize()
+    + Destroy()
+    + Update()
+    + UpdateData()
+    + BindToRenderPass(renderPass, index, type)
+    + BindToComputePass(computePass, index)
+}
+
+' 顶点属性枚举
+enum EVertexAttribute {
+    Position
+    Normal
+    Tangent
+    UV0
+    UV1
+    UV2
+    UV3
+    Color
+    SkinWeights
+    SkinIndices
+}
+
+' 顶点格式枚举
+enum EVertexFormat {
+    Float32x2
+    Float32x3
+    Float32x4
+    UInt32x4
+    Sint32x4
+}
+
+' 顶点布局描述
+class FVertexLayout {
+    + attributes: Map<EVertexAttribute, FVertexAttribute>
+    + stride: number
+    + GetOffset(attribute: EVertexAttribute): number
+    + AddAttribute(attribute: EVertexAttribute, format: EVertexFormat)
+    + RemoveAttribute(attribute: EVertexAttribute)
+    + GetGPULayout(): GPUVertexBufferLayout
+}
+
+' 顶点属性描述
+class FVertexAttribute {
+    + format: EVertexFormat
+    + offset: number
+    + shaderLocation: number
+    + GetSize(): number
+    + GetGPUFormat(): GPUVertexFormat
+}
+
+' 标准顶点数据
+class FStandardVertex {
+    + position: Float32Array  // xyz
+    + normal: Float32Array    // xyz
+    + tangent: Float32Array   // xyzw (w for handedness)
+    + uv: Float32Array[]      // xy for each UV set
+    + color: Float32Array     // rgba
+    + ToArrayBuffer(): ArrayBuffer
+    + FromArrayBuffer(buffer: ArrayBuffer, layout: FVertexLayout)
+}
+
+' 修改顶点缓冲区类
+class FVertexBuffer {
+    + vertexCount: number
+    + layout: FVertexLayout
+    - interleaved: boolean
+    + SetVertexLayout(layout: FVertexLayout)
+    + GetVertexCount(): number
+    + SetData(vertices: FStandardVertex[])
+    + GetVertex(index: number): FStandardVertex
+    + UpdateVertex(index: number, vertex: FStandardVertex)
+    # GetUsage(): GPUBufferUsage
+    # ValidateData(data: ArrayBuffer)
+    + BindToRenderPass(renderPass, slot: number)
+}
+
+' 索引格式枚举
+enum EIndexFormat {
+    UInt16
+    UInt32
+}
+
+' 索引缓冲区
+class FIndexBuffer {
+    + indexCount: number
+    - format: EIndexFormat = EIndexFormat.UInt16
+    + maxValue: number
+    + GetIndexFormat(): EIndexFormat
+    + SetIndexFormat(format: EIndexFormat)
+    + GetIndexCount(): number
+    + SetData(indices: number[] | Uint16Array | Uint32Array)
+    + GetIndex(index: number): number
+    + UpdateIndex(index: number, value: number)
+    # GetUsage(): GPUBufferUsage
+    # ValidateData(data: ArrayBuffer)
+    # ValidateIndex(value: number)
+    + BindToRenderPass(renderPass)
+}
+
+' Uniform缓冲区
+class FUniformBuffer {
+    + alignment: number
+    + dynamicOffset: number
+    + SetDynamicOffset(offset: number)
+    # GetUsage(): GPUBufferUsage
+    # ValidateData(data: ArrayBuffer)
+    + UpdateUniform(data: ArrayBuffer, offset?: number)
+}
+
+' 存储缓冲区
+class FStorageBuffer {
+    + structured: boolean
+    + elementSize: number
+    + elementCount: number
+    # GetUsage(): GPUBufferUsage
+    # ValidateData(data: ArrayBuffer)
+    + UpdateStorage(data: ArrayBuffer, offset?: number)
+}
+
+' 纹理相关的设计
+
+' 纹理类型枚举
+enum ETextureType {
+    Texture2D
+    Texture3D
+    TextureCube
+    Texture2DArray
+    TextureDepth
+    TextureDepthArray
+}
+
+' 纹理格式枚举
+enum ETextureFormat {
+    RGBA8Unorm
+    RGBA16Float
+    RGBA32Float
+    Depth24Plus
+    Depth32Float
+    BC1_RGBA_UNORM
+    BC2_RGBA_UNORM
+    BC3_RGBA_UNORM
+}
+
+' 纹理基类
+class FTexture {
+    + texture: GPUTexture
+    + view: GPUTextureView
+    + format: ETextureFormat
+    + width: number
+    + height: number
+    + depth: number
+    + mipLevelCount: number
+    + sampleCount: number
+    + usage: GPUTextureUsageFlags
+    + Initialize(device: GPUDevice, desc: GPUTextureDescriptor)
+    + CreateView(desc?: GPUTextureViewDescriptor)
+    + UpdateData(data: ArrayBuffer, layout: GPUImageDataLayout)
+    + GenerateMipmaps()
+    # ValidateDesc(desc: GPUTextureDescriptor)
+}
+
+' 2D纹理相关设计
+
+' 2D纹理用途枚举
+enum ETexture2DUsage {
+    Sampling        ' 用于采样的纹理
+    RenderTarget    ' 渲染目标
+    StorageBinding  ' 存储绑定(计算着色器读写)
+    Present         ' 显示用
+}
+
+' 基础2D纹理
+class FTexture2D {
+    + usage: ETexture2DUsage
+    + LoadFromImage(image: HTMLImageElement)
+    + LoadFromCanvas(canvas: HTMLCanvasElement)
+    + LoadFromURL(url: string)
+    + CreateFromData(data: ArrayBuffer, width: number, height: number)
+    + ResizeTo(width: number, height: number)
+    # ValidateDesc(desc: GPUTextureDescriptor)
+}
+
+' 采样纹理(只读)
+class FSamplingTexture2D {
+    + generateMips: boolean
+    + LoadFromFile(path: string)
+    + LoadFromMemory(data: ArrayBuffer)
+    + GenerateMipmaps()
+    # GetUsageFlags(): GPUTextureUsageFlags
+}
+
+' 渲染目标纹理
+class FRenderTargetTexture2D {
+    + clearValue: GPUColor
+    + clearOnBind: boolean
+    + msaaSamples: number
+    + CreateRenderTargetView()
+    + Clear(encoder: GPUCommandEncoder)
+    # GetUsageFlags(): GPUTextureUsageFlags
+}
+
+' GBuffer纹理
+class FGBufferTexture2D {
+    + bufferType: EGBufferType
+    + CreateStorageView()
+    + CreateRenderTargetView()
+    # GetUsageFlags(): GPUTextureUsageFlags
+}
+
+' GBuffer类型枚举
+enum EGBufferType {
+    GBufferA    ' 漫反射颜色 + 粗糙度
+    GBufferB    ' 法线 + 金属度
+    GBufferC    ' 自发光 + AO
+    GBufferD    ' 世界坐标 + 深度
+    Velocity    ' 速度缓冲
+    Custom      ' 自定义GBuffer
+}
+
+' 继承关系
+FTexture2D <|-- FSamplingTexture2D
+FTexture2D <|-- FRenderTargetTexture2D
+FTexture2D <|-- FGBufferTexture2D
+
+' 枚举关系
+FTexture2D --> ETexture2DUsage
+FGBufferTexture2D --> EGBufferType
+
+note right of FSamplingTexture2D
+  采样纹理：
+  - 只读访问
+  - Mipmap支持
+  - 资源加载功能
+  - 优化的采样性能
+end note
+
+note right of FRenderTargetTexture2D
+  渲染目标：
+  - 可写入
+  - MSAA支持
+  - 自动清理
+  - 优化的渲染性能
+end note
+
+note right of FGBufferTexture2D
+  GBuffer纹理：
+  - 可读可写
+  - 支持多种缓冲类型
+  - 存储绑定支持
+  - 渲染目标支持
+end note
+
+note right of EGBufferType
+  GBuffer类型：
+  - 标准PBR GBuffer
+  - 运动模糊支持
+  - 可扩展的自定义类型
+end note
+
+' 3D纹理
+class FTexture3D {
+    + depth: number
+    + LoadFromVolume(data: ArrayBuffer, width: number, height: number, depth: number)
+    + UpdateSlice(data: ArrayBuffer, z: number)
+    # ValidateDesc(desc: GPUTextureDescriptor)
+}
+
+' 深度纹理
+class FTextureDepth {
+    + format: 'depth24plus' | 'depth32float'
+    + hasStencil: boolean
+    + CreateDepthStencil(width: number, height: number)
+    + CreateShadowMap(size: number)
+    # ValidateDesc(desc: GPUTextureDescriptor)
+}
+
+' 采样器类型枚举
+enum ESamplerType {
+    Linear
+    Point
+    Anisotropic
+    Shadow
+    Comparison
+}
+
+' 采样器基类
+class FSampler {
+    + sampler: GPUSampler
+    + type: ESamplerType
+    + addressModeU: GPUAddressMode
+    + addressModeV: GPUAddressMode
+    + addressModeW: GPUAddressMode
+    + magFilter: GPUFilterMode
+    + minFilter: GPUFilterMode
+    + mipmapFilter: GPUFilterMode
+    + lodMinClamp: number
+    + lodMaxClamp: number
+    + compare: GPUCompareFunction
+    + maxAnisotropy: number
+    + Initialize(device: GPUDevice, desc: GPUSamplerDescriptor)
+    + {static} CreateLinear(device: GPUDevice): FSampler
+    + {static} CreatePoint(device: GPUDevice): FSampler
+    + {static} CreateAnisotropic(device: GPUDevice): FSampler
+    + {static} CreateShadow(device: GPUDevice): FSampler
+}
+
+' 绑定组容器
+class FBindGroup {
+    + bindGroup: GPUBindGroup
+    + layout: GPUBindGroupLayout
+    + groupIndex: number
+    - resources: Map<number, FRenderResource>
+    + AddResource(binding: number, resource: FRenderResource)
+    + RemoveResource(binding: number)
+    + CreateBindGroup(device: GPUDevice)
+    + CreateBindGroupLayout(device: GPUDevice)
+    + BindToRenderPass(renderPass)
+    + BindToComputePass(computePass)
+}
+
+' 渲染管线状态
+class FPipelineState {
+    + name: string
+    + pipeline: GPURenderPipeline | GPUComputePipeline
+    + layout: GPUPipelineLayout
+    + bindGroupLayouts: GPUBindGroupLayout[]
+    + renderState: RenderState
+    + vertexState: VertexState
+    + fragmentState: FragmentState
+    + Initialize(device: GPUDevice)
+    + Destroy()
+    + CreatePipeline()
+    + BindToRenderPass(renderPass)
+}
+
+' 顶点状态
+class VertexState {
+    + bufferLayouts: GPUVertexBufferLayout[]
+    + entryPoint: string
+    + module: GPUShaderModule
+    + GetDescriptor()
+}
+
+' 片段状态
+class FragmentState {
+    + targets: GPUColorTargetState[]
+    + entryPoint: string
+    + module: GPUShaderModule
+    + GetDescriptor()
+}
+
+' 渲染状态
+class RenderState {
+    + depthTest: boolean
+    + depthWrite: boolean
+    + blending: boolean
+    + cullMode: GPUCullMode
+    + topology: GPUPrimitiveTopology
+    + GetDescriptor()
+}
+
+' 材质描述
+class MaterialDesc {
+    + name: string
+    + type: EMaterialType
+    + blendMode: EBlendMode
+    + uniforms: Map<string, any>
+    + defines: Map<string, string>
+    + vertexShader: string
+    + fragmentShader: string
+    + renderState: RenderState
+    + Clone()
+    + Copy()
+    + CreatePipelineState(device: GPUDevice)
+    + CreateBindGroups(device: GPUDevice, resources: FRenderResource[])
+}
+
+' 着色器模块管理器
+class FShaderManager {
+    - device: GPUDevice
+    - shaderModules: Map<string, GPUShaderModule>
+    + GetShaderModule(code: string): GPUShaderModule
+    + CreateShaderModule(code: string): GPUShaderModule
+    + CompileShader(source: string): string
+    + PreprocessShader(source: string, defines: Map<string, string>): string
+}
+
+' 着色器源码
+class ShaderSource {
+    + name: string
+    + code: string
+    + type: 'vertex' | 'fragment' | 'compute'
+    + entry: string
+    + defines: Map<string, string>
+    + Clone()
+    + AddDefine(name: string, value: string)
+    + RemoveDefine(name: string)
+}
+
+' 着色器变体
+class ShaderVariant {
+    + source: ShaderSource
+    + defines: Map<string, string>
+    + compiledCode: string
+    + module: GPUShaderModule
+    + GetHash(): string
+}
+
+' 关系定义
+FRenderResource <|-- FBuffer
+FRenderResource <|-- FTexture
+
+FBindGroup o-- "0..*" FRenderResource
+MaterialDesc *-- RenderState
+MaterialDesc ..> FBindGroup
+MaterialDesc ..> FPipelineState
+
+FResourceManager "1" *-- "*" FRenderResource : manages >
+FResourceManager "1" *-- "*" FPipelineState : manages >
+
+note right of FResourceManager
+  负责所有GPU资源的生命周期管理：
+  - 创建和销毁
+  - 引用计数
+  - 资源缓存
+  - 内存管理
+end note
+
+note right of FRenderResource
+  由ResourceManager管理生命周期的GPU资源：
+  - 通过引用计数跟踪使用情况
+  - 自动释放不再使用的资源
+end note
+
+note right of FBindGroup
+  资源的逻辑组织容器：
+  - 不持有资源所有权
+  - 仅引用ResourceManager管理的资源
+end note
+
+note right of MaterialDesc
+  材质配置描述：
+  - 纯数据对象
+  - 用于创建实际的渲染资源
+end note
+
+note right of FShaderManager
+  管理着色器模块的编译和缓存：
+  - 着色器变体管理
+  - 编译缓存
+  - 预处理支持
+end note
+
+note right of ShaderSource
+  着色器源代码描述：
+  - 纯数据对象
+  - 支持预处理和宏定义
+end note
+
+note right of ShaderVariant
+  特定宏定义组合的着色器变体：
+  - 缓存编译结果
+  - 复用着色器模块
+end note
+
+' 修改继承关系
+FRenderResource <|-- FBuffer
+FBuffer <|-- FVertexBuffer
+FBuffer <|-- FIndexBuffer
+FBuffer <|-- FUniformBuffer
+FBuffer <|-- FStorageBuffer
+
+note right of FBuffer
+  缓冲区基类：
+  - 基本的缓冲区操作
+  - 通用的数据管理
+  - 抽象的使用方式定义
+end note
+
+note right of FVertexBuffer
+  顶点缓冲区：
+  - 标准化的顶点格式
+  - 交错/非交错数据支持
+  - 高效的顶点访问和更新
+end note
+
+note right of FIndexBuffer
+  索引缓冲区：
+  - 默认使用 uint16 格式
+  - 自动验证索引范围
+  - 根据最大索引值自动选择格式
+  - 优化的内存使用
+end note
+
+note right of FUniformBuffer
+  Uniform缓冲区：
+  - 对齐要求处理
+  - 动态偏移支持
+  - 优化的更新方式
+end note
+
+note right of FStorageBuffer
+  存储缓冲区：
+  - 结构化数据支持
+  - 读写访问控制
+  - 计算着色器交互
+end note
+
+' 关系定义
+FVertexBuffer *-- FVertexLayout
+FVertexLayout *-- "0..*" FVertexAttribute
+FVertexLayout --> EVertexAttribute
+FVertexAttribute --> EVertexFormat
+FVertexBuffer ..> FStandardVertex
+
+note right of FVertexLayout
+  顶点布局描述：
+  - 标准化的属性定义
+  - 自动计算偏移和步长
+  - 生成GPU顶点布局
+end note
+
+note right of FStandardVertex
+  标准顶点数据结构：
+  - 统一的顶点属性
+  - 灵活的UV通道
+  - 序列化支持
+end note
+
+' 添加关系
+FIndexBuffer --> EIndexFormat
+
+' 静态网格顶点缓冲区
+class FStaticMeshVertexBuffer {
+    + hasNormals: boolean
+    + hasTangents: boolean
+    + numUVChannels: number
+    + GetVertexStride(): number
+    + EnableNormals(enable: boolean)
+    + EnableTangents(enable: boolean)
+    + SetNumUVChannels(count: number)
+    + CreateDefaultLayout()
+    # ValidateData(data: ArrayBuffer)
+}
+
+' 骨骼网格顶点缓冲区
+class FSkeletalMeshVertexBuffer {
+    + maxBoneInfluences: number
+    + hasNormals: boolean
+    + hasTangents: boolean
+    + numUVChannels: number
+    + GetVertexStride(): number
+    + SetMaxBoneInfluences(count: number)
+    + EnableNormals(enable: boolean)
+    + EnableTangents(enable: boolean)
+    + SetNumUVChannels(count: number)
+    + CreateDefaultLayout()
+    # ValidateData(data: ArrayBuffer)
+}
+
+' 静态网格顶点数据
+class FStaticMeshVertex {
+    + position: Float32Array      // xyz
+    + normal: Float32Array        // xyz
+    + tangent: Float32Array       // xyzw
+    + uv: Float32Array[]          // xy[]
+    + Clone(): FStaticMeshVertex
+    + ToArrayBuffer(): ArrayBuffer
+    + FromArrayBuffer(buffer: ArrayBuffer, layout: FVertexLayout)
+}
+
+' 骨骼网格顶点数据
+class FSkeletalMeshVertex {
+    + position: Float32Array      // xyz
+    + normal: Float32Array        // xyz
+    + tangent: Float32Array       // xyzw
+    + uv: Float32Array[]          // xy[]
+    + boneIndices: Uint16Array    // bone indices
+    + boneWeights: Float32Array   // bone weights
+    + Clone(): FSkeletalMeshVertex
+    + ToArrayBuffer(): ArrayBuffer
+    + FromArrayBuffer(buffer: ArrayBuffer, layout: FVertexLayout)
+}
+
+' 继承关系
+FVertexBuffer <|-- FStaticMeshVertexBuffer
+FVertexBuffer <|-- FSkeletalMeshVertexBuffer
+FStandardVertex <|-- FStaticMeshVertex
+FStandardVertex <|-- FSkeletalMeshVertex
+
+note right of FStaticMeshVertexBuffer
+  静态网格顶点缓冲区：
+  - 标准的静态网格顶点格式
+  - 可选的法线和切线
+  - 多UV通道支持
+  - 优化的内存布局
+end note
+
+note right of FSkeletalMeshVertexBuffer
+  骨骼网格顶点缓冲区：
+  - 支持骨骼动画
+  - 可配置的骨骼影响数
+  - 包含所有标准顶点属性
+  - 优化的动画性能
+end note
+
+note right of FStaticMeshVertex
+  静态网格顶点数据：
+  - 基础几何属性
+  - 可选的法线和切线
+  - 灵活的UV集
+  - 紧凑的内存布局
+end note
+
+note right of FSkeletalMeshVertex
+  骨骼网格顶点数据：
+  - 包含骨骼权重和索引
+  - 完整的顶点属性
+  - 动画数据支持
+  - 高效的数据访问
+end note
+
+' 继承关系
+FRenderResource <|-- FTexture
+FTexture <|-- FTexture2D
+FTexture <|-- FTexture3D
+FTexture <|-- FTextureDepth
+FRenderResource <|-- FSampler
+
+' 枚举关系
+FTexture --> ETextureType
+FTexture --> ETextureFormat
+FSampler --> ESamplerType
+
+note right of FTexture2D
+  2D纹理：
+  - 支持常见图片格式加载
+  - 支持画布内容捕获
+  - 支持动态调整大小
+  - Mipmap生成
+end note
+
+note right of FTexture3D
+  3D纹理：
+  - 体积数据支持
+  - 切片更新
+  - 3D采样支持
+end note
+
+note right of FTextureDepth
+  深度纹理：
+  - 深度/模板缓冲
+  - 阴影贴图支持
+  - 深度比较采样
+end note
+
+note right of FSampler
+  采样器：
+  - 常用采样模式预设
+  - 各向异性过滤支持
+  - 深度比较功能
+  - 自定义采样参数
+end note
+
+' 在资源管理器部分添加单例模式相关设计
+
+note right of FResourceManager
+  单例模式：
+  - 全局唯一的资源管理器实例
+  - 统一的资源创建和管理
+  - 集中的生命周期控制
+end note
+
+
+' 资源加载和缓存系统
+class FResourceLoader {
+    + {static} LoadTexture(url: string): Promise<FTexture>
+    + {static} LoadMesh(url: string): Promise<FMesh>
+    + {static} LoadShader(url: string): Promise<ShaderSource>
+    + {static} LoadAsync(urls: string[]): Promise<FRenderResource[]>
+    - {static} HandleLoadError(error: Error)
+    - {static} ValidateResource(resource: FRenderResource)
+}
+
+FResourceLoader --> FResourceManager
+
+@enduml

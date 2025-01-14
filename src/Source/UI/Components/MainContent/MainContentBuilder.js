@@ -149,10 +149,10 @@ class MainContentBuilder {
             return null;
         }
 
-        // 如果组件是 ViewportCanvas，返回其 canvas 元素
+        // 如果组件是 ViewportCanvas，通过 canvasId 查找
         if (component.type === ViewportCanvas) {
-            const canvas = document.querySelector('.viewport-canvas');
-            return canvas;
+            const canvasId = component.props.canvasId;
+            return document.getElementById(canvasId);
         }
 
         // 其他类型的组件，通过类名或ID查找
@@ -161,10 +161,10 @@ class MainContentBuilder {
     }
 
     // 获取 Canvas 上下文
-    getCanvasContext(contextType = '2d') {
-        const canvas = this.getComponentElement('viewport', 'ViewportCanvas');
+    getCanvasContext(canvasId, contextType = '2d') {
+        const canvas = document.getElementById(canvasId);
         if (!canvas) {
-            console.warn('Canvas not found');
+            console.warn(`Canvas not found with id: ${canvasId}`);
             return null;
         }
 

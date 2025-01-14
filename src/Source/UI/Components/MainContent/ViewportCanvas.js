@@ -7,6 +7,7 @@ const ViewportCanvas = ({
     backgroundColor = '#141414',
     onCanvasReady,
     onResize,
+    canvasId,
     ...props 
 }) => {
     const canvasRef = useRef(null);
@@ -33,7 +34,7 @@ const ViewportCanvas = ({
             canvas.height = rect.height * dpr;
 
             // 通知尺寸变化
-            onResize(canvas.width, canvas.height);
+            onResize?.(canvas.width, canvas.height);
         };
 
         // 创建 ResizeObserver
@@ -61,6 +62,7 @@ const ViewportCanvas = ({
             <canvas
                 ref={canvasRef}
                 className="viewport-canvas"
+                id={canvasId}
                 {...props}
             />
         </div>
