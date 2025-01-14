@@ -2,11 +2,8 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import Split from 'react-split';
 import './UIModel.css';
-import UIModelManager from './UIModelManager';
 import DetailBuilder from './Components/Details/DetailBuilder';
 import IModule from '../Core/IModule';
-import MainContentBuilder from './Components/MainContent/MainContentBuilder';
-import MainContent from './Components/MainContent/MainContent';
 
 /**
  * UI模块类
@@ -17,9 +14,7 @@ class UIModel extends IModule {
         this.Config = Config;
         this.Root = null;
         this.Component = null;
-        this.Manager = new UIModelManager();
-        this.DetailBuilder = new DetailBuilder(this.HandleStateChange);
-        this.MainContentBuilder = new MainContentBuilder(this.HandleStateChange);
+        this.DetailBuilder = DetailBuilder.getInstance(this.HandleStateChange);
         this.bInitialized = false;  // 添加初始化标志
     }
 
@@ -51,7 +46,7 @@ class UIModel extends IModule {
             // 渲染UI组件
             this.Root.render(
                 <React.StrictMode>
-                    <UIModelComponent 
+                    <MainPage 
                         ref={this.Component}
                         manager={this.Manager}
                         config={this.Config}
@@ -118,10 +113,11 @@ class UIModel extends IModule {
     GetMainContentBuilder() {
         return this.MainContentBuilder;
     }
+
 }
 
 // UI组件类
-class UIModelComponent extends React.Component {
+class MainPage extends React.Component {
     componentCache = new Map();
     
     constructor(props) {
@@ -131,106 +127,28 @@ class UIModelComponent extends React.Component {
             updateCounter: 0
         };
         this.manager = props.manager;
-        this.detailBuilder = new DetailBuilder(this.handleStateChange);
-        this.mainContentBuilder = new MainContentBuilder(this.handleStateChange);
-        this.contentBuilder = props.config.ContentBuilder;
-
-        // 初始化 MainContent
-        this.initializeMainContent();
-    }
-
-    initializeMainContent() {
-        console.log('Initializing MainContent');
-        // 注册默认的MainContent组件
-        this.mainContentBuilder.registerComponent('mainContent', MainContent, {
-            position: { x: 0, y: 0 },
-            size: { width: '100%', height: '100%' },
-        });
         
-        // 注册默认布局
-        this.mainContentBuilder.registerLayout('default', ['mainContent']);
-        this.mainContentBuilder.setActiveLayout('default');
-        console.log('MainContent initialized');
+        // 绑定 handleStateChange
+        this.handleStateChange = this.handleStateChange.bind(this);
+        this.detailBuilder = DetailBuilder.getInstance(this.handleStateChange);
     }
 
-    componentDidMount() {
-        this.manager.addListener(this.handleUpdate);
-        // 确保布局已设置
-        if (!this.mainContentBuilder.getActiveLayout()) {
-            this.initializeMainContent();
-        }
-    }
-
-    componentWillUnmount() {
-        this.manager.removeListener(this.handleUpdate);
-    }
-
-    handleUpdate = () => {
-        this.setState(state => ({
-            updateCounter: state.updateCounter + 1
-        }));
-    }
-
+    // 实现 handleStateChange 方法
     handleStateChange = (path, value) => {
-        const pathParts = path.split('.');
-        const key = pathParts.pop();
-        const section = pathParts.join('.');
-
-        this.setState(prevState => {
-            let newState = { ...prevState };
-            if (section) {
-                let target = newState;
-                const parts = section.split('.');
-                for (const part of parts) {
-                    target = target[part] = { ...target[part] };
-                }
-                target[key] = value;
-            } else {
-                newState[key] = value;
-            }
-
-            // 更新DetailBuilder中的值
-            this.detailBuilder.updateProperty(path, value);
-
-            return newState;
-        }, () => {
-            // 状态更新后强制重新渲染
-            this.forceUpdate();
-        });
-    };
-
-    // 更新所有属性
-    updateAllProperties() {
-        Object.entries(this.state).forEach(([key, value]) => {
-            if (typeof value === 'object' && value !== null) {
-                this.updateObjectProperties(key, value);
-            } else {
-                this.detailBuilder.updateProperty(key, value);
-            }
-        });
-    }
-
-    // 递归更新嵌套对象的属性
-    updateObjectProperties(prefix, obj) {
-        Object.entries(obj).forEach(([key, value]) => {
-            const path = `${prefix}.${key}`;
-            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                this.updateObjectProperties(path, value);
-            } else {
-                this.detailBuilder.updateProperty(path, value);
-            }
-        });
-    }
-
-    switchTab = (tab) => {
-        this.setState({ activeTab: tab });
-    };
-
-    memoizedBuildComponent = (path) => {
-        if (!this.componentCache.has(path)) {
-            this.componentCache.set(path, this.detailBuilder.buildComponent(path));
+        console.log('Detail state changed:', path, value);
+        // 触发重新渲染
+        this.setState(prevState => ({
+            updateCounter: prevState.updateCounter + 1
+        }));
+        
+        // 如果需要，可以通过 manager 通知其他组件
+        if (this.manager && typeof this.manager.onDetailChange === 'function') {
+            this.manager.onDetailChange(path, value);
         }
-        return this.componentCache.get(path);
+    }
+
+    switchTab = (tabName) => {
+        this.setState({ activeTab: tabName });
     }
 
     render() {
@@ -249,9 +167,7 @@ class UIModelComponent extends React.Component {
                         </div>
                         <div className="category-icons"></div>
                         <div className="actor-list">
-                            {this.manager.getComponents('leftPanel', 'actorList').map((component, index) => (
-                                <React.Fragment key={index}>{component}</React.Fragment>
-                            ))}
+
                         </div>
                     </div>
 
@@ -263,7 +179,7 @@ class UIModelComponent extends React.Component {
                         className="main-content-container"
                     >
                         <div className="main-content-top">
-                            {this.mainContentBuilder.build()}
+
                         </div>
                         <div className="main-content-bottom">
                             <div className="content-browser">
@@ -308,9 +224,7 @@ class UIModelComponent extends React.Component {
                             </div>
                             <div className="outline-content">
                                 <div className="outline-tree">
-                                    {this.manager.getComponents('rightPanel', 'top', 'outlineTree').map((component, index) => (
-                                        <React.Fragment key={index}>{component}</React.Fragment>
-                                    ))}
+
                                 </div>
                             </div>
                         </div>
@@ -336,9 +250,7 @@ class UIModelComponent extends React.Component {
                                     </div>
                                 ) : (
                                     <div className="world-settings-content">
-                                        {this.manager.getComponents('rightPanel', 'bottom', 'worldSettings').map((component, index) => (
-                                            <React.Fragment key={index}>{component}</React.Fragment>
-                                        ))}
+
                                     </div>
                                 )}
                             </div>

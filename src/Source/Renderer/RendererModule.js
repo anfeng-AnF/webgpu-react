@@ -24,6 +24,7 @@ class RendererModule extends IModule {
         }
 
         try {
+            return;
             const UIModule = this.ModuleManager.GetModule('UIModule');
             const mainContentBuilder = UIModule.GetMainContentBuilder();
             

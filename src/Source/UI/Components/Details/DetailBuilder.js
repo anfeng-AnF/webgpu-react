@@ -1,16 +1,38 @@
 import React from 'react';
-import Vector3Editor from '../Vector3Editor';
+import Vector3Editor from './Vector3Editor';
 import BooleanEditor from './BooleanEditor';
 import EnumEditor from './EnumEditor';
 import FloatEditor from './FloatEditor';
-import Section from '../Section';
+import Section from './Section';
 
 class DetailBuilder {
+    static instance = null;
+
+    static getInstance(onChange) {
+        if (!DetailBuilder.instance) {
+            DetailBuilder.instance = new DetailBuilder(onChange);
+        }
+        // 如果提供了新的 onChange，更新它
+        if (onChange) {
+            DetailBuilder.instance.onChange = onChange;
+        }
+        return DetailBuilder.instance;
+    }
+
     constructor(onChange) {
-        this.onChange = onChange;
-        this.properties = new Map(); // 存储所有属性
-        this.sections = new Map();   // 存储section结构
+        // 防止直接实例化
+        if (DetailBuilder.instance) {
+            throw new Error('DetailBuilder is a singleton. Use DetailBuilder.getInstance() instead.');
+        }
+        
+        this.onChange = onChange || ((path, value) => {
+            // 默认的 onChange 处理器
+            console.log('Property changed:', path, value);
+        });
+        this.properties = new Map();
+        this.sections = new Map();
         this.stateChangeListeners = new Set();
+        this.providers = new Map();
     }
 
     // 添加状态变化监听器
@@ -84,8 +106,12 @@ class DetailBuilder {
             value: value,
             onChange: (newValue) => {
                 this.updateProperty(path, newValue);
-                this.onChange(path, newValue);
-                console.log('Component value changed:', path, newValue);
+                // 只在值真正改变时触发 onChange
+                if (JSON.stringify(value) !== JSON.stringify(newValue)) {
+                    if (typeof this.onChange === 'function') {
+                        this.onChange(path, newValue);
+                    }
+                }
             }
         };
 
@@ -134,8 +160,6 @@ class DetailBuilder {
 
     // 构建整个细节面板
     build() {
-
-
         // 获取顶层section
         const topLevelSections = Array.from(this.sections.keys())
             .filter(path => !path.includes('.'))
@@ -145,6 +169,7 @@ class DetailBuilder {
         const ungroupedProperties = Array.from(this.properties.keys())
             .filter(path => !path.includes('.'))
             .map(path => this.buildComponent(path));
+
 
         return (
             <React.Fragment>
@@ -205,6 +230,21 @@ class DetailBuilder {
         processValue(obj, parentPath);
         return properties;
     }
+
+    // 添加重置实例的方法（用于测试或特殊情况）
+    static resetInstance() {
+        DetailBuilder.instance = null;
+    }
+
+    // 添加设置 onChange 的方法
+    setOnChange(callback) {
+        if (typeof callback === 'function') {
+            this.onChange = callback;
+        } else {
+            console.warn('setOnChange expects a function as argument');
+        }
+    }
 }
 
-export default DetailBuilder; 
+// 导出单例的获取方法
+export default DetailBuilder;
