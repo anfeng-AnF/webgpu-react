@@ -4,6 +4,7 @@ import Split from 'react-split';
 import './UIModel.css';
 import DetailBuilder from './Components/Details/DetailBuilder';
 import IModule from '../Core/IModule';
+import MainContentBuilder from './Components/MainContent/MainContentBuilder';
 
 /**
  * UI模块类
@@ -15,6 +16,7 @@ class UIModel extends IModule {
         this.Root = null;
         this.Component = null;
         this.DetailBuilder = DetailBuilder.getInstance(this.HandleStateChange);
+        this.MainContentBuilder = MainContentBuilder.getInstance(this.HandleStateChange);
         this.bInitialized = false;  // 添加初始化标志
     }
 
@@ -131,6 +133,11 @@ class MainPage extends React.Component {
         // 绑定 handleStateChange
         this.handleStateChange = this.handleStateChange.bind(this);
         this.detailBuilder = DetailBuilder.getInstance(this.handleStateChange);
+        this.mainContentBuilder = MainContentBuilder.getInstance(this.handleStateChange);
+
+        // 绑定画布事件处理器
+        this.handleCanvasEvent = this.handleCanvasEvent.bind(this);
+        this.mainContentBuilder = MainContentBuilder.getInstance(this.handleCanvasEvent);
     }
 
     // 实现 handleStateChange 方法
@@ -145,6 +152,30 @@ class MainPage extends React.Component {
         if (this.manager && typeof this.manager.onDetailChange === 'function') {
             this.manager.onDetailChange(path, value);
         }
+    }
+
+    handleCanvasEvent = (path, value) => {
+        switch (path) {
+            case 'canvas.ready':
+                // 画布已就绪，可以开始渲染
+                console.log('Canvas ready:', value);
+                break;
+            case 'canvas.resize':
+                // 画布尺寸已改变
+                console.log('Canvas resized:', value);
+                break;
+            case 'tools':
+                // 工具状态改变
+                console.log('Tools changed:', value);
+                break;
+            default:
+                console.log('Main content event:', path, value);
+        }
+
+        // 触发重新渲染
+        this.setState(prevState => ({
+            updateCounter: prevState.updateCounter + 1
+        }));
     }
 
     switchTab = (tabName) => {
@@ -179,7 +210,7 @@ class MainPage extends React.Component {
                         className="main-content-container"
                     >
                         <div className="main-content-top">
-
+                            {this.mainContentBuilder.build()}
                         </div>
                         <div className="main-content-bottom">
                             <div className="content-browser">

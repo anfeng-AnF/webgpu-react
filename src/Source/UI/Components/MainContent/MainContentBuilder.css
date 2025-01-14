@@ -1,0 +1,66 @@
+.main-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: rgb(30, 30, 30);
+}
+
+.viewport-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    background-color: rgb(42, 42, 42);
+    border-bottom: 1px solid rgb(60, 60, 60);
+}
+
+.tool-button {
+    padding: 4px 8px;
+    margin: 0 2px;
+    background-color: transparent;
+    border: 1px solid transparent;
+    color: #888;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.tool-button:hover {
+    background-color: rgb(50, 50, 50);
+    border-color: rgb(70, 70, 70);
+    color: #fff;
+}
+
+.tool-button.active {
+    background-color: rgb(60, 60, 60);
+    border-color: rgb(80, 80, 80);
+    color: #fff;
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 16px;
+    background-color: rgb(60, 60, 60);
+    margin: 0 8px;
+}
+
+.main-viewport {
+    flex: 1;
+    position: relative;
+    background-color: rgb(20, 20, 20);
+}
+
+#viewport-canvas {
+    width: 100%;
+    height: 100%;
+}
+
+.grid-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+} 
