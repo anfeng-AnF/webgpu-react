@@ -1,4 +1,4 @@
-import FRenderResource from './FRenderResource';
+import FRenderResource from '../FRenderResource';
 
 /**
  * 采样器类型枚举
@@ -22,7 +22,7 @@ export const ESamplerType = {
  * GPU采样器资源类
  * 用于管理纹理采样的状态和配置
  */
-class FSampler extends FRenderResource {
+export class FSampler extends FRenderResource {
     /**
      * @param {GPUDevice} device - GPU设备
      * @param {Object} desc - 采样器描述符

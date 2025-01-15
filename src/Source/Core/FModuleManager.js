@@ -1,5 +1,6 @@
 import EventEmitter from 'events';
 import IModule from './IModule';
+import { FResourceModule } from '../Resources/FResourceModule';
 
 /**
  * 模块管理器 - 系统启动和管理的主要接口
@@ -100,6 +101,11 @@ class FModuleManager {
      * @private
      */
     async RegisterModuleTypes() {
+        // 直接注册 ResourceModule 单例
+        this.RegisterModuleType('ResourceModule', FResourceModule);
+        this.Modules.set('ResourceModule', FResourceModule.Get());
+
+        // 注册其他需要动态导入的模块
         const moduleTypes = {
             'UIModule': async () => {
                 const module = await import('../UI/UIModel');
@@ -151,8 +157,9 @@ class FModuleManager {
             }
         ];
 
-        this.Dependencies.set('UIModule', []);
-        this.Dependencies.set('RendererModule', ['UIModule']);
+        this.Dependencies.set('ResourceModule', []); // 资源管理模块没有依赖
+        this.Dependencies.set('UIModule', ['ResourceModule']); // UI模块依赖资源管理
+        this.Dependencies.set('RendererModule', ['UIModule', 'ResourceModule']); // 渲染器依赖UI和资源管理
 
         // 按优先级排序
         ModuleConfigs.sort((a, b) => b.Priority - a.Priority);
@@ -162,6 +169,9 @@ class FModuleManager {
             if (!Config.bEnabled) continue;
 
             try {
+                // 跳过 ResourceModule，因为它是单例
+                if (Config.Name === 'ResourceModule') continue;
+
                 const Module = await this.CreateModuleInstance(Config);
                 this.Modules.set(Config.Name, Module);
                 console.log(`Initializing module: ${Config.Name}`);

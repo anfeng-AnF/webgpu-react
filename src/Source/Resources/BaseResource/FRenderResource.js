@@ -2,7 +2,7 @@
  * GPU资源的基类
  * 提供基本的资源管理功能和生命周期控制
  */
-class FRenderResource {
+export class FRenderResource {
     /**
      * @param {GPUDevice} device - GPU设备
      * @param {string} name - 资源名称

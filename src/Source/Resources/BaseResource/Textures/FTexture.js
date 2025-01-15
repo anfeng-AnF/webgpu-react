@@ -132,7 +132,7 @@ export const ETextureFormat = {
 /**
  * GPU纹理资源基类
  */
-class FTexture extends FRenderResource {
+export class FTexture extends FRenderResource {
     /**
      * @param {GPUDevice} device - GPU设备
      * @param {Object} desc - 纹理描述符

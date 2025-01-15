@@ -429,6 +429,7 @@ class Main {
                 <ViewportCanvas 
                     onCanvasReady={handleCanvasReady}
                     onResize={handleCanvasResize}
+                    id="ViewportCanvas"
                 />
             );
 

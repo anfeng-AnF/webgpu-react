@@ -4,14 +4,13 @@ import { FVertexBuffer } from './BaseResource/Buffer/FVertexBuffer';
 import { FIndexBuffer } from './BaseResource/Buffer/FIndexBuffer';
 import { FUniformBuffer } from './BaseResource/Buffer/FUniformBuffer';
 import { FTexture } from './BaseResource/Textures/FTexture';
-import { FSampler } from './BaseResource/Textures/FSampler';
+import { FSampler } from './BaseResource/Sampler/FSampler';
 import { FBindGroup } from './BaseResource/BindGroup/FBindGroup';
 import { FBindGroupLayout } from './BaseResource/BindGroup/FBindGroupLayout';
 import { FPipelineState } from './BaseResource/PipelineState/FPipelineState';
 import { FGraphicsPipelineState } from './BaseResource/PipelineState/FGraphicsPipelineState';
 import { FComputePipelineState } from './BaseResource/PipelineState/FComputePipelineState';
-import { FResourceCache } from './FResourceCache';
-import { FResourceMonitor } from './FResourceMonitor';
+import IModule from '../Core/IModule';
 
 // 添加 Buffer 使用标志常量
 const EBufferUsage = {
@@ -26,24 +25,26 @@ const EBufferUsage = {
 };
 
 /**
- * 资源管理器类
+ * 资源管理模块
  * 负责管理所有GPU资源的生命周期
  */
-export class FResourceManager {
+export class FResourceModule extends IModule {
     /**
      * 获取单例实例
-     * @returns {FResourceManager}
+     * @returns {FResourceModule}
      */
     static Get() {
-        if (!FResourceManager.instance) {
-            FResourceManager.instance = new FResourceManager();
+        if (!FResourceModule.instance) {
+            FResourceModule.instance = new FResourceModule();
         }
-        return FResourceManager.instance;
+        return FResourceModule.instance;
     }
 
     constructor() {
-        if (FResourceManager.instance) {
-            throw new Error('FResourceManager is a singleton class');
+        super();
+        
+        if (FResourceModule.instance) {
+            throw new Error('FResourceModule is a singleton class');
         }
 
         /**
@@ -53,17 +54,6 @@ export class FResourceManager {
          */
         this._device = null;
 
-        /**
-         * 资源缓存
-         * @type {FResourceCache}
-         */
-        this.cache = new FResourceCache();
-
-        /**
-         * 资源监控
-         * @type {FResourceMonitor}
-         */
-        this.monitor = new FResourceMonitor();
 
         /**
          * 资源映射表
@@ -78,14 +68,135 @@ export class FResourceManager {
          * @private
          */
         this._pipelineStates = new Map();
+
+        /**
+         * 待释放的资源队列
+         * @type {Set<FRenderResource>}
+         * @private
+         */
+        this._pendingDelete = new Set();
+
+        /**
+         * 资源加载队列
+         * @type {Array<{resource: FRenderResource, promise: Promise}>}
+         * @private
+         */
+        this._loadingQueue = [];
+
+        /**
+         * 自动垃圾回收间隔（毫秒）
+         * @type {number}
+         * @private
+         */
+        this._gcInterval = 5000;
+
+        /**
+         * 上次垃圾回收时间
+         * @type {number}
+         * @private
+         */
+        this._lastGCTime = 0;
     }
 
     /**
      * 初始化资源管理器
      * @param {GPUDevice} device - GPU设备
+     * @override
      */
-    Initialize(device) {
+    async Initialize(device) {
         this._device = device;
+
+        // 初始化资源加载器
+        await this.loader.Initialize(device);
+
+        // 启动自动垃圾回收
+        this._startGarbageCollection();
+    }
+
+    /**
+     * 更新资源管理器
+     * @param {number} deltaTime - 时间增量（秒）
+     * @override
+     */
+    Update(deltaTime) {
+        // 处理待释放的资源
+        this._processPendingDeletes();
+
+        // 检查是否需要进行垃圾回收
+        const currentTime = performance.now();
+        if (currentTime - this._lastGCTime > this._gcInterval) {
+            this._collectGarbage();
+            this._lastGCTime = currentTime;
+        }
+
+        // 处理资源加载队列
+        this._processLoadingQueue();
+    }
+
+    /**
+     * 关闭资源管理器
+     * @override
+     */
+    async Shutdown() {
+        // 清理所有资源
+        this.Cleanup();
+
+        // 重置状态
+        this._device = null;
+        this._resources.clear();
+        this._pipelineStates.clear();
+        this._pendingDelete.clear();
+        this._loadingQueue = [];
+    }
+
+    /**
+     * 启动自动垃圾回收
+     * @private
+     */
+    _startGarbageCollection() {
+        setInterval(() => {
+            this._collectGarbage();
+        }, this._gcInterval);
+    }
+
+    /**
+     * 收集垃圾（未引用的资源）
+     * @private
+     */
+    _collectGarbage() {
+        for (const [name, resource] of this._resources) {
+            if (resource.refCount <= 0) {
+                this._pendingDelete.add(resource);
+            }
+        }
+    }
+
+    /**
+     * 处理待释放的资源
+     * @private
+     */
+    _processPendingDeletes() {
+        for (const resource of this._pendingDelete) {
+            this.DestroyResource(resource);
+        }
+        this._pendingDelete.clear();
+    }
+
+    /**
+     * 处理资源加载队列
+     * @private
+     */
+    async _processLoadingQueue() {
+        const currentQueue = [...this._loadingQueue];
+        this._loadingQueue = [];
+
+        for (const item of currentQueue) {
+            try {
+                await item.promise;
+            } catch (error) {
+                console.error('Failed to load resource:', error);
+            }
+        }
     }
 
     /**
@@ -145,7 +256,6 @@ export class FResourceManager {
             usage: desc.usage || EBufferUsage.COPY_DST
         });
         this.AddRef(buffer);
-        this.monitor.trackResourceCreation('Buffer', buffer.size);
         return buffer;
     }
 
@@ -175,7 +285,6 @@ export class FResourceManager {
 
         const texture = new FTexture(this._device, desc);
         this.AddRef(texture);
-        this.monitor.trackResourceCreation('Texture', texture.size);
         return texture;
     }
 
@@ -205,7 +314,6 @@ export class FResourceManager {
         }
         this._pipelineStates.set(pipeline.name, pipeline);
         this.AddRef(pipeline);
-        this.monitor.trackResourceCreation('PipelineState', 0);
         return pipeline;
     }
 
@@ -249,7 +357,6 @@ export class FResourceManager {
     DestroyResource(resource) {
         this._resources.delete(resource.name);
         this._pipelineStates.delete(resource.name);
-        this.monitor.trackResourceDestruction(resource.constructor.name, resource.GetSize());
         resource.destroy();
     }
 
@@ -260,8 +367,6 @@ export class FResourceManager {
         for (const resource of this._resources.values()) {
             this.DestroyResource(resource);
         }
-        this.cache.clear();
-        this.monitor.clear();
     }
 
     /**
@@ -283,14 +388,7 @@ export class FResourceManager {
      * @returns {Promise<Object>} 资源句柄
      */
     async LoadResource(url) {
-        // 检查缓存
-        const cachedResource = this.cache.get(url);
-        if (cachedResource) {
-            return this.CreateResourceHandle(cachedResource);
-        }
-
         try {
-            const startTime = performance.now();
             const response = await fetch(url);
             const data = await response.arrayBuffer();
             
@@ -311,15 +409,9 @@ export class FResourceManager {
                 });
             }
 
-            const loadTime = performance.now() - startTime;
-            this.monitor.trackMetric('resourceLoadTime', loadTime);
-
-            // 添加到缓存
-            this.cache.add(url, resource, resource.GetSize());
-
             return this.CreateResourceHandle(resource);
         } catch (error) {
-            this.monitor.trackError('ResourceLoad', `Failed to load resource ${url}: ${error.message}`);
+            console.error(`Failed to load resource ${url}:`, error);
             throw error;
         }
     }
@@ -340,20 +432,29 @@ export class FResourceManager {
      */
     GetResourceStats() {
         return {
-            ...this.monitor.generateReport(),
-            cacheStats: this.cache.getStats()
+            loadingQueueSize: this._loadingQueue.length,
+            pendingDeleteCount: this._pendingDelete.size,
+            totalResourceCount: this._resources.size,
+            totalPipelineStateCount: this._pipelineStates.size
         };
     }
 
     /**
-     * 处理资源错误
-     * @param {Error} error - 错误对象
+     * 设置垃圾回收间隔
+     * @param {number} interval - 间隔时间（毫秒）
      */
-    HandleResourceError(error) {
-        this.monitor.trackError('ResourceError', error.message);
-        console.error('Resource Error:', error);
+    SetGCInterval(interval) {
+        this._gcInterval = interval;
+    }
+
+    /**
+     * 强制进行垃圾回收
+     */
+    ForceGarbageCollection() {
+        this._collectGarbage();
+        this._processPendingDeletes();
     }
 }
 
 // 单例实例
-FResourceManager.instance = null; 
+FResourceModule.instance = null; 
