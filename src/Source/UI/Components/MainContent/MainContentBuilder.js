@@ -1,4 +1,5 @@
 import React from 'react';
+import Split from 'react-split';
 import ViewportCanvas from './ViewportCanvas';
 import './MainContentBuilder.css';
 
@@ -28,6 +29,25 @@ class MainContentBuilder {
             viewport: new Map(),   // 视口组件
             overlay: new Map()     // 覆盖层组件
         };
+        
+        // 视口布局配置
+        this.viewportLayout = {
+            direction: 'horizontal', // 分割方向：'horizontal' 或 'vertical'
+            sizes: [],              // 每个视口的大小比例
+            minSize: 100,           // 最小尺寸（像素）
+            gutterSize: 4,          // 分隔条大小（像素）
+        };
+    }
+
+    // 设置视口布局配置
+    setViewportLayout(config) {
+        this.viewportLayout = {
+            ...this.viewportLayout,
+            ...config
+        };
+        if (this.onChange) {
+            this.onChange('viewportLayout.update', this.viewportLayout);
+        }
     }
 
     // 添加组件到指定区域
@@ -71,13 +91,55 @@ class MainContentBuilder {
 
     // 构建视口区域
     buildViewport() {
+        const viewports = Array.from(this.layout.viewport.entries());
+        
+        // 如果只有一个视口，直接返回
+        if (viewports.length <= 1) {
+            return (
+                <div className="main-viewport">
+                    {viewports.map(([path, component]) => (
+                        <React.Fragment key={path}>
+                            {component}
+                        </React.Fragment>
+                    ))}
+                    <div className="viewport-overlay">
+                        {Array.from(this.layout.overlay, ([path, component]) => (
+                            <React.Fragment key={path}>
+                                {component}
+                            </React.Fragment>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // 如果没有设置sizes，根据视口数量平均分配
+        if (this.viewportLayout.sizes.length !== viewports.length) {
+            this.viewportLayout.sizes = viewports.map(() => 100 / viewports.length);
+        }
+
+        // 多个视口使用Split布局
         return (
             <div className="main-viewport">
-                {Array.from(this.layout.viewport, ([path, component]) => (
-                    <React.Fragment key={path}>
-                        {component}
-                    </React.Fragment>
-                ))}
+                <Split
+                    className={`split-layout ${this.viewportLayout.direction}`}
+                    direction={this.viewportLayout.direction}
+                    sizes={this.viewportLayout.sizes}
+                    minSize={this.viewportLayout.minSize}
+                    gutterSize={this.viewportLayout.gutterSize}
+                    onDragEnd={(sizes) => {
+                        this.viewportLayout.sizes = sizes;
+                        if (this.onChange) {
+                            this.onChange('viewportLayout.sizes', sizes);
+                        }
+                    }}
+                >
+                    {viewports.map(([path, component]) => (
+                        <div key={path} className="split-panel">
+                            {component}
+                        </div>
+                    ))}
+                </Split>
                 <div className="viewport-overlay">
                     {Array.from(this.layout.overlay, ([path, component]) => (
                         <React.Fragment key={path}>

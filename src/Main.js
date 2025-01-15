@@ -169,8 +169,8 @@ class Main {
             };
             
 
-            const handleCanvasReady = (canvas) => {
-                console.log('Canvas ready:', canvas);
+            const handleCanvasReady = (canvasInfo) => {
+                console.log('Canvas ready:', canvasInfo);
                 
                 const initWebGPU = async () => {
                     try {
@@ -178,13 +178,13 @@ class Main {
                         const adapter = await navigator.gpu.requestAdapter();
                         if (!adapter) throw new Error('No adapter found');
                         const device = await adapter.requestDevice();
-                        const context = canvas.getContext('webgpu');
+                        const context = canvasInfo.getContext('webgpu');
                         const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
                         
                         // 设置画布尺寸
                         const devicePixelRatio = window.devicePixelRatio || 1;
-                        canvas.width = canvas.clientWidth * devicePixelRatio;
-                        canvas.height = canvas.clientHeight * devicePixelRatio;
+                        canvasInfo.width = canvasInfo.clientWidth * devicePixelRatio;
+                        canvasInfo.height = canvasInfo.clientHeight * devicePixelRatio;
 
                         context.configure({
                             device,
@@ -326,9 +326,9 @@ class Main {
                         globals = {
                             device,
                             context,
-                            canvas,
+                            canvas: canvasInfo,
                             depthTexture: null,
-                            aspect: canvas.width / canvas.height
+                            aspect: canvasInfo.width / canvasInfo.height
                         };
 
                         // 初始创建深度纹理

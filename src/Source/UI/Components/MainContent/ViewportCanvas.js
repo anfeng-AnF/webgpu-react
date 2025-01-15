@@ -7,12 +7,16 @@ const ViewportCanvas = ({
     backgroundColor = '#141414',
     onCanvasReady,
     onResize,
-    canvasId,
+    canvasId = 'ViewportCanvas',
     ...props 
 }) => {
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
     const resizeObserverRef = useRef(null);
+
+    // 生成唯一ID
+    
+    const uniqueId = useRef(canvasId + '_' + Math.random().toString(36).substr(2, 9));
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -62,9 +66,12 @@ const ViewportCanvas = ({
             <canvas
                 ref={canvasRef}
                 className="viewport-canvas"
-                id={canvasId}
+                id={uniqueId.current}
                 {...props}
             />
+            <div className="canvas-id-label">
+                {canvasId}
+            </div>
         </div>
     );
 };
