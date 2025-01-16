@@ -63,7 +63,7 @@ export const EGBufferType = {
  * GBuffer纹理类
  * 用于延迟渲染
  */
-class FGBufferTexture2D extends FTexture2D {
+export class FGBufferTexture2D extends FTexture2D {
     /**
      * @param {GPUDevice} device - GPU设备
      * @param {Object} desc - 纹理描述符

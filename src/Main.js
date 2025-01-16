@@ -1,3 +1,4 @@
+/* global GPUTextureUsage, GPUBufferUsage */
 import FModuleManager from './Source/Core/FModuleManager';
 import ViewportCanvas from './Source/UI/Components/MainContent/ViewportCanvas';
 class Main {
@@ -12,7 +13,7 @@ class Main {
             const UIModel = Main.ModuleManager.GetModule('UIModule');
             const DetailBuilder = UIModel.GetDetailBuilder();
             const mainContentBuilder = Main.ModuleManager.GetModule('UIModule').GetMainContentBuilder();
-
+            return;
             // 创建一个引用对象来存储所有属性
             const actorProperties = {
                 basic: {

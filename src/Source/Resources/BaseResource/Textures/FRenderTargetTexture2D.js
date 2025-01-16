@@ -5,7 +5,7 @@ import { ETextureFormat } from './FTexture';
  * 渲染目标纹理类
  * 用于离屏渲染、后处理等
  */
-class FRenderTargetTexture2D extends FTexture2D {
+export class FRenderTargetTexture2D extends FTexture2D {
     /**
      * @param {GPUDevice} device - GPU设备
      * @param {Object} desc - 纹理描述符

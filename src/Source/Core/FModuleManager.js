@@ -164,13 +164,14 @@ class FModuleManager {
         // 按优先级排序
         ModuleConfigs.sort((a, b) => b.Priority - a.Priority);
 
+        //初始化资源管理器
+        await FResourceModule.Get().Initialize();
+
         // 创建和初始化模块
         for (const Config of ModuleConfigs) {
             if (!Config.bEnabled) continue;
 
             try {
-                // 跳过 ResourceModule，因为它是单例
-                if (Config.Name === 'ResourceModule') continue;
 
                 const Module = await this.CreateModuleInstance(Config);
                 this.Modules.set(Config.Name, Module);

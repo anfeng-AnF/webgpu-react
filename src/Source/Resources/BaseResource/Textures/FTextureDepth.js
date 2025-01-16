@@ -16,7 +16,7 @@ export const EDepthFormat = {
  * 深度纹理类
  * 用于深度缓冲、阴影贴图等
  */
-class FTextureDepth extends FTexture {
+export class FTextureDepth extends FTexture {
     /**
      * @param {GPUDevice} device - GPU设备
      * @param {Object} desc - 深度纹理描述符

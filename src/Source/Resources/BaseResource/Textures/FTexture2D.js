@@ -20,7 +20,7 @@ export const ETexture2DUsage = {
  * 2D纹理基类
  * 用于图像、渲染目标等
  */
-class FTexture2D extends FTexture {
+export class FTexture2D extends FTexture {
     /**
      * @param {GPUDevice} device - GPU设备
      * @param {Object} desc - 2D纹理描述符

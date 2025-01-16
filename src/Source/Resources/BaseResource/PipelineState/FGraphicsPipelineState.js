@@ -77,7 +77,7 @@ export class FGraphicsPipelineState extends FPipelineState {
             module: this.device.createShaderModule({
                 code: this._graphicsDesc.vertexShader
             }),
-            entryPoint: 'main',
+            entryPoint: 'vertexMain',
             buffers: this._graphicsDesc.vertexBuffers.map(buffer => 
                 buffer.getVertexBufferLayout()
             )
@@ -88,7 +88,7 @@ export class FGraphicsPipelineState extends FPipelineState {
             module: this.device.createShaderModule({
                 code: this._graphicsDesc.fragmentShader
             }),
-            entryPoint: 'main',
+            entryPoint: 'fragmentMain',
             targets: this._graphicsDesc.colorTargets.map(target => ({
                 format: target.format,
                 blend: target.blend ? {

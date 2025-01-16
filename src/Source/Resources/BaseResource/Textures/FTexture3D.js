@@ -4,7 +4,7 @@ import FTexture, { ETextureType, ETextureFormat } from './FTexture';
  * 3D纹理类
  * 用于体积渲染、3D噪声等
  */
-class FTexture3D extends FTexture {
+export class FTexture3D extends FTexture {
     /**
      * @param {GPUDevice} device - GPU设备
      * @param {Object} desc - 3D纹理描述符

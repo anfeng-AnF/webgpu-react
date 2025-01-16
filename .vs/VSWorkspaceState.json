@@ -1,8 +1,10 @@
 {
   "ExpandedNodes": [
     "",
-    "\\src"
+    "\\src",
+    "\\src\\Source",
+    "\\src\\Source\\Core"
   ],
-  "SelectedNode": "\\src\\Main.js",
+  "SelectedNode": "\\src\\Source\\Core\\FModuleManager.js",
   "PreviewInSolutionExplorer": false
 }
