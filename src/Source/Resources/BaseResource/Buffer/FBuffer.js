@@ -6,15 +6,15 @@ import { FRenderResource } from '../FRenderResource';
  * @enum {number}
  */
 export const EBufferUsage = {
-    VERTEX:        0x0001,  // GPUBufferUsage.VERTEX
-    INDEX:         0x0002,  // GPUBufferUsage.INDEX
-    UNIFORM:       0x0004,  // GPUBufferUsage.UNIFORM
-    STORAGE:       0x0008,  // GPUBufferUsage.STORAGE
-    INDIRECT:      0x0010,  // GPUBufferUsage.INDIRECT
-    MAP_READ:      0x0020,  // GPUBufferUsage.MAP_READ
-    MAP_WRITE:     0x0040,  // GPUBufferUsage.MAP_WRITE
-    COPY_SRC:      0x0080,  // GPUBufferUsage.COPY_SRC
-    COPY_DST:      0x0100,  // GPUBufferUsage.COPY_DST
+    VERTEX:        GPUBufferUsage.VERTEX,
+    INDEX:         GPUBufferUsage.INDEX,
+    UNIFORM:       GPUBufferUsage.UNIFORM,
+    STORAGE:       GPUBufferUsage.STORAGE,
+    INDIRECT:      GPUBufferUsage.INDIRECT,
+    MAP_READ:      GPUBufferUsage.MAP_READ,
+    MAP_WRITE:     GPUBufferUsage.MAP_WRITE,
+    COPY_SRC:      GPUBufferUsage.COPY_SRC,
+    COPY_DST:      GPUBufferUsage.COPY_DST,
 };
 
 /**
