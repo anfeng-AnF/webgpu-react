@@ -56,6 +56,10 @@ export class FGraphicsPipelineState extends FPipelineState {
     constructor(device, desc) {
         super(device, desc);
 
+        if (!desc.graphics) {
+            throw new Error('Graphics pipeline requires graphics descriptor');
+        }
+
         /**
          * 图形管线状态描述符
          * @type {GraphicsPipelineStateDescriptor}
@@ -63,15 +67,28 @@ export class FGraphicsPipelineState extends FPipelineState {
          */
         this._graphicsDesc = desc.graphics;
 
-        // 创建图形管线
-        this._createGraphicsPipeline();
+        // 验证必要的属性
+        if (!this._graphicsDesc.vertexShader) {
+            throw new Error('Vertex shader is required');
+        }
+        if (!this._graphicsDesc.fragmentShader) {
+            throw new Error('Fragment shader is required');
+        }
+        if (!Array.isArray(this._graphicsDesc.colorTargets)) {
+            throw new Error('Color targets array is required');
+        }
+        if (!Array.isArray(this._graphicsDesc.vertexBuffers)) {
+            throw new Error('Vertex buffers array is required');
+        }
     }
 
     /**
-     * 创建GPU图形管线
-     * @private
+     * 创建具体的管线
+     * @protected
+     * @override
+     * @returns {Promise<void>}
      */
-    _createGraphicsPipeline() {
+    async _createPipeline() {
         // 创建顶点状态
         const vertexState = {
             module: this.device.createShaderModule({

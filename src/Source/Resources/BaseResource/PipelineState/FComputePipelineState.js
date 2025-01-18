@@ -34,16 +34,15 @@ export class FComputePipelineState extends FPipelineState {
          * @readonly
          */
         this.workgroupSize = desc.compute.workgroupSize ?? [1, 1, 1];
-
-        // 创建计算管线
-        this._createComputePipeline();
     }
 
     /**
-     * 创建GPU计算管线
-     * @private
+     * 创建具体的管线
+     * @protected
+     * @override
+     * @returns {Promise<void>}
      */
-    _createComputePipeline() {
+    async _createPipeline() {
         const computeState = {
             module: this.device.createShaderModule({
                 code: this._computeDesc.computeShader

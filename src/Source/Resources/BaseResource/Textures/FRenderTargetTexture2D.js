@@ -88,8 +88,11 @@ export class FRenderTargetTexture2D extends FTexture2D {
      */
     CreateRenderTargetView() {
         return this.sampleCount > 1 ? 
-            this._msaaTexture.createView() : 
-            this.GetView();
+            this._msaaTexture.createView({
+                format: this.format,
+                dimension: '2d'
+            }) : 
+            this.CreateView();
     }
 
     /**
@@ -97,7 +100,7 @@ export class FRenderTargetTexture2D extends FTexture2D {
      * @returns {GPUTextureView|null}
      */
     GetResolveTargetView() {
-        return this.sampleCount > 1 ? this.GetView() : null;
+        return this.sampleCount > 1 ? this.CreateView() : null;
     }
 
     /**

@@ -49,8 +49,39 @@ export class FPipelineState extends FRenderResource {
          */
         this._gpuPipeline = null;
 
-        // 创建管线布局
-        this._createPipelineLayout();
+    }
+
+    /**
+     * 初始化资源
+     * @override
+     * @returns {Promise<void>}
+     */
+    async Initialize() {
+        this._validateDevice();
+        
+        try {
+            this._updateState('initializing');
+
+            // 创建管线布局
+            this._createPipelineLayout();
+
+            // 创建具体的管线（由子类实现）
+            await this._createPipeline();
+
+            this._updateState('ready');
+        } catch (error) {
+            this._handleError(error);
+        }
+    }
+
+    /**
+     * 创建具体的管线
+     * @protected
+     * @abstract
+     * @returns {Promise<void>}
+     */
+    async _createPipeline() {
+        throw new Error('_createPipeline() must be implemented by derived class');
     }
 
     /**

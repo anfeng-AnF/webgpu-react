@@ -55,14 +55,24 @@ export class FBuffer extends FRenderResource {
         this.mappable = desc.mappable ?? false;
 
         /**
+         * 初始数据
+         * @type {ArrayBuffer|TypedArray|null}
+         * @private
+         */
+        this.initialData = desc.initialData || null;
+
+        /**
          * GPU Buffer对象
          * @type {GPUBuffer}
          * @private
          */
         this._gpuBuffer = null;
 
-        // 创建Buffer
-        this._createBuffer(desc.initialData);
+        // 自动初始化
+        this.Initialize().catch(error => {
+            console.error(`Failed to initialize buffer ${this.name}:`, error);
+            this._handleError(error);
+        });
     }
 
     /**
@@ -198,5 +208,64 @@ export class FBuffer extends FRenderResource {
             this._gpuBuffer = null;
         }
         super.destroy();
+    }
+
+    /**
+     * 初始化资源
+     * @override
+     * @returns {Promise<void>}
+     */
+    async Initialize() {
+        this._validateDevice();
+        
+        try {
+            this._updateState('initializing');
+
+            // 创建GPU Buffer
+            let usage = this.usage;
+            
+            // 如果有初始数据，需要添加COPY_DST标志
+            if (this.initialData) {
+                usage |= EBufferUsage.COPY_DST;
+            }
+
+            // 创建Buffer描述符
+            const descriptor = {
+                size: this.size,
+                usage: usage,
+                mappedAtCreation: this.initialData ? true : false,
+                label: this.name || this.id
+            };
+
+            // 创建GPU Buffer
+            this._gpuBuffer = this.device.createBuffer(descriptor);
+
+            // 如果有初始数据，写入数据
+            if (this.initialData) {
+                const mappedRange = new Uint8Array(this._gpuBuffer.getMappedRange());
+                if (this.initialData instanceof ArrayBuffer) {
+                    mappedRange.set(new Uint8Array(this.initialData));
+                } else {
+                    mappedRange.set(new Uint8Array(this.initialData.buffer));
+                }
+                this._gpuBuffer.unmap();
+            }
+
+            this._updateState('ready');
+        } catch (error) {
+            this._handleError(error);
+        }
+    }
+
+    /**
+     * 销毁资源
+     * @override
+     */
+    Destroy() {
+        if (this._gpuBuffer) {
+            this._gpuBuffer.destroy();
+            this._gpuBuffer = null;
+        }
+        this._updateState('destroyed');
     }
 } 

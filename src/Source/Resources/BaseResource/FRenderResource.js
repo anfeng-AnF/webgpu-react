@@ -194,8 +194,23 @@ export class FRenderResource {
      * @protected
      */
     _validateDevice() {
-        if (!this.device || this.device.lost) {
-            throw new Error('GPU device is invalid or lost');
+        if (!this.device) {
+            console.error('GPU device is null or undefined', this.device);
+            throw new Error('GPU device is null or undefined');
+        }
+
+        // 检查设备是否已丢失
+        if (this.device.lost) {
+            console.log('Checking GPU device lost state:', this.device.lost);
+            this.device.lost.then((info) => {
+                console.error('GPU device was lost:', info);
+            });
+        }
+
+        // 检查设备队列是否可用
+        if (!this.device.queue) {
+            console.error('GPU device queue is not available', this.device);
+            throw new Error('GPU device queue is not available');
         }
     }
 

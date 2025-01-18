@@ -142,7 +142,6 @@ class MainPage extends React.Component {
 
     // 实现 handleStateChange 方法
     handleStateChange = (path, value) => {
-        console.log('Detail state changed:', path, value);
         // 触发重新渲染
         this.setState(prevState => ({
             updateCounter: prevState.updateCounter + 1

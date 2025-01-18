@@ -215,42 +215,50 @@ export class FTexture extends FRenderResource {
     }
 
     /**
-     * 初始化纹理
+     * 初始化资源
      * @override
+     * @returns {Promise<void>}
      */
     async Initialize() {
         this._validateDevice();
+        
         try {
             this._updateState('initializing');
+
+            // 创建GPU纹理
             this._gpuResource = this.device.createTexture({
                 size: {
                     width: this.width,
                     height: this.height,
-                    depthOrArrayLayers: this.depth
+                    depthOrArrayLayers: this.depth || 1
                 },
                 format: this.format,
                 usage: this.usage,
-                mipLevelCount: this.mipLevelCount,
-                sampleCount: this.sampleCount,
-                dimension: this._getDimension()
+                dimension: this._getDimension(),
+                mipLevelCount: this.mipLevelCount || 1,
+                sampleCount: this.sampleCount || 1,
+                label: this.name || this.id
             });
-            this._createDefaultView();
+
             this._updateState('ready');
+            // 创建默认视图
+            this._createDefaultView();
+
         } catch (error) {
             this._handleError(error);
         }
     }
 
     /**
-     * 销毁纹理
+     * 销毁资源
      * @override
      */
     Destroy() {
         if (this._gpuResource) {
             this._gpuResource.destroy();
             this._gpuResource = null;
-            this._view = null;
         }
+        this._view = null;
         this._updateState('destroyed');
     }
 
@@ -296,7 +304,22 @@ export class FTexture extends FRenderResource {
         if (!this.IsValid()) {
             throw new Error('Cannot create view for invalid texture');
         }
-        return this._gpuResource.createView(desc);
+        
+        // 使用纹理自身的属性作为默认值
+        const defaultDesc = {
+            format: this.format,
+            dimension: this._getDimension(),
+            aspect: 'all',
+            baseMipLevel: 0,
+            mipLevelCount: this.mipLevelCount,
+            baseArrayLayer: 0,
+            arrayLayerCount: this.depth
+        };
+
+        return this._gpuResource.createView({
+            ...defaultDesc,
+            ...desc  // 允许覆盖默认值
+        });
     }
 
     /**
@@ -330,7 +353,7 @@ export class FTexture extends FRenderResource {
      * @protected
      */
     _createDefaultView() {
-        this._view = this._gpuResource.createView();
+        this._view = this.CreateView();  // 使用CreateView方法创建默认视图
     }
 
     /**

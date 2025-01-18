@@ -293,6 +293,7 @@ export class FResourceModule extends IModule {
 
         const texture = new FTexture(this._device, desc);
         this.AddRef(texture);
+        texture.Initialize();
         return texture;
     }
 
@@ -320,6 +321,7 @@ export class FResourceModule extends IModule {
         const pipeline = new FGraphicsPipelineState(this._device, desc);
         this._pipelineStates.set(pipeline.name, pipeline);
         this.AddRef(pipeline);
+        pipeline.Initialize();
         return pipeline;
     }
 
@@ -347,6 +349,7 @@ export class FResourceModule extends IModule {
         const pipeline = new FComputePipelineState(this._device, desc);
         this._pipelineStates.set(pipeline.name, pipeline);
         this.AddRef(pipeline);
+        pipeline.Initialize();
         return pipeline;
     }
 
@@ -563,6 +566,7 @@ export class FResourceModule extends IModule {
             usage: desc.usage || EBufferUsage.COPY_DST
         });
         this.AddRef(buffer);
+        buffer.Initialize();
         return buffer;
     }
 
@@ -595,6 +599,7 @@ export class FResourceModule extends IModule {
 
         const buffer = new FVertexBuffer(this._device, desc);
         this.AddRef(buffer);
+        buffer.Initialize();
         return buffer;
     }
 
@@ -626,6 +631,7 @@ export class FResourceModule extends IModule {
 
         const buffer = new FIndexBuffer(this._device, desc);
         this.AddRef(buffer);
+        buffer.Initialize();
         return buffer;
     }
 
@@ -657,6 +663,7 @@ export class FResourceModule extends IModule {
 
         const buffer = new FUniformBuffer(this._device, desc);
         this.AddRef(buffer);
+        buffer.Initialize();
         return buffer;
     }
 
@@ -688,6 +695,7 @@ export class FResourceModule extends IModule {
 
         const buffer = new FStaticMeshVertexBuffer(this._device, desc);
         this.AddRef(buffer);
+        buffer.Initialize();
         return buffer;
     }
 
@@ -723,6 +731,7 @@ export class FResourceModule extends IModule {
 
         const buffer = new FSkeletalMeshVertexBuffer(this._device, desc);
         this.AddRef(buffer);
+        buffer.Initialize();
         return buffer;
     }
 
@@ -757,6 +766,7 @@ export class FResourceModule extends IModule {
 
         const texture = new FTexture2D(this._device, desc);
         this.AddRef(texture);
+        texture.Initialize();
         return texture;
     }
 
@@ -792,6 +802,7 @@ export class FResourceModule extends IModule {
 
         const texture = new FTextureDepth(this._device, desc);
         this.AddRef(texture);
+        texture.Initialize();
         return texture;
     }
 
@@ -825,6 +836,7 @@ export class FResourceModule extends IModule {
 
         const texture = new FGBufferTexture2D(this._device, desc);
         this.AddRef(texture);
+        texture.Initialize();
         return texture;
     }
 
@@ -860,6 +872,7 @@ export class FResourceModule extends IModule {
 
         const texture = new FTexture3D(this._device, desc);
         this.AddRef(texture);
+        texture.Initialize();
         return texture;
     }
 
@@ -895,6 +908,7 @@ export class FResourceModule extends IModule {
 
         const texture = new FRenderTargetTexture2D(this._device, desc);
         this.AddRef(texture);
+        texture.Initialize();
         return texture;
     }
 }

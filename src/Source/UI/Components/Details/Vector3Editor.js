@@ -18,13 +18,7 @@ const Vector3Editor = ({ label = "位置", value = [0, 0, 0], onChange }) => {
 
             const deltaX = e.clientX - lastX.current;
             lastX.current = e.clientX;
-            
-            console.log('Mouse move:', {
-                deltaX,
-                currentValue: currentValue.current,
-                clientX: e.clientX,
-                lastX: lastX.current
-            });
+
             
             let sensitivity = 1;
             if (Math.abs(currentValue.current) < 1) {
@@ -38,12 +32,6 @@ const Vector3Editor = ({ label = "位置", value = [0, 0, 0], onChange }) => {
             
             const newValues = [...value];
             newValues[currentIndex.current] = currentValue.current;
-            
-            console.log('New value:', {
-                sensitivity,
-                newValue: currentValue.current,
-                newValues
-            });
             
             onChange(newValues);
         };

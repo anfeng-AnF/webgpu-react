@@ -219,11 +219,11 @@ export class FTexture2D extends FTexture {
             this.width = width;
             this.height = height;
             
+            // 更新状态
+            this._updateState('ready');
             // 重新创建默认视图
             this._createDefaultView();
     
-            // 更新状态
-            this._updateState('ready');
     
             // 重新生成Mipmap
             if (this._generateMips && this.mipLevelCount > 1) {

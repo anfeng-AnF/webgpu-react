@@ -6,6 +6,7 @@ import { FResourceModule } from '../Resources/FResourceModule';
 import { EBufferUsage } from '../Resources/BaseResource/Buffer/FBuffer';
 import { EVertexFormat } from '../Resources/BaseResource/Buffer/FVertexBuffer';
 import TempCamera from './TempCamera';
+import { ETexture2DUsage } from '../Resources/BaseResource/Textures/FTexture2D';
 /**
  * 渲染器模块
  */
@@ -124,6 +125,20 @@ class RendererModule extends IModule {
 
         // 在所有资源创建完成后设置标志
         this.bResourcesInitialized = true;
+
+        let texture = this.resourceModule.CreateTexture2D({
+            name: 'TestTexture',
+            width: 1024,
+            height: 1024,
+            format: 'rgba8unorm',
+            usage: ETexture2DUsage.STORAGE_BINDING
+        });
+        console.log(texture.GetGPUResource());
+        console.log(texture.GetView());
+        texture.ResizeTo(512, 512);
+        console.log(texture.GetGPUResource());
+        console.log(texture.GetView());
+
     }
 
     /**
@@ -216,10 +231,8 @@ class RendererModule extends IModule {
             const detailBuilder = UIModel.GetDetailBuilder();
             this.camera.SetName('渲染模块摄像机');
             this.camera.AddToDetailBuilder(detailBuilder);
-            //每5秒打印一次摄像机参数
-            setInterval(() => {
-                console.log(this.camera.Pos);
-            }, 5000);
+
+
         } catch (Error) {
             console.error('Failed to initialize RendererModule:', Error);
             throw Error;

@@ -442,10 +442,6 @@ class Main {
             const toolbarCount = mainContentBuilder.getComponentCount('toolbar');
             console.log('Toolbar components count:', toolbarCount);
 
-            // 每隔5秒打印属性
-            setInterval(() => {
-                console.log('Actor Properties:', actorProperties);
-            }, 5000);
 
             console.log('System initialized with test properties');
         } catch (Error) {

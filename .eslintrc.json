@@ -12,6 +12,9 @@
   "globals": {
     "GPUTextureUsage": "readonly",
     "GPUBufferUsage": "readonly",
-    "GPUShaderStage": "readonly"
+    "GPUShaderStage": "readonly",
+    "GPUMapMode": "readonly",
+    "GPUPipelineStage": "readonly",
+    "navigator": "readonly"
   }
-} 
+}

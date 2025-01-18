@@ -135,10 +135,6 @@ export class FGBufferTexture2D extends FTexture2D {
      */
     CreateStorageView() {
         return this.CreateView({
-            format: this.format,
-            dimension: '2d',
-            aspect: 'all',
-            baseMipLevel: 0,
             mipLevelCount: 1
         });
     }
@@ -149,10 +145,6 @@ export class FGBufferTexture2D extends FTexture2D {
      */
     CreateRenderTargetView() {
         return this.CreateView({
-            format: this.format,
-            dimension: '2d',
-            aspect: 'all',
-            baseMipLevel: 0,
             mipLevelCount: 1
         });
     }
