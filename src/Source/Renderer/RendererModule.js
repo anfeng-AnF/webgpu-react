@@ -33,6 +33,17 @@ class RendererModule extends IModule {
 
         //测试使用的摄像机
         this.camera = new TempCamera();
+
+        // 添加立方体位置数组
+        this.cubePositions = [
+            [0, 0, 0],
+            [2, 0, -2],
+            [-2, 0, -2],
+            [2, 0, 2],
+            [-2, 0, 2],
+            [0, 2, 0],
+            [0, -2, 0]
+        ];
     }
 
     /**
@@ -248,13 +259,11 @@ class RendererModule extends IModule {
      * @private
      */
     _render() {
-        // 创建命令编码器
-        const commandEncoder = this.device.createCommandEncoder();
-        
-        // 获取当前纹理视图
-        const textureView = this.context.getCurrentTexture().createView();
-        
-        // 创建深度纹理
+        // 获取相机矩阵（这些对所有立方体都是相同的）
+        const viewMatrix = this.camera.GetViewMatrix();
+        const projectionMatrix = this.camera.GetProjectionMatrix();
+
+        // 创建深度纹理（所有渲染命令共用）
         const depthTexture = this.device.createTexture({
             size: {
                 width: this.canvas.width,
@@ -265,50 +274,64 @@ class RendererModule extends IModule {
             usage: GPUTextureUsage.RENDER_ATTACHMENT
         });
 
-        // 更新 MVP 矩阵
-        const modelMatrix = mat4.create();
-        mat4.rotateY(modelMatrix, modelMatrix, performance.now() / 1000);
-        
-        const viewMatrix = this.camera.GetViewMatrix();
-        const projectionMatrix = this.camera.GetProjectionMatrix();
+        // 获取当前纹理视图（所有渲染命令共用）
+        const textureView = this.context.getCurrentTexture().createView();
 
-        // 更新 Uniform Buffer
-        this.device.queue.writeBuffer(this.uniformBuffer.getGPUBuffer(), 0, modelMatrix);
-        this.device.queue.writeBuffer(this.uniformBuffer.getGPUBuffer(), 64, viewMatrix);
-        this.device.queue.writeBuffer(this.uniformBuffer.getGPUBuffer(), 128, projectionMatrix);
-        
-        // 创建渲染通道
-        const renderPass = commandEncoder.beginRenderPass({
-            colorAttachments: [{
-                view: textureView,
-                clearValue: { r: 0.1, g: 0.2, b: 0.3, a: 1.0 },
-                loadOp: 'clear',
-                storeOp: 'store'
-            }],
-            depthStencilAttachment: {
-                view: depthTexture.createView(),
-                depthClearValue: 1.0,
-                depthLoadOp: 'clear',
-                depthStoreOp: 'store'
-            }
-        });
+        // 为每个立方体创建单独的命令
+        for (let i = 0; i < this.cubePositions.length; i++) {
+            // 计算这个立方体的模型矩阵
+            const modelMatrix = mat4.create();
+            const pos = this.cubePositions[i];
+            
+            // 设置位置
+            mat4.translate(modelMatrix, modelMatrix, pos);
+            
+            // 添加旋转动画
+            const angle = performance.now() / 1000 * (1 + i * 0.1);
+            mat4.rotateY(modelMatrix, modelMatrix, angle);
+            mat4.rotateX(modelMatrix, modelMatrix, angle * 0.5);
 
-        // 设置渲染管线
-        renderPass.setPipeline(this.pipeline.getGPUPipeline());
-        renderPass.setBindGroup(0, this.bindGroup.getGPUBindGroup());
-        renderPass.setVertexBuffer(0, this.vertexBuffer.getGPUBuffer());
-        renderPass.setIndexBuffer(this.indexBuffer.getGPUBuffer(), 'uint16');
-        
-        // 绘制立方体
-        renderPass.drawIndexed(36);
-        
-        // 结束渲染通道
-        renderPass.end();
-        
-        // 提交命令
-        this.device.queue.submit([commandEncoder.finish()]);
+            // 更新这个立方体的矩阵
+            this.device.queue.writeBuffer(this.uniformBuffer.getGPUBuffer(), 0, modelMatrix);
+            this.device.queue.writeBuffer(this.uniformBuffer.getGPUBuffer(), 64, viewMatrix);
+            this.device.queue.writeBuffer(this.uniformBuffer.getGPUBuffer(), 128, projectionMatrix);
 
-        // 销毁深度纹理
+            // 创建命令编码器
+            const commandEncoder = this.device.createCommandEncoder();
+
+            // 创建渲染通道
+            const renderPass = commandEncoder.beginRenderPass({
+                colorAttachments: [{
+                    view: textureView,
+                    clearValue: { r: 0.1, g: 0.2, b: 0.3, a: 1.0 },
+                    loadOp: i === 0 ? 'clear' : 'load',  // 只在第一个立方体时清除
+                    storeOp: 'store'
+                }],
+                depthStencilAttachment: {
+                    view: depthTexture.createView(),
+                    depthClearValue: 1.0,
+                    depthLoadOp: i === 0 ? 'clear' : 'load',  // 只在第一个立方体时清除
+                    depthStoreOp: 'store'
+                }
+            });
+
+            // 设置渲染管线和缓冲区
+            renderPass.setPipeline(this.pipeline.getGPUPipeline());
+            renderPass.setVertexBuffer(0, this.vertexBuffer.getGPUBuffer());
+            renderPass.setIndexBuffer(this.indexBuffer.getGPUBuffer(), 'uint16');
+            
+            // 设置绑定组并绘制这个立方体
+            renderPass.setBindGroup(0, this.bindGroup.getGPUBindGroup());
+            renderPass.drawIndexed(36);
+            
+            // 结束渲染通道
+            renderPass.end();
+
+            // 提交这个立方体的命令
+            this.device.queue.submit([commandEncoder.finish()]);
+        }
+
+        // 在所有命令提交后销毁深度纹理
         depthTexture.destroy();
     }
 
