@@ -33,6 +33,7 @@ class DetailBuilder {
         this.sections = new Map();
         this.stateChangeListeners = new Set();
         this.providers = new Map();
+        this.callbacks = new Map(); // 添加回调映射
     }
 
     // 添加状态变化监听器
@@ -62,8 +63,13 @@ class DetailBuilder {
             options,
             type: this.getPropertyType(value),
             name: propertyName,
-            path  // 添加完整路径
+            path
         });
+
+        // 如果options中包含onChange，则存储到callbacks中
+        if (options.onChange) {
+            this.callbacks.set(path, options.onChange);
+        }
 
         // 构建section层级结构
         if (sectionPath) {
@@ -106,8 +112,15 @@ class DetailBuilder {
             value: value,
             onChange: (newValue) => {
                 this.updateProperty(path, newValue);
-                // 只在值真正改变时触发 onChange
+                // 只在值真正改变时触发回调
                 if (JSON.stringify(value) !== JSON.stringify(newValue)) {
+                    // 首先触发特定属性的回调
+                    const specificCallback = this.callbacks.get(path);
+                    if (specificCallback) {
+                        specificCallback(path, newValue);
+                    }
+                    
+                    // 然后触发全局回调
                     if (typeof this.onChange === 'function') {
                         this.onChange(path, newValue);
                     }
@@ -183,23 +196,66 @@ class DetailBuilder {
     clear() {
         this.properties.clear();
         this.sections.clear();
+        this.callbacks.clear();
     }
 
-    // 添加批量添加属性的方法
+    /**
+     * 批量添加属性到DetailBuilder
+     * @param {Object} properties - 属性配置对象
+     * 
+     * @example
+     * // 基础用法
+     * DetailBuilder.addProperties({
+     *   'Actor.Position': {
+     *     value: [0, 0, 0],
+     *     label: '位置',
+     *     type: 'vector3'
+     *   },
+     *   'Actor.Rotation': {
+     *     value: [0, 0, 0],
+     *     label: '旋转'
+     *   }
+     * });
+     * 
+     * @example
+     * // 带回调的用法
+     * DetailBuilder.addProperties({
+     *   'Camera.FOV': {
+     *     value: 60,
+     *     label: '视野角度',
+     *     type: 'float',
+     *     onChange: (path, value) => {
+     *       console.log(`FOV changed to: ${value}`);
+     *     }
+     *   }
+     * });
+     * 
+     * @example
+     * // 带其他选项的用法
+     * DetailBuilder.addProperties({
+     *   'Material.Type': {
+     *     value: 'PBR',
+     *     label: '材质类型',
+     *     type: 'enum',
+     *     options: [
+     *       { value: 'PBR', label: 'PBR材质' },
+     *       { value: 'Unlit', label: '无光照' }
+     *     ]
+     *   }
+     * });
+     * 
+     * @property {any} properties[path].value - 属性的值
+     * @property {string} properties[path].label - 显示的标签名
+     * @property {string} [properties[path].type] - 属性类型 ('boolean'|'number'|'vector3'|'enum')
+     * @property {Function} [properties[path].onChange] - 值变化时的回调函数 (path, newValue) => void
+     * @property {Object} [properties[path].options] - 其他配置选项，如enum的选项列表等
+     */
     addProperties(properties) {
-        // properties的格式应该是：
-        // {
-        //     'path.to.property': {
-        //         value: any,
-        //         label: string,
-        //         options?: object
-        //     }
-        // }
-        
         Object.entries(properties).forEach(([path, config]) => {
-            const { value, label, ...otherOptions } = config;
+            const { value, label, onChange, ...otherOptions } = config;
             this.addProperty(path, value, {
                 label,
+                onChange,
                 ...otherOptions
             });
         });

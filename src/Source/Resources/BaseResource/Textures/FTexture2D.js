@@ -182,42 +182,57 @@ export class FTexture2D extends FTexture {
         if (width === this.width && height === this.height) {
             return;
         }
-
-        // 创建新纹理
-        const newTexture = this.device.createTexture({
-            size: { width, height, depthOrArrayLayers: 1 },
-            format: this.format,
-            usage: this.usage,
-            mipLevelCount: this.mipLevelCount,
-            sampleCount: this.sampleCount
-        });
-
-        // 如果原纹理有效，复制内容
-        if (this.IsValid()) {
-            const encoder = this.device.createCommandEncoder();
-            encoder.copyTextureToTexture(
-                { texture: this._gpuResource },
-                { texture: newTexture },
-                { width: Math.min(this.width, width), 
-                  height: Math.min(this.height, height) }
-            );
-            this.device.queue.submit([encoder.finish()]);
-        }
-
-        // 更新资源
-        if (this._gpuResource) {
-            this._gpuResource.destroy();
-        }
-        this._gpuResource = newTexture;
-        this.width = width;
-        this.height = height;
-
-        // 重新生成Mipmap
-        if (this._generateMips && this.mipLevelCount > 1) {
-            await this.GenerateMipmaps();
+    
+        this._validateDevice();
+        
+        try {
+            this._updateState('initializing');
+    
+            // 创建新纹理
+            const newTexture = this.device.createTexture({
+                size: { width, height, depthOrArrayLayers: 1 },
+                format: this.format,
+                usage: this.usage,
+                mipLevelCount: this.mipLevelCount,
+                sampleCount: this.sampleCount
+            });
+    
+            // 如果原纹理有效，复制内容
+            if (this.IsValid()) {
+                const encoder = this.device.createCommandEncoder();
+                encoder.copyTextureToTexture(
+                    { texture: this._gpuResource },
+                    { texture: newTexture },
+                    { width: Math.min(this.width, width), 
+                      height: Math.min(this.height, height) }
+                );
+                this.device.queue.submit([encoder.finish()]);
+            }
+    
+            // 销毁旧资源
+            if (this._gpuResource) {
+                this._gpuResource.destroy();
+            }
+    
+            // 更新资源和属性
+            this._gpuResource = newTexture;
+            this.width = width;
+            this.height = height;
+            
+            // 重新创建默认视图
+            this._createDefaultView();
+    
+            // 更新状态
+            this._updateState('ready');
+    
+            // 重新生成Mipmap
+            if (this._generateMips && this.mipLevelCount > 1) {
+                await this.GenerateMipmaps();
+            }
+        } catch (error) {
+            this._handleError(error);
         }
     }
-
     /**
      * 生成Mipmap
      * @override

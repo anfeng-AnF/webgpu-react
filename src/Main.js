@@ -13,7 +13,7 @@ class Main {
             const UIModel = Main.ModuleManager.GetModule('UIModule');
             const DetailBuilder = UIModel.GetDetailBuilder();
             const mainContentBuilder = Main.ModuleManager.GetModule('UIModule').GetMainContentBuilder();
-            return;
+            //return;
             // 创建一个引用对象来存储所有属性
             const actorProperties = {
                 basic: {
@@ -51,7 +51,7 @@ class Main {
             };
 
             // 创建相机状态对象
-            const cameraState = {
+            let cameraState = {
                 position: [0, 0, 5],
                 rotation: [0, 0, 0],
                 fov: 60 * Math.PI / 180,
@@ -59,57 +59,52 @@ class Main {
                 far: 100.0
             };
 
-            // 创建相机更新函数
-            const updateCamera = (path, value) => {
-                switch(path) {
-                    case 'Camera.Position':
-                        cameraState.position = [...value];  // 创建新数组
-                        break;
-                    case 'Camera.Rotation':
-                        cameraState.rotation = [...value];
-                        break;
-                    case 'Camera.FOV':
-                        cameraState.fov = value * Math.PI / 180;
-                        break;
-                    case 'Camera.Near':
-                        cameraState.near = value;
-                        break;
-                    case 'Camera.Far':
-                        cameraState.far = value;
-                        break;
-                }
-                console.log('Camera updated:', path, value);
-            };
-
-            // 设置 DetailBuilder 的回调
-            DetailBuilder.setOnChange(updateCamera);
-
             // 添加相机属性到 DetailBuilder
             DetailBuilder.addProperties({
                 'Camera.Position': {
                     value: [...cameraState.position],  // 创建新数组
                     label: '相机位置',
-                    type: 'vector3'
+                    type: 'vector3',
+                    onChange: (path, value) => {
+                        cameraState.position = [...value];
+                        console.log('Camera position updated:', value);
+                    }
                 },
                 'Camera.Rotation': {
                     value: [...cameraState.rotation],
                     label: '相机旋转',
-                    type: 'vector3'
+                    type: 'vector3',
+                    onChange: (path, value) => {
+                        cameraState.rotation = [...value];
+                        console.log('Camera rotation updated:', value);
+                    }
                 },
                 'Camera.FOV': {
-                    value: 60,
+                    value: 60,  // 使用角度值
                     label: '视野角度',
-                    type: 'float'
+                    type: 'float',
+                    onChange: (path, value) => {
+                        cameraState.fov = value * Math.PI / 180;  // 转换为弧度
+                        console.log('Camera FOV updated:', value);
+                    }
                 },
                 'Camera.Near': {
                     value: cameraState.near,
                     label: '近裁面',
-                    type: 'float'
+                    type: 'float',
+                    onChange: (path, value) => {
+                        cameraState.near = value;
+                        console.log('Camera near plane updated:', value);
+                    }
                 },
                 'Camera.Far': {
                     value: cameraState.far,
                     label: '远裁面',
-                    type: 'float'
+                    type: 'float',
+                    onChange: (path, value) => {
+                        cameraState.far = value;
+                        console.log('Camera far plane updated:', value);
+                    }
                 }
             });
 
@@ -134,7 +129,7 @@ class Main {
                     usage: GPUTextureUsage.RENDER_ATTACHMENT,
                 });
             
-                console.log('Depth texture recreated with size:', globals.canvas.width, globals.canvas.height);
+                //console.log('Depth texture recreated with size:', globals.canvas.width, globals.canvas.height);
                 globals.aspect = globals.canvas.width / globals.canvas.height;
             
                 return globals.depthTexture;
@@ -166,7 +161,7 @@ class Main {
                 // 更新屏幕宽高比
                 globals.aspect = globals.canvas.width / globals.canvas.height;
             
-                console.log('Canvas resized:', width, height);
+                //console.log('Canvas resized:', width, height);
             };
             
 
@@ -282,7 +277,7 @@ class Main {
                                 }
 
                                 @fragment
-                                fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
+                                fn pixelMain(input: VertexOutput) -> @location(0) vec4f {
                                     return input.color;
                                 }
                             `
@@ -307,7 +302,7 @@ class Main {
                             },
                             fragment: {
                                 module: shader,
-                                entryPoint: 'fragmentMain',
+                                entryPoint: 'pixelMain',
                                 targets: [{
                                     format: canvasFormat
                                 }]
@@ -364,7 +359,7 @@ class Main {
                             ]);
                         }
 
-                        // 修改渲染循环
+                        // 渲染循环
                         function render() {
                             if (!globals || !globals.depthTexture) {
                                 console.log('Waiting for depth texture...');

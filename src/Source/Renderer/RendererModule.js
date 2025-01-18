@@ -5,7 +5,7 @@ import ViewportCanvas from '../UI/Components/MainContent/ViewportCanvas';
 import { FResourceModule } from '../Resources/FResourceModule';
 import { EBufferUsage } from '../Resources/BaseResource/Buffer/FBuffer';
 import { EVertexFormat } from '../Resources/BaseResource/Buffer/FVertexBuffer';
-
+import TempCamera from './TempCamera';
 /**
  * 渲染器模块
  */
@@ -24,6 +24,9 @@ class RendererModule extends IModule {
         
         // 初始化标志
         this.bResourcesInitialized = false;
+
+        //测试使用的摄像机
+        this.camera = new TempCamera();
     }
 
     /**
@@ -210,6 +213,13 @@ class RendererModule extends IModule {
                 />
             );
 
+            const detailBuilder = UIModel.GetDetailBuilder();
+            this.camera.SetName('渲染模块摄像机');
+            this.camera.AddToDetailBuilder(detailBuilder);
+            //每5秒打印一次摄像机参数
+            setInterval(() => {
+                console.log(this.camera.Pos);
+            }, 5000);
         } catch (Error) {
             console.error('Failed to initialize RendererModule:', Error);
             throw Error;
