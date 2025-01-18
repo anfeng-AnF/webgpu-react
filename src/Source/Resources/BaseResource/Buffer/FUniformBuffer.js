@@ -1,4 +1,5 @@
 import { FBuffer, EBufferUsage } from './FBuffer';
+import { EBindingType, EShaderStage } from '../BindGroup/FBindGroupLayout';
 
 /**
  * Uniform缓冲区类
@@ -79,9 +80,10 @@ export class FUniformBuffer extends FBuffer {
     getBindGroupLayoutEntry() {
         return {
             binding: this._bindingIndex,
-            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+            visibility: EShaderStage.ALL,
+            type: EBindingType.UNIFORM_BUFFER,
             buffer: {
-                type: 'uniform',
+                type: EBindingType.UNIFORM_BUFFER,
                 hasDynamicOffset: this.dynamic,
                 minBindingSize: this.size
             }

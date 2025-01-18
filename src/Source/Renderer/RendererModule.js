@@ -7,6 +7,8 @@ import { EBufferUsage } from '../Resources/BaseResource/Buffer/FBuffer';
 import { EVertexFormat } from '../Resources/BaseResource/Buffer/FVertexBuffer';
 import TempCamera from './TempCamera';
 import { ETexture2DUsage } from '../Resources/BaseResource/Textures/FTexture2D';
+import { mat4 } from 'gl-matrix';
+import { FBindGroupLayout, FBindGroup } from '../Resources/BaseResource/BindGroup/FBindGroup';
 /**
  * 渲染器模块
  */
@@ -20,7 +22,10 @@ class RendererModule extends IModule {
         
         // 渲染资源
         this.vertexBuffer = null;
+        this.indexBuffer = null;
+        this.uniformBuffer = null;
         this.pipeline = null;
+        this.bindGroupLayout = null;
         this.bindGroup = null;
         
         // 初始化标志
@@ -57,16 +62,63 @@ class RendererModule extends IModule {
      * @private
      */
     async _createRenderResources() {
-        // 顶点数据 - 一个三角形
+        if (this.bResourcesInitialized) {
+            console.warn('RendererModule: Resources already initialized');
+            return;
+        }
+
+        // 立方体的顶点数据 (位置 + 颜色)
         const vertices = new Float32Array([
-            0.0,  0.5, 0.0,  1.0, 0.0, 0.0, // 顶部顶点 (红色)
-           -0.5, -0.5, 0.0,  0.0, 1.0, 0.0, // 左下顶点 (绿色)
-            0.5, -0.5, 0.0,  0.0, 0.0, 1.0  // 右下顶点 (蓝色)
+            // 前面 (红色)
+            -0.5, -0.5,  0.5,  1.0, 0.0, 0.0,
+             0.5, -0.5,  0.5,  1.0, 0.0, 0.0,
+             0.5,  0.5,  0.5,  1.0, 0.0, 0.0,
+            -0.5,  0.5,  0.5,  1.0, 0.0, 0.0,
+            
+            // 后面 (绿色)
+            -0.5, -0.5, -0.5,  0.0, 1.0, 0.0,
+            -0.5,  0.5, -0.5,  0.0, 1.0, 0.0,
+             0.5,  0.5, -0.5,  0.0, 1.0, 0.0,
+             0.5, -0.5, -0.5,  0.0, 1.0, 0.0,
+            
+            // 上面 (蓝色)
+            -0.5,  0.5,  0.5,  0.0, 0.0, 1.0,
+             0.5,  0.5,  0.5,  0.0, 0.0, 1.0,
+             0.5,  0.5, -0.5,  0.0, 0.0, 1.0,
+            -0.5,  0.5, -0.5,  0.0, 0.0, 1.0,
+            
+            // 下面 (黄色)
+            -0.5, -0.5, -0.5,  1.0, 1.0, 0.0,
+            -0.5, -0.5,  0.5,  1.0, 1.0, 0.0,
+             0.5, -0.5,  0.5,  1.0, 1.0, 0.0,
+             0.5, -0.5, -0.5,  1.0, 1.0, 0.0,
+            
+            // 右面 (紫色)
+             0.5, -0.5,  0.5,  1.0, 0.0, 1.0,
+             0.5,  0.5,  0.5,  1.0, 0.0, 1.0,
+             0.5,  0.5, -0.5,  1.0, 0.0, 1.0,
+             0.5, -0.5, -0.5,  1.0, 0.0, 1.0,
+            
+            // 左面 (青色)
+            -0.5, -0.5, -0.5,  0.0, 1.0, 1.0,
+            -0.5, -0.5,  0.5,  0.0, 1.0, 1.0,
+            -0.5,  0.5,  0.5,  0.0, 1.0, 1.0,
+            -0.5,  0.5, -0.5,  0.0, 1.0, 1.0,
+        ]);
+
+        // 立方体的索引数据
+        const indices = new Uint16Array([
+            0,  1,  2,  2,  3,  0,  // 前面
+            4,  5,  6,  6,  7,  4,  // 后面
+            8,  9,  10, 10, 11, 8,  // 上面
+            12, 13, 14, 14, 15, 12, // 下面
+            16, 17, 18, 18, 19, 16, // 右面
+            20, 21, 22, 22, 23, 20  // 左面
         ]);
 
         // 创建顶点缓冲区
         this.vertexBuffer = this.resourceModule.CreateVertexBuffer({
-            name: 'TriangleVertexBuffer',
+            name: 'CubeVertexBuffer',
             size: vertices.byteLength,
             stride: 24, // 6 * float32 (3 position + 3 color)
             attributes: [
@@ -81,36 +133,81 @@ class RendererModule extends IModule {
                     offset: 12
                 }
             ],
-            usage: EBufferUsage.VERTEX | EBufferUsage.COPY_DST, // 只使用必要的标志位
+            usage: EBufferUsage.VERTEX | EBufferUsage.COPY_DST,
             initialData: vertices
         });
-        // 创建着色器
+
+        // 创建索引缓冲区
+        this.indexBuffer = this.resourceModule.CreateIndexBuffer({
+            name: 'CubeIndexBuffer',
+            size: indices.byteLength,
+            usage: EBufferUsage.INDEX | EBufferUsage.COPY_DST,
+            initialData: indices
+        });
+
+        // 创建 MVP 矩阵的 Uniform Buffer
+        this.uniformBuffer = this.resourceModule.CreateUniformBuffer({
+            name: 'CubeMVPBuffer',
+            size: 4 * 16 * 3, // 3个4x4矩阵
+            usage: EBufferUsage.UNIFORM | EBufferUsage.COPY_DST
+        });
+
+        // 设置绑定位置
+        this.uniformBuffer.setBindingLocation(0, 0);
+
+        // 直接创建绑定组布局
+        this.bindGroupLayout = new FBindGroupLayout(this.device, {
+            name: 'CubeBindGroupLayout',
+            entries: [
+                this.uniformBuffer.getBindGroupLayoutEntry()
+            ]
+        });
+
+        // 直接创建绑定组
+        this.bindGroup = new FBindGroup(this.device, {
+            name: 'CubeBindGroup',
+            layout: this.bindGroupLayout,
+            entries: [
+                this.uniformBuffer.getBindGroupEntry()
+            ]
+        });
+
+        // 修改着色器代码
         const shader = `
+            struct Uniforms {
+                modelMatrix : mat4x4f,
+                viewMatrix : mat4x4f,
+                projectionMatrix : mat4x4f,
+            };
+            @binding(0) @group(0) var<uniform> uniforms : Uniforms;
+
             struct VertexOutput {
-                @builtin(position) position: vec4f,
-                @location(0) color: vec4f,
+                @builtin(position) position : vec4f,
+                @location(0) color : vec4f,
             }
 
             @vertex
-            fn vertexMain(@location(0) position: vec3f,
-                         @location(1) color: vec3f) -> VertexOutput {
-                var output: VertexOutput;
-                output.position = vec4f(position, 1.0);
+            fn vertexMain(
+                @location(0) position : vec3f,
+                @location(1) color : vec3f
+            ) -> VertexOutput {
+                var output : VertexOutput;
+                output.position = uniforms.projectionMatrix * uniforms.viewMatrix * uniforms.modelMatrix * vec4f(position, 1.0);
                 output.color = vec4f(color, 1.0);
                 return output;
             }
 
             @fragment
-            fn fragmentMain(@location(0) color: vec4f) -> @location(0) vec4f {
+            fn fragmentMain(@location(0) color : vec4f) -> @location(0) vec4f {
                 return color;
             }
         `;
 
         // 创建渲染管线
         this.pipeline = this.resourceModule.CreateGraphicsPipeline({
-            name: 'TrianglePipeline',
+            name: 'CubePipeline',
             layout: {
-                bindGroupLayouts: [] // 这个简单示例不需要绑定组
+                bindGroupLayouts: [this.bindGroupLayout]
             },
             graphics: {
                 vertexShader: shader,
@@ -119,11 +216,16 @@ class RendererModule extends IModule {
                 colorTargets: [{
                     format: navigator.gpu.getPreferredCanvasFormat()
                 }],
-                topology: 'triangle-list'
+                topology: 'triangle-list',
+                cullMode: 'none',
+                depthStencil: {
+                    format: 'depth24plus',
+                    depthWriteEnabled: true,
+                    depthCompare: 'less'
+                }
             }
         });
 
-        // 在所有资源创建完成后设置标志
         this.bResourcesInitialized = true;
 
         let texture = this.resourceModule.CreateTexture2D({
@@ -152,6 +254,29 @@ class RendererModule extends IModule {
         // 获取当前纹理视图
         const textureView = this.context.getCurrentTexture().createView();
         
+        // 创建深度纹理
+        const depthTexture = this.device.createTexture({
+            size: {
+                width: this.canvas.width,
+                height: this.canvas.height,
+                depthOrArrayLayers: 1
+            },
+            format: 'depth24plus',
+            usage: GPUTextureUsage.RENDER_ATTACHMENT
+        });
+
+        // 更新 MVP 矩阵
+        const modelMatrix = mat4.create();
+        mat4.rotateY(modelMatrix, modelMatrix, performance.now() / 1000);
+        
+        const viewMatrix = this.camera.GetViewMatrix();
+        const projectionMatrix = this.camera.GetProjectionMatrix();
+
+        // 更新 Uniform Buffer
+        this.device.queue.writeBuffer(this.uniformBuffer.getGPUBuffer(), 0, modelMatrix);
+        this.device.queue.writeBuffer(this.uniformBuffer.getGPUBuffer(), 64, viewMatrix);
+        this.device.queue.writeBuffer(this.uniformBuffer.getGPUBuffer(), 128, projectionMatrix);
+        
         // 创建渲染通道
         const renderPass = commandEncoder.beginRenderPass({
             colorAttachments: [{
@@ -159,23 +284,32 @@ class RendererModule extends IModule {
                 clearValue: { r: 0.1, g: 0.2, b: 0.3, a: 1.0 },
                 loadOp: 'clear',
                 storeOp: 'store'
-            }]
+            }],
+            depthStencilAttachment: {
+                view: depthTexture.createView(),
+                depthClearValue: 1.0,
+                depthLoadOp: 'clear',
+                depthStoreOp: 'store'
+            }
         });
 
         // 设置渲染管线
         renderPass.setPipeline(this.pipeline.getGPUPipeline());
-        
-        // 设置顶点缓冲区
+        renderPass.setBindGroup(0, this.bindGroup.getGPUBindGroup());
         renderPass.setVertexBuffer(0, this.vertexBuffer.getGPUBuffer());
+        renderPass.setIndexBuffer(this.indexBuffer.getGPUBuffer(), 'uint16');
         
-        // 绘制三角形
-        renderPass.draw(3, 1, 0, 0);
+        // 绘制立方体
+        renderPass.drawIndexed(36);
         
         // 结束渲染通道
         renderPass.end();
         
         // 提交命令
         this.device.queue.submit([commandEncoder.finish()]);
+
+        // 销毁深度纹理
+        depthTexture.destroy();
     }
 
     /**
@@ -190,6 +324,9 @@ class RendererModule extends IModule {
 
         try {
             const handleCanvasReady = async (canvas) => {
+
+                console.log(canvas);
+
                 this.canvas = canvas;
                 
                 // 初始化WebGPU
@@ -261,8 +398,20 @@ class RendererModule extends IModule {
             if (this.vertexBuffer) {
                 this.resourceModule.Release(this.vertexBuffer);
             }
+            if (this.indexBuffer) {
+                this.resourceModule.Release(this.indexBuffer);
+            }
+            if (this.uniformBuffer) {
+                this.resourceModule.Release(this.uniformBuffer);
+            }
             if (this.pipeline) {
                 this.resourceModule.Release(this.pipeline);
+            }
+            if (this.bindGroup) {
+                this.bindGroup.destroy();
+            }
+            if (this.bindGroupLayout) {
+                this.bindGroupLayout.destroy();
             }
             
             this.device = null;

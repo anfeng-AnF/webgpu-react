@@ -19,6 +19,9 @@ const ViewportCanvas = ({
     const uniqueId = useRef(canvasId + '_' + Math.random().toString(36).substr(2, 9));
 
     useEffect(() => {
+        if (!canvasRef.current.__initialized) {
+            canvasRef.current.__initialized = true;
+        }
         const canvas = canvasRef.current;
         const container = containerRef.current;
 

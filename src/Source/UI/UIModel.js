@@ -47,13 +47,11 @@ class UIModel extends IModule {
 
             // 渲染UI组件
             this.Root.render(
-                <React.StrictMode>
-                    <MainPage 
-                        ref={this.Component}
-                        manager={this.Manager}
-                        config={this.Config}
-                    />
-                </React.StrictMode>
+                <MainPage 
+                    ref={this.Component}
+                    manager={this.Manager}
+                    config={this.Config}
+                />
             );
 
             this.bInitialized = true;

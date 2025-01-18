@@ -1,5 +1,5 @@
 import { FRenderResource } from '../FRenderResource';
-import { FBindGroupLayout } from './FBindGroupLayout';
+export { FBindGroupLayout } from './FBindGroupLayout';
 
 /**
  * 绑定资源描述符
@@ -98,7 +98,10 @@ export class FBindGroup extends FRenderResource {
                     throw new Error(`Unknown binding type: ${layoutEntry.type}`);
             }
         });
-
+        console.log({
+            layout: this.layout.getGPUBindGroupLayout(),
+            entries
+        })
         this._gpuBindGroup = this.device.createBindGroup({
             layout: this.layout.getGPUBindGroupLayout(),
             entries
