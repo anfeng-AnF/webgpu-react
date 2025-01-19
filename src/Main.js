@@ -195,35 +195,40 @@ class Main {
                             depthOrArrayLayers: 1,
                         },
                         format: navigator.gpu.getPreferredCanvasFormat(),
-                        usage: GPUTextureUsage.RENDER_ATTACHMENT | 
-                               GPUTextureUsage.TEXTURE_BINDING | 
-                               GPUTextureUsage.COPY_SRC,
+                        usage:
+                            GPUTextureUsage.RENDER_ATTACHMENT |
+                            GPUTextureUsage.TEXTURE_BINDING |
+                            GPUTextureUsage.COPY_SRC,
                     });
 
                     // 更新纹理绑定组
                     if (texBindGroupLayout && sampler) {
                         texBindGroup = globals.device.createBindGroup({
                             layout: texBindGroupLayout,
-                            entries: [{
-                                binding: 0,
-                                resource: sampler
-                            }, {
-                                binding: 1,
-                                resource: globals.temporaryTexture.createView()
-                            }]
+                            entries: [
+                                {
+                                    binding: 0,
+                                    resource: sampler,
+                                },
+                                {
+                                    binding: 1,
+                                    resource: globals.temporaryTexture.createView(),
+                                },
+                            ],
                         });
                     }
 
                     // 更新屏幕宽高比
                     globals.aspect = newWidth / newHeight;
 
-                    console.log(`Canvas resized to ${newWidth}x${newHeight} (DPR: ${devicePixelRatio})`);
+                    console.log(
+                        `Canvas resized to ${newWidth}x${newHeight} (DPR: ${devicePixelRatio})`
+                    );
                 }
             };
 
             const handleCanvasReady = (canvasInfo) => {
                 console.log('Canvas ready:', canvasInfo);
-
                 const initWebGPU = async () => {
                     try {
                         if (!navigator.gpu) throw new Error('WebGPU not supported');
@@ -424,12 +429,30 @@ class Main {
 
                         // 创建全屏四边形相关资源
                         const quadVertices = new Float32Array([
-                            -1, -1, 0, 1,  // position, uv
-                            1, -1, 1, 1,
-                            1, 1, 1, 0,
-                            -1, -1, 0, 1,
-                            1, 1, 1, 0,
-                            -1, 1, 0, 0,
+                            -1,
+                            -1,
+                            0,
+                            1, // position, uv
+                            1,
+                            -1,
+                            1,
+                            1,
+                            1,
+                            1,
+                            1,
+                            0,
+                            -1,
+                            -1,
+                            0,
+                            1,
+                            1,
+                            1,
+                            1,
+                            0,
+                            -1,
+                            1,
+                            0,
+                            0,
                         ]);
 
                         quadBuffer = device.createBuffer({
@@ -440,15 +463,18 @@ class Main {
 
                         // 创建纹理绑定组布局
                         texBindGroupLayout = device.createBindGroupLayout({
-                            entries: [{
-                                binding: 0,
-                                visibility: GPUShaderStage.FRAGMENT,
-                                sampler: { type: 'filtering' }
-                            }, {
-                                binding: 1,
-                                visibility: GPUShaderStage.FRAGMENT,
-                                texture: {}
-                            }]
+                            entries: [
+                                {
+                                    binding: 0,
+                                    visibility: GPUShaderStage.FRAGMENT,
+                                    sampler: { type: 'filtering' },
+                                },
+                                {
+                                    binding: 1,
+                                    visibility: GPUShaderStage.FRAGMENT,
+                                    texture: {},
+                                },
+                            ],
                         });
 
                         // 创建采样器
@@ -478,98 +504,51 @@ class Main {
                                 @group(0) @binding(0) var texSampler: sampler;
                                 @group(0) @binding(1) var tex: texture_2d<f32>;
 
-                                // 获取纹理像素颜色并转换为灰度
-                                fn getGrayscale(uv: vec2f) -> f32 {
-                                    let color = textureSample(tex, texSampler, uv);
-                                    return dot(color.rgb, vec3f(0.299, 0.587, 0.114));
-                                }
-
                                 @fragment
                                 fn fragmentMain(@location(0) texCoord: vec2f) -> @location(0) vec4f {
-                                    // 获取纹理大小
-                                    let texSize = vec2f(textureDimensions(tex));
-                                    let pixelSize = 1.0 / texSize;
-
-                                    // Sobel 算子
-                                    let gx = mat3x3f(
-                                        -1.0, 0.0, 1.0,
-                                        -2.0, 0.0, 2.0,
-                                        -1.0, 0.0, 1.0
-                                    );
-                                    let gy = mat3x3f(
-                                        -1.0, -2.0, -1.0,
-                                        0.0, 0.0, 0.0,
-                                        1.0, 2.0, 1.0
-                                    );
-
-                                    var gradX = 0.0;
-                                    var gradY = 0.0;
-
-                                    // 3x3 卷积
-                                    for (var i = -1; i <= 1; i++) {
-                                        for (var j = -1; j <= 1; j++) {
-                                            let offset = vec2f(f32(i), f32(j)) * pixelSize;
-                                            let sample = getGrayscale(texCoord + offset);
-                                            
-                                            let weight_x = gx[i + 1][j + 1];
-                                            let weight_y = gy[i + 1][j + 1];
-                                            
-                                            gradX += sample * weight_x;
-                                            gradY += sample * weight_y;
-                                        }
-                                    }
-
-                                    // 计算梯度强度
-                                    let gradMagnitude = sqrt(gradX * gradX + gradY * gradY);
-                                    
-                                    // 阈值化处理
-                                    let threshold = 0.1;
-                                    let edge = step(threshold, gradMagnitude);
-
-                                    // 混合原始图像和边缘
-                                    let originalColor = textureSample(tex, texSampler, texCoord);
-                                    let edgeColor = vec4f(edge, edge, edge, 1.0);
-                                    let mixFactor = 0.7; // 调整这个值来改变混合程度
-                                    
-                                    return mix(originalColor, edgeColor, mixFactor);
+                                    return textureSample(tex, texSampler, texCoord);
                                 }
-                            `
+                            `,
                         });
 
                         // 创建全屏四边形渲染管线
                         quadPipeline = await device.createRenderPipelineAsync({
                             layout: device.createPipelineLayout({
-                                bindGroupLayouts: [texBindGroupLayout]
+                                bindGroupLayouts: [texBindGroupLayout],
                             }),
                             vertex: {
                                 module: quadShader,
                                 entryPoint: 'vertexMain',
-                                buffers: [{
-                                    arrayStride: 16,
-                                    attributes: [
-                                        {
-                                            shaderLocation: 0,
-                                            offset: 0,
-                                            format: 'float32x2',
-                                        },
-                                        {
-                                            shaderLocation: 1,
-                                            offset: 8,
-                                            format: 'float32x2',
-                                        }
-                                    ]
-                                }]
+                                buffers: [
+                                    {
+                                        arrayStride: 16,
+                                        attributes: [
+                                            {
+                                                shaderLocation: 0,
+                                                offset: 0,
+                                                format: 'float32x2',
+                                            },
+                                            {
+                                                shaderLocation: 1,
+                                                offset: 8,
+                                                format: 'float32x2',
+                                            },
+                                        ],
+                                    },
+                                ],
                             },
                             fragment: {
                                 module: quadShader,
                                 entryPoint: 'fragmentMain',
-                                targets: [{
-                                    format: canvasFormat
-                                }]
+                                targets: [
+                                    {
+                                        format: canvasFormat,
+                                    },
+                                ],
                             },
                             primitive: {
-                                topology: 'triangle-list'
-                            }
+                                topology: 'triangle-list',
+                            },
                         });
 
                         // 初始化全局状态
@@ -612,13 +591,16 @@ class Main {
                             if (texBindGroupLayout && sampler) {
                                 texBindGroup = globals.device.createBindGroup({
                                     layout: texBindGroupLayout,
-                                    entries: [{
-                                        binding: 0,
-                                        resource: sampler
-                                    }, {
-                                        binding: 1,
-                                        resource: globals.temporaryTexture.createView()
-                                    }]
+                                    entries: [
+                                        {
+                                            binding: 0,
+                                            resource: sampler,
+                                        },
+                                        {
+                                            binding: 1,
+                                            resource: globals.outputTexture.createView(),
+                                        },
+                                    ],
                                 });
                             }
                         };
@@ -636,7 +618,10 @@ class Main {
                             const newHeight = Math.max(1, Math.floor(height * devicePixelRatio));
 
                             // 只有当尺寸真正改变时才进行更新
-                            if (globals.canvas.width !== newWidth || globals.canvas.height !== newHeight) {
+                            if (
+                                globals.canvas.width !== newWidth ||
+                                globals.canvas.height !== newHeight
+                            ) {
                                 // 更新画布尺寸
                                 globals.canvas.width = newWidth;
                                 globals.canvas.height = newHeight;
@@ -650,7 +635,9 @@ class Main {
                                     device: globals.device,
                                     format: navigator.gpu.getPreferredCanvasFormat(),
                                     alphaMode: 'premultiplied',
-                                    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST,
+                                    usage:
+                                        GPUTextureUsage.RENDER_ATTACHMENT |
+                                        GPUTextureUsage.COPY_DST,
                                 });
 
                                 // 销毁旧的深度和临时纹理
@@ -682,29 +669,35 @@ class Main {
                                         depthOrArrayLayers: 1,
                                     },
                                     format: navigator.gpu.getPreferredCanvasFormat(),
-                                    usage: GPUTextureUsage.RENDER_ATTACHMENT | 
-                                           GPUTextureUsage.TEXTURE_BINDING | 
-                                           GPUTextureUsage.COPY_SRC,
+                                    usage:
+                                        GPUTextureUsage.RENDER_ATTACHMENT |
+                                        GPUTextureUsage.TEXTURE_BINDING |
+                                        GPUTextureUsage.COPY_SRC,
                                 });
 
                                 // 更新纹理绑定组
                                 if (texBindGroupLayout && sampler) {
                                     texBindGroup = globals.device.createBindGroup({
                                         layout: texBindGroupLayout,
-                                        entries: [{
-                                            binding: 0,
-                                            resource: sampler
-                                        }, {
-                                            binding: 1,
-                                            resource: globals.temporaryTexture.createView()
-                                        }]
+                                        entries: [
+                                            {
+                                                binding: 0,
+                                                resource: sampler,
+                                            },
+                                            {
+                                                binding: 1,
+                                                resource: globals.temporaryTexture.createView(),
+                                            },
+                                        ],
                                     });
                                 }
 
                                 // 更新屏幕宽高比
                                 globals.aspect = newWidth / newHeight;
 
-                                console.log(`Canvas resized to ${newWidth}x${newHeight} (DPR: ${devicePixelRatio})`);
+                                console.log(
+                                    `Canvas resized to ${newWidth}x${newHeight} (DPR: ${devicePixelRatio})`
+                                );
                             }
                         };
 
@@ -780,6 +773,142 @@ class Main {
                             ]);
                         }
 
+                        // 创建输出纹理
+                        globals.outputTexture = device.createTexture({
+                            size: [canvasInfo.width, canvasInfo.height, 1],
+                            format: 'rgba8unorm',
+                            usage: GPUTextureUsage.STORAGE_BINDING |GPUTextureUsage.TEXTURE_BINDING |  GPUTextureUsage.COPY_SRC,
+                        });
+                        createTemporaryTexture();
+                        const ComputeShader = device.createShaderModule({
+                            code: `
+                                @group(0) @binding(0) var inputTexture: texture_2d<f32>;
+                                @group(0) @binding(2) var outputTexture: texture_storage_2d<rgba8unorm, write>;
+
+                                // Sobel 算子的卷积核
+                                const sobelX = array<array<f32, 3>, 3>(
+                                    array<f32, 3>(-1.0, 0.0, 1.0),
+                                    array<f32, 3>(-2.0, 0.0, 2.0),
+                                    array<f32, 3>(-1.0, 0.0, 1.0)
+                                );
+
+                                const sobelY = array<array<f32, 3>, 3>(
+                                    array<f32, 3>(-1.0, -2.0, -1.0),
+                                    array<f32, 3>( 0.0,  0.0,  0.0),
+                                    array<f32, 3>( 1.0,  2.0,  1.0)
+                                );
+
+                                // 辅助函数：将RGB转换为灰度值
+                                fn rgb2gray(color: vec3<f32>) -> f32 {
+                                    return dot(color, vec3<f32>(0.299, 0.587, 0.114));
+                                }
+
+                                @compute @workgroup_size(16, 16)
+                                fn main(@builtin(global_invocation_id) globalId: vec3<u32>) {
+                                    let width = textureDimensions(inputTexture).x;
+                                    let height = textureDimensions(inputTexture).y;
+
+                                    let x = i32(globalId.x);
+                                    let y = i32(globalId.y);
+
+                                    // 检查边界
+                                    if (x >= i32(width) || y >= i32(height)) {
+                                        return;
+                                    }
+
+                                    var gx: f32 = 0.0;
+                                    var gy: f32 = 0.0;
+
+                                    // 应用 Sobel 算子
+                                    for (var i = -1; i <= 1; i++) {
+                                        for (var j = -1; j <= 1; j++) {
+                                            let px = x + i;
+                                            let py = y + j;
+                                            
+                                            // 边界检查
+                                            if (px >= 0 && px < i32(width) && py >= 0 && py < i32(height)) {
+                                                let color = textureLoad(inputTexture, vec2<i32>(px, py), 0);
+                                                let gray = rgb2gray(color.rgb);
+                                                
+                                                gx += gray * sobelX[i + 1][j + 1];
+                                                gy += gray * sobelY[i + 1][j + 1];
+                                            }
+                                        }
+                                    }
+
+                                    // 计算梯度幅值
+                                    let magnitude = sqrt(gx * gx + gy * gy);
+                                    
+                                    // 获取原始颜色
+                                    let originalColor = textureLoad(inputTexture, vec2<i32>(x, y), 0);
+                                    
+                                    // 设置边缘检测阈值
+                                    let threshold = 0.1;  // 可以调整这个值来控制边缘的敏感度
+                                    
+                                    // 如果梯度幅值大于阈值，输出黑色（边缘），否则保持原始颜色
+                                    let outputColor = select(
+                                        originalColor,                    // 非边缘处使用原始颜色
+                                        vec4<f32>(0.0, 0.0, 0.0, 1.0),   // 边缘处使用黑色
+                                        magnitude > threshold             // 条件：是否为边缘
+                                    );
+                                    
+                                    textureStore(outputTexture, vec2<i32>(x, y), outputColor);
+                                }
+                            `
+                        });
+
+                        // 创建采样器
+                        const ComputeSampler = device.createSampler({
+                            magFilter: 'linear',
+                            minFilter: 'linear',
+                            mipmapFilter: 'linear',
+                        });
+                        const computePipelineLayout = device.createPipelineLayout({
+                            bindGroupLayouts: [
+                                device.createBindGroupLayout({
+                                    entries: [
+                                        {
+                                            binding: 0,
+                                            visibility: GPUShaderStage.COMPUTE,
+                                            texture: {
+                                                sampleType: 'float',
+                                                viewDimension: '2d',
+                                            }
+                                        },
+                                        {
+                                            binding: 2,
+                                            visibility: GPUShaderStage.COMPUTE,
+                                            storageTexture: {
+                                                access: 'write-only',
+                                                format: 'rgba8unorm',
+                                                viewDimension: '2d'
+                                            }
+                                        }
+                                    ]
+                                })
+                            ]
+                        });
+                        // 创建计算管线
+                        const ComputePipeline = device.createComputePipeline({
+                            layout: computePipelineLayout,
+                            compute: {
+                                module: ComputeShader,
+                                entryPoint: 'main', // 着色器中的入口点
+                            },
+                        });
+                        const ComputeBindGroup = device.createBindGroup({
+                            layout: ComputePipeline.getBindGroupLayout(0),
+                            entries: [
+                                {
+                                    binding: 0,
+                                    resource: globals.temporaryTexture.createView()
+                                },
+                                {
+                                    binding: 2,
+                                    resource: globals.outputTexture.createView()
+                                }
+                            ]
+                        });
                         // 修改渲染循环
                         function render() {
                             // 确保所有必要的资源都已创建
@@ -815,7 +944,7 @@ class Main {
                                 colorAttachments: [
                                     {
                                         view: globals.temporaryTexture.createView(),
-                                        clearValue: { r: 0.8, g: 0.1, b: 0.1, a: 1.0 },
+                                        clearValue: { r: 1.0, g: 1.0, b: 1.0, a: 1.0 },
                                         loadOp: 'clear',
                                         storeOp: 'store',
                                     },
@@ -838,14 +967,29 @@ class Main {
                             // 获取当前帧的纹理视图
                             const currentTexture = globals.context.getCurrentTexture();
 
-                            // 第二个渲染过程：将临时纹理的内容渲染到 canvas
+
+                            // 计算Pass：处理纹理
+                            const computePass = commandEncoder.beginComputePass();
+                            computePass.setPipeline(ComputePipeline);
+                            computePass.setBindGroup(0, ComputeBindGroup);
+                            computePass.dispatchWorkgroups(
+                                Math.ceil(canvasInfo.width / 16),
+                                Math.ceil(canvasInfo.height / 16),
+                                1
+                            );
+                            computePass.end();
+
+
+                            // 第二个渲染过程：将计算着色器的输出渲染到canvas
                             const finalRenderPass = commandEncoder.beginRenderPass({
-                                colorAttachments: [{
-                                    view: currentTexture.createView(),
-                                    clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-                                    loadOp: 'clear',
-                                    storeOp: 'store',
-                                }]
+                                colorAttachments: [
+                                    {
+                                        view: currentTexture.createView(),
+                                        clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+                                        loadOp: 'clear',
+                                        storeOp: 'store',
+                                    },
+                                ],
                             });
 
                             finalRenderPass.setPipeline(quadPipeline);
