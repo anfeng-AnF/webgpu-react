@@ -1,0 +1,117 @@
+@startuml RenderingDependencyGraph
+
+' Style settings
+skinparam class {
+    BackgroundColor<<Resource>> LightBlue
+    BackgroundColor<<Pass>> LightGreen
+    BackgroundColor<<Graph>> LightYellow
+    BackgroundColor<<Processor>> LightPink
+}
+
+package "RDG" {
+    class FRDGBuilder {
+        -passes: FRDGPass[]
+        -resources: Map<string, FRDGResource>
+        -resourceModule: FResourceModule
+        +AddPass(name: string, desc: PassDescriptor): FRDGPass
+        +CreateTexture(desc: TextureDescriptor): FRDGTexture
+        +CreateBuffer(desc: BufferDescriptor): FRDGBuffer
+        +Execute(commandEncoder: GPUCommandEncoder)
+        -BuildExecutionOrder(): FRDGPass[]
+        -AllocateResources()
+        -ExecutePasses(commandEncoder: GPUCommandEncoder)
+    }
+
+    class FRDGResource <<Resource>> {
+        #name: string
+        #desc: ResourceDescriptor
+        #transient: boolean
+        #producers: Set<FRDGPass>
+        #consumers: Set<FRDGPass>
+        #gpuResource: FRenderResource
+        +AddProducer(pass: FRDGPass)
+        +AddConsumer(pass: FRDGPass)
+        +IsTransient(): boolean
+    }
+
+    class FRDGTexture <<Resource>> {
+        -format: GPUTextureFormat
+        -width: number
+        -height: number
+        -usage: GPUTextureUsageFlags
+        +CreateView(): GPUTextureView
+    }
+
+    class FRDGBuffer <<Resource>> {
+        -size: number
+        -usage: GPUBufferUsageFlags
+        +GetBuffer(): GPUBuffer
+    }
+
+    class FRDGPass <<Pass>> {
+        -name: string
+        -inputs: Set<FRDGResource>
+        -outputs: Set<FRDGResource>
+        -executeFn: Function
+        -dependencies: Set<FRDGPass>
+        -meshProcessors: FMeshPassProcessor[]
+        +AddInput(resource: FRDGResource)
+        +AddOutput(resource: FRDGResource)
+        +Execute(commandEncoder: GPUCommandEncoder)
+        +AddDependency(pass: FRDGPass)
+        +AddMeshProcessor(processor: FMeshPassProcessor)
+    }
+
+    class FMeshPassProcessor <<Processor>> {
+        -pipeline: FGraphicsPipelineState
+        -meshDrawCommands: FMeshDrawCommand[]
+        -viewUniformBuffer: FUniformBuffer
+        -objectUniformBuffer: FUniformBuffer
+        +ProcessMesh(mesh: FMesh)
+        +Draw(commandEncoder: GPUCommandEncoder)
+        +SetupPipeline(desc: PipelineDescriptor)
+        +UpdateViewUniforms(view: FView)
+        +UpdateObjectUniforms(object: FObject)
+    }
+
+    class FMeshDrawCommand {
+        -vertexBuffer: FVertexBuffer
+        -indexBuffer: FIndexBuffer
+        -instanceBuffer: FBuffer
+        -uniformBindGroup: FBindGroup
+        -indexCount: number
+        -instanceCount: number
+        +Setup(commandEncoder: GPUCommandEncoder)
+        +Draw(commandEncoder: GPUCommandEncoder)
+    }
+
+    class FRDGGraph <<Graph>> {
+        -passes: FRDGPass[]
+        -resources: FRDGResource[]
+        +AddPass(pass: FRDGPass)
+        +AddResource(resource: FRDGResource)
+        +BuildExecutionOrder(): FRDGPass[]
+        -DetectCycles()
+        -TopologicalSort(): FRDGPass[]
+    }
+}
+
+' Relationships
+FRDGBuilder --> FRDGPass: creates
+FRDGBuilder --> FRDGResource: manages
+FRDGBuilder --> FRDGGraph: uses
+
+FRDGResource <|-- FRDGTexture
+FRDGResource <|-- FRDGBuffer
+
+FRDGPass --> FRDGResource: reads/writes
+FRDGPass --> FRDGPass: depends on
+FRDGPass "1" *--> "0..*" FMeshPassProcessor: contains
+
+FMeshPassProcessor "1" *--> "0..*" FMeshDrawCommand: manages
+FMeshPassProcessor --> FGraphicsPipelineState: uses
+
+FRDGGraph --> FRDGPass: contains
+FRDGGraph --> FRDGResource: tracks
+
+@enduml

@@ -1,0 +1,778 @@
+@startuml Resource
+
+' 基础资源类
+abstract class FResource {
+  # device: GPUDevice
+  # desc: Object
+  # name: String
+  # gpuResource: Object
+  
+  + constructor(device, desc)
+  + create(): void
+  + destroy(): void
+  + getResource(): Object
+  + getLayout(): GPULayoutDescriptor
+  # validateDesc(): boolean
+}
+
+' 基础布局类
+abstract class FRenderResourceLayout {
+  # device: GPUDevice
+  # desc: Object
+  # name: String
+  
+  + constructor(device, desc)
+  + getLayout(): GPULayoutDescriptor
+  # validateLayoutDesc(): boolean
+}
+
+' 缓冲区布局类
+class FVertexLayout extends FRenderResourceLayout {
+  - attributes: Array<GPUVertexAttribute>
+  - stepMode: GPUVertexStepMode
+  - arrayStride: number
+  + getVertexBufferLayout(): GPUVertexBufferLayout
+}
+
+class FIndexLayout extends FRenderResourceLayout {
+  - format: GPUIndexFormat
+  + getIndexFormat(): GPUIndexFormat
+}
+
+class FUniformLayout extends FRenderResourceLayout {
+  - visibility: GPUShaderStageFlags
+  - size: number
+  + getBindGroupLayoutEntry(): GPUBindGroupLayoutEntry
+}
+
+' 管线资源
+abstract class FPipeline extends FResource {
+  # layout: FPipelineLayout
+  # vertex: Object
+  # fragment: Object
+  # primitive: Object
+  
+  + {abstract} create(): void
+  # {abstract} validateDesc(): boolean
+}
+
+' 渲染管线布局类
+class FRenderPipelineLayout extends FPipelineLayout {
+  - vertexLayout: FVertexLayout
+  - indexLayout: FIndexLayout
+  - bindGroupNames: Array<string>
+  - colorTargetFormats: Array<GPUTextureFormat>
+  - depthStencilFormat: GPUTextureFormat
+  - topology: GPUPrimitiveTopology
+  - cullMode: GPUCullMode
+  
+  + setVertexLayout(layout: FVertexLayout): void
+  + setIndexLayout(layout: FIndexLayout): void
+  + addBindGroup(name: string): void
+  + setColorTargetFormats(formats: Array<GPUTextureFormat>): void
+  + setDepthStencilFormat(format: GPUTextureFormat): void
+  + setPrimitiveState(topology: GPUPrimitiveTopology, cullMode: GPUCullMode): void
+  + getVertexLayout(): FVertexLayout
+  + getIndexLayout(): FIndexLayout
+  + getBindGroupNames(): Array<string>
+  + getRenderPipelineDescriptor(): GPURenderPipelineDescriptor
+}
+
+' 渲染管线类
+class FRenderPipeline extends FPipeline {
+  - layout: FRenderPipelineLayout
+  - vertexShaderName: string
+  - fragmentShaderName: string
+  
+  + setVertexShader(name: string): void
+  + setFragmentShader(name: string): void
+  + getLayout(): FRenderPipelineLayout
+  # create(): void
+  # validateDesc(): boolean
+}
+
+' 计算管线布局类
+class FComputePipelineLayout extends FPipelineLayout {
+  - workgroupSize: {x: number, y: number, z: number}
+  - workgroupCount: {x: number, y: number, z: number}
+  
+  + setWorkgroupSize(size: {x: number, y: number, z: number}): void
+  + setWorkgroupCount(count: {x: number, y: number, z: number}): void
+  + getWorkgroupSize(): {x: number, y: number, z: number}
+  + getWorkgroupCount(): {x: number, y: number, z: number}
+  + getComputePipelineDescriptor(): GPUComputePipelineDescriptor
+}
+
+' 计算管线类
+class FComputePipeline extends FPipeline {
+  - layout: FComputePipelineLayout
+  - computeShaderName: string
+  
+  + setComputeShader(name: string): void
+  + getLayout(): FComputePipelineLayout
+  + dispatch(commandEncoder: GPUCommandEncoder): void
+  # create(): void
+  # validateDesc(): boolean
+}
+
+' 纹理维度枚举
+enum ETextureDimension {
+  _1D
+  _2D
+  _3D
+  CUBE
+}
+
+' 纹理资源基类
+abstract class FTexture extends FResource {
+  # format: GPUTextureFormat
+  # dimension: ETextureDimension
+  # size: {width: number, height: number, depthOrArrayLayers?: number}
+  # usage: GPUTextureUsageFlags
+  
+  + constructor(device: GPUDevice, desc: {
+    name: string,
+    format: GPUTextureFormat,
+    dimension: ETextureDimension,
+    size: {width: number, height: number, depthOrArrayLayers?: number},
+    usage: GPUTextureUsageFlags
+  })
+  
+  ' 核心接口
+  + {abstract} resize(newSize: {width: number, height: number, depthOrArrayLayers?: number}): void
+  + {abstract} setData(data: ArrayBuffer | TypedArray, dataLayout?: GPUImageDataLayout): Promise<void>
+  + {abstract} getView(desc?: GPUTextureViewDescriptor): GPUTextureView
+  
+  ' 基本属性获取
+  + getFormat(): GPUTextureFormat
+  + getDimension(): ETextureDimension
+  + getSize(): {width: number, height: number, depthOrArrayLayers?: number}
+  
+  # validateDesc(): boolean
+  # validateSize(size: {width: number, height: number, depthOrArrayLayers?: number}): boolean
+}
+
+' 2D纹理
+class FTexture2D extends FTexture {
+  - mipLevelCount: number
+  - sampleCount: number
+  
+  + constructor(device: GPUDevice, desc: {
+    name: string,
+    format: GPUTextureFormat,
+    size: {width: number, height: number},
+    usage: GPUTextureUsageFlags,
+    mipLevelCount?: number,
+    sampleCount?: number
+  })
+  
+  + resize(newSize: {width: number, height: number}): void
+  + setData(data: ArrayBuffer | TypedArray, dataLayout?: GPUImageDataLayout): Promise<void>
+  + getView(desc?: GPUTextureViewDescriptor): GPUTextureView
+  + generateMipmaps(): void
+  
+  ' 静态工厂方法
+  + {static} createDepthTexture(device: GPUDevice, name: string, size: {width: number, height: number}): FTexture2D
+  + {static} createColorAttachment(device: GPUDevice, name: string, size: {width: number, height: number}, format?: GPUTextureFormat): FTexture2D
+  + {static} createStorageTexture(device: GPUDevice, name: string, size: {width: number, height: number}, format?: GPUTextureFormat): FTexture2D
+  + {static} createSampledTexture(device: GPUDevice, name: string, size: {width: number, height: number}, format?: GPUTextureFormat): FTexture2D
+  + {static} createMultisampleTexture(device: GPUDevice, name: string, size: {width: number, height: number}, sampleCount: number): FTexture2D
+  
+  ' 静态布局方法
+  + {static} getDepthTextureLayout(): GPUTextureLayout
+  + {static} getColorAttachmentLayout(): GPUTextureLayout
+  + {static} getStorageTextureLayout(): GPUTextureLayout
+  + {static} getSampledTextureLayout(): GPUTextureLayout
+  + {static} getMultisampleTextureLayout(): GPUTextureLayout
+}
+
+' 3D纹理
+class FTexture3D extends FTexture {
+  - mipLevelCount: number
+  
+  + constructor(device: GPUDevice, desc: {
+    name: string,
+    format: GPUTextureFormat,
+    size: {width: number, height: number, depth: number},
+    usage: GPUTextureUsageFlags,
+    mipLevelCount?: number
+  })
+  
+  + resize(newSize: {width: number, height: number, depth: number}): void
+  + setData(data: ArrayBuffer | TypedArray, dataLayout?: GPUImageDataLayout): Promise<void>
+  + getView(desc?: GPUTextureViewDescriptor): GPUTextureView
+  + generateMipmaps(): void
+  
+  ' 静态工厂方法
+  + {static} createVolumeTexture(device: GPUDevice, name: string, size: {width: number, height: number, depth: number}, format?: GPUTextureFormat): FTexture3D
+  + {static} createLUTTexture(device: GPUDevice, name: string, size: number, format?: GPUTextureFormat): FTexture3D
+  + {static} createNoiseTexture(device: GPUDevice, name: string, size: {width: number, height: number, depth: number}): FTexture3D
+  
+  ' 静态布局方法
+  + {static} getVolumeTextureLayout(): GPUTextureLayout
+  + {static} getLUTTextureLayout(): GPUTextureLayout
+  + {static} getNoiseTextureLayout(): GPUTextureLayout
+}
+
+' 缓冲区资源
+class FBuffer extends FResource {
+  # size: number
+  # usage: GPUBufferUsageFlags
+  # data: ArrayBuffer
+  # mappable: boolean
+  
+  + constructor(device: GPUDevice, desc: {
+    name: string, 
+    size: number, 
+    usage: GPUBufferUsageFlags,
+    mappable: boolean
+  })
+  
+  ' 数据交换方法
+  + async setData(data: ArrayBuffer | TypedArray, offset?: number): Promise<void>
+  + async getData(offset?: number, size?: number): Promise<ArrayBuffer>
+  
+  ' GPU映射方法（仅当mappable为true时可用）
+  + async mapAsyncWrite(): Promise<void>
+  + async mapAsyncRead(): Promise<void>
+  + getMappedRange(offset?: number, size?: number): ArrayBuffer
+  + unmap(): void
+  
+  # validateData(data: ArrayBuffer | TypedArray): boolean
+  # validateSize(size: number): boolean
+}
+
+' Uniform数据类型枚举
+enum EUniformType {
+  FLOAT
+  FLOAT2
+  FLOAT3
+  FLOAT4
+  INT
+  INT2
+  INT3
+  INT4
+  UINT
+  UINT2
+  UINT3
+  UINT4
+  MAT2X2
+  MAT3X3
+  MAT4X4
+  BOOL
+}
+
+' Uniform缓冲区资源
+class FUniformBuffer extends FBuffer {
+  - dataLayout: Map<string, {
+    type: EUniformType,
+    offset: number,
+    size: number
+  }>
+  - totalSize: number
+  - data: ArrayBuffer
+  
+  ' 实例方法
+  + addUniform(name: string, type: EUniformType): void
+  + hasUniform(name: string): boolean
+  + removeUniform(name: string): void
+  + getUniform(name: string): {type: EUniformType, offset: number, size: number}
+  + setUniformValue(name: string, value: any): void
+  + getUniformValue(name: string): any
+  + updateData(): void
+  # validateUniform(name: string, type: EUniformType): boolean
+  # calculateOffsets(): void
+  # getSizeFromType(type: EUniformType): number
+  
+  ' 静态工厂方法
+  + {static} createTransformBuffer(device: GPUDevice, name: string): FUniformBuffer
+  + {static} createMaterialBuffer(device: GPUDevice, name: string): FUniformBuffer
+  + {static} createLightBuffer(device: GPUDevice, name: string): FUniformBuffer
+  
+  ' 静态布局方法
+  + {static} getTransformBufferLayout(): GPUBufferLayout
+  + {static} getMaterialBufferLayout(): GPUBufferLayout
+  + {static} getLightBufferLayout(): GPUBufferLayout
+}
+
+' 顶点属性类型枚举
+enum EVertexAttribute {
+  POSITION_2D
+  POSITION_3D
+  NORMAL
+  TANGENT
+  BITANGENT
+  UV
+  UV2
+  COLOR_RGB
+  COLOR_RGBA
+  JOINTS_4
+  WEIGHTS_4
+}
+
+' 顶点缓冲区资源
+class FVertexBuffer extends FBuffer {
+  - attributes: Map<string, {
+    type: EVertexAttribute,
+    format: GPUVertexFormat,
+    offset: number,
+    shaderLocation: number
+  }>
+  - totalSize: number
+  - stride: number
+  
+  ' 实例方法
+  + addAttribute(name: string, type: EVertexAttribute, shaderLocation: number): void
+  + hasAttribute(name: string): boolean
+  + removeAttribute(name: string): void
+  + getAttribute(name: string): {type: EVertexAttribute, format: GPUVertexFormat, offset: number, shaderLocation: number}
+  + getStride(): number
+  + getTotalSize(): number
+  + getVertexBufferLayout(): GPUVertexBufferLayout
+  + updateData(data: TypedArray): void
+  # validateAttribute(name: string, type: EVertexAttribute): boolean
+  # calculateOffsets(): void
+  # getFormatFromType(type: EVertexAttribute): GPUVertexFormat
+  
+  ' 静态工厂方法
+  + {static} createStaticMesh(device: GPUDevice, name: string): FVertexBuffer
+  + {static} createSkeletalMesh(device: GPUDevice, name: string): FVertexBuffer
+  + {static} createSpriteMesh(device: GPUDevice, name: string): FVertexBuffer
+  + {static} createParticleMesh(device: GPUDevice, name: string): FVertexBuffer
+  
+  ' 静态布局方法
+  + {static} getStaticMeshLayout(): GPUVertexBufferLayout
+  + {static} getSkeletalMeshLayout(): GPUVertexBufferLayout
+  + {static} getSpriteMeshLayout(): GPUVertexBufferLayout
+  + {static} getParticleMeshLayout(): GPUVertexBufferLayout
+}
+
+' 索引格式枚举
+enum EIndexFormat {
+  UINT16
+  UINT32
+}
+
+' 索引缓冲区资源
+class FIndexBuffer extends FBuffer {
+  - format: EIndexFormat
+  - count: number
+  
+  + constructor(device: GPUDevice, desc: {name: string, format: EIndexFormat})
+  + getFormat(): GPUIndexFormat
+  + getCount(): number
+  + updateData(data: Uint16Array | Uint32Array): void
+  # validateData(data: TypedArray): boolean
+  # getFormatSize(): number
+}
+
+' 绑定组资源
+class FBindGroup extends FResource {
+  - bindingInfos: Map<number, {layout: Layout, entries: ResourceName}>
+  
+  + addBinding(binding: number, layout: Layout, resourceName: string): void
+  + hasBinding(binding: number): boolean
+  + removeBinding(binding: number): void
+  + getBindingInfo(binding: number): {layout: Layout, resourceName: string}
+  + findBindingByResourceName(resourceName: string): number
+  + getBindGroupLayout(): GPUBindGroupLayout
+  # validateBinding(binding: number, layout: Layout): boolean
+  # create(): void
+}
+
+class FBindGroupLayout extends FRenderResourceLayout {
+  - entries: Array<GPUBindGroupLayoutEntry>
+  + addEntry(binding: number, entry: GPUBindGroupLayoutEntry): void
+  + getLayout(): GPUBindGroupLayout
+  + validateEntry(binding: number, entry: GPUBindGroupLayoutEntry): boolean
+}
+
+' 管线布局类
+abstract class FPipelineLayout extends FRenderResourceLayout {
+  + {abstract} getLayout(): GPULayoutDescriptor
+  # {abstract} validateLayoutDesc(): boolean
+}
+
+' 资源类型枚举
+enum EResourceType {
+  ' Buffer类型
+  VERTEX_BUFFER
+  INDEX_BUFFER
+  UNIFORM_BUFFER
+  STORAGE_BUFFER
+  
+  ' Texture类型
+  TEXTURE_2D
+  TEXTURE_3D
+  TEXTURE_CUBE
+  
+  ' Shader类型
+  VERTEX_SHADER
+  FRAGMENT_SHADER
+  COMPUTE_SHADER
+}
+
+' 管线类型枚举
+enum EPipelineType {
+  RENDER
+  COMPUTE
+}
+
+' 资源管理模块（单例）
+class FResourceModule {
+  - static instance: FResourceModule
+  - device: GPUDevice
+  - canvases: Map<string, {
+    context: GPUCanvasContext,
+    onReady?: Function,
+    onResize?: Function
+  }>
+  - resources: Map<string, FResource>
+  - bindGroups: Map<string, FBindGroup>
+  - pipelines: Map<string, FPipeline>
+  - resizeDependencies: Map<string, Set<string>>
+  
+  - constructor(device: GPUDevice)
+  
+  ' 单例访问
+  + {static} getInstance(): FResourceModule
+  + {static} initialize(device: GPUDevice): void
+  + {static} destroy(): void
+  
+  ' 画布管理
+  + addCanvas(name: string, callbacks?: onReady?: Function,onResize?: Function): void
+  + removeCanvas(name: string): void
+  + getCanvas(name: string): GPUCanvasContext
+  + configureCanvas(name: string, config: GPUCanvasConfiguration): void
+  + handleCanvasResize(canvasName: string, width: number, height: number): void
+  
+  ' 资源依赖管理
+  + addResizeDependent(canvasName: string, resourceName: string): void
+  + removeResizeDependent(canvasName: string, resourceName: string): void
+  + getResizeDependents(canvasName: string): Set<string>
+  
+  ' 资源管理（Buffer & Texture）
+  + createResource(type: EResourceType, desc: Object): FResource
+  + getResource(name: string): FResource
+  + removeResource(name: string): void
+  + hasResource(name: string): boolean
+  
+  ' 绑定组管理
+  + createBindGroup(name: string, desc: Object): FBindGroup
+  + getBindGroup(name: string): FBindGroup
+  + removeBindGroup(name: string): void
+  + hasBindGroup(name: string): boolean
+  
+  ' 管线管理
+  + createPipeline(type: EPipelineType, desc: Object): FPipeline
+  + getPipeline(name: string): FPipeline
+  + removePipeline(name: string): void
+  + hasPipeline(name: string): boolean
+  
+  ' 批量操作
+  + removeAll(): void
+  + removeAllResources(): void
+  + removeAllBindGroups(): void
+  + removeAllPipelines(): void
+  
+  ' 资源依赖检查
+  # validateResourceDependencies(name: string): boolean
+  # checkBindGroupDependencies(bindGroup: FBindGroup): boolean
+  # checkPipelineDependencies(pipeline: FPipeline): boolean
+  
+  # notifyCanvasReady(name: string): void
+  # handleResize(canvasName: string, width: number, height: number): void
+}
+
+' 关系图
+FResourceModule o-- FResource
+FVertexBuffer o-- FVertexLayout
+FIndexBuffer o-- FIndexLayout
+FUniformBuffer o-- FUniformLayout
+FRenderPipeline *-- FRenderPipelineLayout
+FComputePipeline *-- FComputePipelineLayout
+FRenderPipelineLayout *-- FVertexLayout
+FRenderPipelineLayout *-- FIndexLayout
+FRenderPipeline --> FRenderShader: uses
+FComputePipeline --> FComputeShader: uses
+FVertexBuffer --> EVertexAttribute: uses
+FUniformBuffer --> EUniformType: uses
+FResourceModule --> EResourceType: uses
+FResourceModule --> EPipelineType: uses
+
+note right of FResource
+  所有WebGPU资源的基类
+  desc包含创建GPU资源所需的所有参数
+  name用于资源标识
+  调用getResource时如果GPU资源未创建
+  会自动根据desc创建GPU资源
+  getLayout提供资源的布局描述
+end note
+
+note right of FRenderResourceLayout
+  所有布局描述符的基类
+  提供资源创建时所需的布局描述
+end note
+
+note right of FPipeline
+  抽象基类，定义管线资源的通用接口
+  具体实现由渲染管线和计算管线完成
+end note
+
+note right of FBindGroup
+  存储绑定号到布局和资源名的映射
+  创建时从资源模块获取实际资源
+  可生成用于渲染管线的BindGroupLayout
+  绑定号需要显式管理
+end note
+
+note right of FResourceModule
+  GPU资源的中央管理器（单例）
+  管理四类核心内容：
+  - Canvas：WebGPU上下文
+  - Resources：基础资源(Buffer/Texture)
+  - BindGroups：绑定组
+  - Pipelines：渲染和计算管线
+  
+  提供功能：
+  - 资源创建和管理
+  - 依赖关系检查
+  - 批量资源操作
+  - 画布配置管理
+  - Canvas事件回调
+  - 自动Resize管理
+  
+  单例模式：
+  - 全局唯一实例
+  - 统一的资源访问点
+  - 集中的生命周期管理
+end note
+
+note right of FPipelineLayout
+  渲染管线布局类
+  管理渲染管线所需的所有布局配置：
+  - 顶点布局
+  - 索引布局
+  - 绑定组名称列表
+  - 颜色目标格式
+  - 深度模板格式
+  - 图元状态
+  创建时通过bindgroup名称获取布局
+end note
+
+note right of FRenderPipelineLayout
+  渲染管线布局类
+  管理渲染管线所需的所有布局配置：
+  - 顶点布局
+  - 索引布局
+  - 绑定组名称列表
+  - 颜色目标格式
+  - 深度模板格式
+  - 图元状态
+  创建时通过bindgroup名称获取布局
+end note
+
+note right of FRenderPipeline
+  渲染管线类
+  包含完整的渲染管线配置：
+  - 渲染管线布局
+  - 顶点着色器名称
+  - 片段着色器名称
+end note
+
+note right of FComputePipelineLayout
+  计算管线布局类
+  管理计算管线所需的配置：
+  - 工作组大小
+  - 工作组数量
+end note
+
+note right of FComputePipeline
+  计算管线类
+  包含完整的计算管线配置：
+  - 计算管线布局
+  - 计算着色器名称
+  提供dispatch方法执行计算
+end note
+
+note right of FBindGroupLayout
+  提供绑定组布局描述的生成器
+  用于渲染管线创建时的布局配置
+end note
+
+' 着色器资源基类
+abstract class FShader extends FResource {
+  # code: string
+  # entryPoint: string
+  
+  + setCode(code: string): void
+  + setEntryPoint(name: string): void
+  + getShaderModule(): GPUShaderModule
+  # create(): void
+  # validateDesc(): boolean
+}
+
+' 渲染着色器
+class FRenderShader extends FShader {
+  - stage: "vertex" | "fragment"
+  
+  + getStage(): GPUShaderStageFlags
+  + getShaderStageDescriptor(): GPUProgrammableStage
+}
+
+' 计算着色器
+class FComputeShader extends FShader {
+  + getShaderStageDescriptor(): GPUProgrammableStage
+}
+
+note right of FShader
+  着色器资源抽象基类
+  管理着色器代码和入口点
+  提供着色器模块的创建和获取
+end note
+
+note right of FRenderShader
+  渲染着色器类
+  支持顶点和片段着色器
+  提供着色器阶段描述符
+end note
+
+note right of FComputeShader
+  计算着色器类
+  专用于计算管线
+  提供计算着色器描述符
+end note
+
+note right of FVertexBuffer
+  顶点缓冲区资源类
+  使用EVertexAttribute枚举添加属性
+  自动从类型推导格式和大小
+  支持：
+  - 标准顶点属性类型
+  - 自动布局计算
+  - 顶点数据更新
+  
+  预设布局：
+  - StaticMesh: 位置、法线、UV
+  - SkeletalMesh: 位置、法线、UV、骨骼、权重
+  - SpriteMesh: 位置、UV、颜色
+  - ParticleMesh: 位置、颜色、大小、旋转
+end note
+
+note right of EVertexAttribute
+  顶点属性类型枚举
+  定义常用的顶点属性类型：
+  - 2D/3D位置
+  - 法线、切线、副切线
+  - UV坐标
+  - 颜色
+  - 骨骼动画数据等
+end note
+
+note right of EUniformType
+  Uniform数据类型枚举
+  定义常用的Uniform数据类型：
+  - 标量：float, int, uint, bool
+  - 向量：float2/3/4, int2/3/4
+  - 矩阵：mat2x2, mat3x3, mat4x4
+  自动处理内存对齐
+end note
+
+note right of FUniformBuffer
+  Uniform缓冲区资源类
+  使用EUniformType枚举添加数据
+  自动处理数据布局和对齐
+  支持：
+  - 标准Uniform数据类型
+  - 自动偏移计算
+  - 类型安全的数据更新
+  
+  预设布局：
+  - TransformBuffer: 模型、视图、投影矩阵
+  - MaterialBuffer: 颜色、金属度、粗糙度等
+  - LightBuffer: 光照参数
+end note
+
+note right of EIndexFormat
+  索引缓冲区格式枚举
+  - UINT16: 16位无符号整数
+  - UINT32: 32位无符号整数
+  用于指定索引数据的存储格式
+end note
+
+note right of FIndexBuffer
+  索引缓冲区资源类
+  支持16位和32位索引格式
+  自动验证数据类型匹配
+  提供索引数量和格式信息
+end note
+
+note right of FBuffer
+  缓冲区资源基类
+  提供GPU数据交换接口：
+  - setData: 向GPU写入数据
+  - getData: 从GPU读取数据
+  支持：
+  - 直接数据传输
+  - GPU内存映射（可选）
+  - 数据验证
+  - 偏移和大小控制
+end note
+
+note right of FTexture
+  纹理资源抽象基类
+  定义基本的纹理接口：
+  - resize: 重新设置纹理大小
+  - setData: 更新纹理数据
+  - getView: 获取纹理视图
+  具体实现由子类完成
+end note
+
+note right of FTexture2D
+  2D纹理实现
+  提供完整的2D纹理功能：
+  - 支持动态调整大小
+  - Mipmap支持
+  - 多重采样
+  - 标准2D纹理视图
+  
+  预设类型：
+  - 深度纹理：用于深度测试
+  - 颜色附件：用于渲染目标
+  - 存储纹理：用于计算着色器读写
+  - 采样纹理：用于着色器采样
+  - 多重采样纹理：用于MSAA
+end note
+
+note right of FTexture3D
+  3D纹理实现
+  提供完整的3D纹理功能：
+  - 支持动态调整大小
+  - Mipmap支持
+  - 3D数据管理
+  - 体积纹理视图
+  
+  预设类型：
+  - 体积纹理：用于体积渲染
+  - LUT纹理：用于颜色查找表
+  - 噪声纹理：用于程序化生成
+end note
+
+note right of EResourceType
+  资源类型枚举
+  定义所有可创建的资源类型：
+  - 缓冲区类型
+  - 纹理类型
+  - 着色器类型
+  用于资源创建时的类型指定
+end note
+
+note right of EPipelineType
+  管线类型枚举
+  定义可创建的管线类型：
+  - 渲染管线
+  - 计算管线
+  用于管线创建时的类型指定
+end note
+
+@enduml
