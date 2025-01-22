@@ -2,449 +2,61 @@ import IModule from '../Core/IModule';
 import React from 'react';
 import FModuleManager from '../Core/FModuleManager';
 import ViewportCanvas from '../UI/Components/MainContent/ViewportCanvas';
-import { FResourceModule } from '../Resources/FResourceModule';
-import { EBufferUsage } from '../Resources/BaseResource/Buffer/FBuffer';
-import { EVertexFormat } from '../Resources/BaseResource/Buffer/FVertexBuffer';
-import TempCamera from './TempCamera';
-import { ETexture2DUsage } from '../Resources/BaseResource/Textures/FTexture2D';
-import { mat4 } from 'gl-matrix';
-import { FBindGroupLayout, FBindGroup } from '../Resources/BaseResource/BindGroup/FBindGroup';
+import { FSceneRenderer } from './FSceneRenderer';
+import FResourceManager from '../Core/Resource/FResourceManager';
 /**
  * 渲染器模块
  */
 class RendererModule extends IModule {
-    constructor(Config) {
+    constructor() {
         super();
-        this.canvas = null;
+        this.adapter = null;
         this.device = null;
+        this.canvas = null;
         this.context = null;
-        this.resourceModule = null;
-        
-        // 渲染资源
-        this.vertexBuffer = null;
-        this.indexBuffer = null;
-        this.uniformBuffer = null;
-        this.pipeline = null;
-        this.bindGroupLayout = null;
-        this.bindGroup = null;
-        
-        // 初始化标志
-        this.bResourcesInitialized = false;
-
-        //测试使用的摄像机
-        this.camera = new TempCamera();
-
-        // 添加立方体位置数组
-        this.cubePositions = [
-            [0, 0, 0],
-            [2, 0, -2],
-            [-2, 0, -2],
-            [2, 0, 2],
-            [-2, 0, 2],
-            [0, 2, 0],
-            [0, -2, 0]
-        ];
+        this.sceneRenderer = null;
+        this.moduleManager = FModuleManager.GetInstance();
+        this.bInitialized = false;
     }
 
-    /**
-     * 初始化WebGPU
-     * @private
-     */
-    async _initializeWebGPU() {
-        if (!navigator.gpu) {
-            throw new Error('WebGPU not supported');
-        }
-        
-        this.device = this.resourceModule.GetDevice();
-        
-        
-        this.context = this.canvas.getContext('webgpu');
-        const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-        
-        this.context.configure({
-            device: this.device,
-            format: canvasFormat,
-            alphaMode: 'premultiplied',
-        });
-    }
-
-    /**
-     * 创建渲染资源
-     * @private
-     */
-    async _createRenderResources() {
-        if (this.bResourcesInitialized) {
-            console.warn('RendererModule: Resources already initialized');
-            return;
-        }
-
-        // 立方体的顶点数据 (位置 + 颜色)
-        const vertices = new Float32Array([
-            // 前面 (红色)
-            -0.5, -0.5,  0.5,  1.0, 0.0, 0.0,
-             0.5, -0.5,  0.5,  1.0, 0.0, 0.0,
-             0.5,  0.5,  0.5,  1.0, 0.0, 0.0,
-            -0.5,  0.5,  0.5,  1.0, 0.0, 0.0,
-            
-            // 后面 (绿色)
-            -0.5, -0.5, -0.5,  0.0, 1.0, 0.0,
-            -0.5,  0.5, -0.5,  0.0, 1.0, 0.0,
-             0.5,  0.5, -0.5,  0.0, 1.0, 0.0,
-             0.5, -0.5, -0.5,  0.0, 1.0, 0.0,
-            
-            // 上面 (蓝色)
-            -0.5,  0.5,  0.5,  0.0, 0.0, 1.0,
-             0.5,  0.5,  0.5,  0.0, 0.0, 1.0,
-             0.5,  0.5, -0.5,  0.0, 0.0, 1.0,
-            -0.5,  0.5, -0.5,  0.0, 0.0, 1.0,
-            
-            // 下面 (黄色)
-            -0.5, -0.5, -0.5,  1.0, 1.0, 0.0,
-            -0.5, -0.5,  0.5,  1.0, 1.0, 0.0,
-             0.5, -0.5,  0.5,  1.0, 1.0, 0.0,
-             0.5, -0.5, -0.5,  1.0, 1.0, 0.0,
-            
-            // 右面 (紫色)
-             0.5, -0.5,  0.5,  1.0, 0.0, 1.0,
-             0.5,  0.5,  0.5,  1.0, 0.0, 1.0,
-             0.5,  0.5, -0.5,  1.0, 0.0, 1.0,
-             0.5, -0.5, -0.5,  1.0, 0.0, 1.0,
-            
-            // 左面 (青色)
-            -0.5, -0.5, -0.5,  0.0, 1.0, 1.0,
-            -0.5, -0.5,  0.5,  0.0, 1.0, 1.0,
-            -0.5,  0.5,  0.5,  0.0, 1.0, 1.0,
-            -0.5,  0.5, -0.5,  0.0, 1.0, 1.0,
-        ]);
-
-        // 立方体的索引数据
-        const indices = new Uint16Array([
-            0,  1,  2,  2,  3,  0,  // 前面
-            4,  5,  6,  6,  7,  4,  // 后面
-            8,  9,  10, 10, 11, 8,  // 上面
-            12, 13, 14, 14, 15, 12, // 下面
-            16, 17, 18, 18, 19, 16, // 右面
-            20, 21, 22, 22, 23, 20  // 左面
-        ]);
-
-        // 创建顶点缓冲区
-        this.vertexBuffer = this.resourceModule.CreateVertexBuffer({
-            name: 'CubeVertexBuffer',
-            size: vertices.byteLength,
-            stride: 24, // 6 * float32 (3 position + 3 color)
-            attributes: [
-                {
-                    name: 'position',
-                    format: EVertexFormat.FLOAT32X3,
-                    offset: 0
-                },
-                {
-                    name: 'color',
-                    format: EVertexFormat.FLOAT32X3,
-                    offset: 12
-                }
-            ],
-            usage: EBufferUsage.VERTEX | EBufferUsage.COPY_DST,
-            initialData: vertices
-        });
-
-        // 创建索引缓冲区
-        this.indexBuffer = this.resourceModule.CreateIndexBuffer({
-            name: 'CubeIndexBuffer',
-            size: indices.byteLength,
-            usage: EBufferUsage.INDEX | EBufferUsage.COPY_DST,
-            initialData: indices
-        });
-
-        // 创建 MVP 矩阵的 Uniform Buffer
-        this.uniformBuffer = this.resourceModule.CreateUniformBuffer({
-            name: 'CubeMVPBuffer',
-            size: 4 * 16 * 3, // 3个4x4矩阵
-            usage: EBufferUsage.UNIFORM | EBufferUsage.COPY_DST
-        });
-
-        // 设置绑定位置
-        this.uniformBuffer.setBindingLocation(0, 0);
-
-        // 直接创建绑定组布局
-        this.bindGroupLayout = new FBindGroupLayout(this.device, {
-            name: 'CubeBindGroupLayout',
-            entries: [
-                this.uniformBuffer.getBindGroupLayoutEntry()
-            ]
-        });
-
-        // 直接创建绑定组
-        this.bindGroup = new FBindGroup(this.device, {
-            name: 'CubeBindGroup',
-            layout: this.bindGroupLayout,
-            entries: [
-                this.uniformBuffer.getBindGroupEntry()
-            ]
-        });
-
-        // 修改着色器代码
-        const shader = `
-            struct Uniforms {
-                modelMatrix : mat4x4f,
-                viewMatrix : mat4x4f,
-                projectionMatrix : mat4x4f,
-            };
-            @binding(0) @group(0) var<uniform> uniforms : Uniforms;
-
-            struct VertexOutput {
-                @builtin(position) position : vec4f,
-                @location(0) color : vec4f,
-            }
-
-            @vertex
-            fn vertexMain(
-                @location(0) position : vec3f,
-                @location(1) color : vec3f
-            ) -> VertexOutput {
-                var output : VertexOutput;
-                output.position = uniforms.projectionMatrix * uniforms.viewMatrix * uniforms.modelMatrix * vec4f(position, 1.0);
-                output.color = vec4f(color, 1.0);
-                return output;
-            }
-
-            @fragment
-            fn fragmentMain(@location(0) color : vec4f) -> @location(0) vec4f {
-                return color;
-            }
-        `;
-
-        // 创建渲染管线
-        this.pipeline = this.resourceModule.CreateGraphicsPipeline({
-            name: 'CubePipeline',
-            layout: {
-                bindGroupLayouts: [this.bindGroupLayout]
-            },
-            graphics: {
-                vertexShader: shader,
-                fragmentShader: shader,
-                vertexBuffers: [this.vertexBuffer],
-                colorTargets: [{
-                    format: navigator.gpu.getPreferredCanvasFormat()
-                }],
-                topology: 'triangle-list',
-                cullMode: 'none',
-                depthStencil: {
-                    format: 'depth24plus',
-                    depthWriteEnabled: true,
-                    depthCompare: 'less'
-                }
-            }
-        });
-
-        this.bResourcesInitialized = true;
-
-        let texture = this.resourceModule.CreateTexture2D({
-            name: 'TestTexture',
-            width: 1024,
-            height: 1024,
-            format: 'rgba8unorm',
-            usage: ETexture2DUsage.STORAGE_BINDING
-        });
-        console.log(texture.GetGPUResource());
-        console.log(texture.GetView());
-        texture.ResizeTo(512, 512);
-        console.log(texture.GetGPUResource());
-        console.log(texture.GetView());
-
-    }
-
-    /**
-     * 渲染一帧
-     * @private
-     */
-    _render() {
-        // 获取相机矩阵（这些对所有立方体都是相同的）
-        const viewMatrix = this.camera.GetViewMatrix();
-        const projectionMatrix = this.camera.GetProjectionMatrix();
-
-        // 创建深度纹理（所有渲染命令共用）
-        const depthTexture = this.device.createTexture({
-            size: {
-                width: this.canvas.width,
-                height: this.canvas.height,
-                depthOrArrayLayers: 1
-            },
-            format: 'depth24plus',
-            usage: GPUTextureUsage.RENDER_ATTACHMENT
-        });
-
-        // 获取当前纹理视图（所有渲染命令共用）
-        const textureView = this.context.getCurrentTexture().createView();
-
-        // 为每个立方体创建单独的命令
-        for (let i = 0; i < this.cubePositions.length; i++) {
-            // 计算这个立方体的模型矩阵
-            const modelMatrix = mat4.create();
-            const pos = this.cubePositions[i];
-            
-            // 设置位置
-            mat4.translate(modelMatrix, modelMatrix, pos);
-            
-            // 添加旋转动画
-            const angle = performance.now() / 1000 * (1 + i * 0.1);
-            mat4.rotateY(modelMatrix, modelMatrix, angle);
-            mat4.rotateX(modelMatrix, modelMatrix, angle * 0.5);
-
-            // 更新这个立方体的矩阵
-            this.device.queue.writeBuffer(this.uniformBuffer.getGPUBuffer(), 0, modelMatrix);
-            this.device.queue.writeBuffer(this.uniformBuffer.getGPUBuffer(), 64, viewMatrix);
-            this.device.queue.writeBuffer(this.uniformBuffer.getGPUBuffer(), 128, projectionMatrix);
-
-            // 创建命令编码器
-            const commandEncoder = this.device.createCommandEncoder();
-
-            // 创建渲染通道
-            const renderPass = commandEncoder.beginRenderPass({
-                colorAttachments: [{
-                    view: textureView,
-                    clearValue: { r: 0.1, g: 0.2, b: 0.3, a: 1.0 },
-                    loadOp: i === 0 ? 'clear' : 'load',  // 只在第一个立方体时清除
-                    storeOp: 'store'
-                }],
-                depthStencilAttachment: {
-                    view: depthTexture.createView(),
-                    depthClearValue: 1.0,
-                    depthLoadOp: i === 0 ? 'clear' : 'load',  // 只在第一个立方体时清除
-                    depthStoreOp: 'store'
-                }
-            });
-
-            // 设置渲染管线和缓冲区
-            renderPass.setPipeline(this.pipeline.getGPUPipeline());
-            renderPass.setVertexBuffer(0, this.vertexBuffer.getGPUBuffer());
-            renderPass.setIndexBuffer(this.indexBuffer.getGPUBuffer(), 'uint16');
-            
-            // 设置绑定组并绘制这个立方体
-            renderPass.setBindGroup(0, this.bindGroup.getGPUBindGroup());
-            renderPass.drawIndexed(36);
-            
-            // 结束渲染通道
-            renderPass.end();
-
-            // 提交这个立方体的命令
-            this.device.queue.submit([commandEncoder.finish()]);
-        }
-
-        // 在所有命令提交后销毁深度纹理
-        depthTexture.destroy();
-    }
-
-    /**
-     * 初始化模块
-     * @returns {Promise<void>}
-     */
     async Initialize() {
-        if (this.bInitialized) {
-            console.warn('RendererModule already initialized');
-            return;
+        this.adapter = await navigator.gpu.requestAdapter();
+        this.device = await this.adapter.requestDevice();
+
+        if (!this.device) {
+            throw new Error('Failed to initialize WebGPU device');
         }
 
-        try {
-            const handleCanvasReady = async (canvas) => {
-
-                console.log(canvas);
-
-                this.canvas = canvas;
-                
-                // 初始化WebGPU
-                await this._initializeWebGPU();
-                
-                // 获取资源模块
-                this.resourceModule = FResourceModule.Get();
-                
-                // 创建渲染资源
-                await this._createRenderResources();
-            };
-
-            const handleCanvasResize = (canvas) => {
-                // 处理画布大小变化
-                if (this.context) {
-                    this.context.configure({
-                        device: this.device,
-                        format: navigator.gpu.getPreferredCanvasFormat(),
-                        alphaMode: 'premultiplied',
-                    });
-                }
-            };
-
-            const UIModel = FModuleManager.GetInstance().GetModule('UIModule');
-            const mainContentBuilder = UIModel.GetMainContentBuilder();
-            this.resourceModule = FResourceModule.Get();
-
-            // 添加 ViewportCanvas
-            mainContentBuilder.addComponent(
-                'viewport',
-                'ViewportCanvas2',
-                <ViewportCanvas
-                    onCanvasReady={handleCanvasReady}
-                    onResize={handleCanvasResize}
-                    canvasId="Normal"
-                />
-            );
-
-            const detailBuilder = UIModel.GetDetailBuilder();
-            this.camera.SetName('渲染模块摄像机');
-            this.camera.AddToDetailBuilder(detailBuilder);
-
-
-        } catch (Error) {
-            console.error('Failed to initialize RendererModule:', Error);
-            throw Error;
-        }
+        let UIModule = this.moduleManager.GetModule('UIModule');
+        let mainContent = UIModule.GetMainContentBuilder();
+        mainContent.addComponent(
+            'viewport',
+            'viewportCanvas2',
+            <ViewportCanvas
+                onResize={(width, height) => this.handleResize(width, height)}
+                onCanvasReady={(canvas) => this.handleCanvasReady(canvas)}
+                id="RendererModuleViewportCanvas"
+            />
+        );
+        FResourceManager.GetInstance().InitDevice(this.device);
+        this.sceneRenderer = new FSceneRenderer(this.device);
+        this.sceneRenderer.Initialize();
     }
 
-    /**
-     * 更新模块
-     * @param {number} DeltaTime - 时间增量（秒）
-     */
+    handleResize(width, height) {
+
+    }
+
+    handleCanvasReady(canvas) {
+      
+    }
+
     Update(DeltaTime) {
-        if (this.device && this.context && this.bResourcesInitialized) {
-            this._render();
-        }
+
     }
 
-    /**
-     * 关闭模块
-     * @returns {Promise<void>}
-     */
     async Shutdown() {
-        if (!this.bInitialized) return;
 
-        try {
-            // 清理资源
-            if (this.vertexBuffer) {
-                this.resourceModule.Release(this.vertexBuffer);
-            }
-            if (this.indexBuffer) {
-                this.resourceModule.Release(this.indexBuffer);
-            }
-            if (this.uniformBuffer) {
-                this.resourceModule.Release(this.uniformBuffer);
-            }
-            if (this.pipeline) {
-                this.resourceModule.Release(this.pipeline);
-            }
-            if (this.bindGroup) {
-                this.bindGroup.destroy();
-            }
-            if (this.bindGroupLayout) {
-                this.bindGroupLayout.destroy();
-            }
-            
-            this.device = null;
-            this.context = null;
-            this.bResourcesInitialized = false;
-            console.log('RendererModule shut down');
-        } catch (error) {
-            console.error('Error during RendererModule shutdown:', error);
-            throw error;
-        }
     }
 }
 

@@ -10,25 +10,36 @@ skinparam class {
 
 package "RDG" {
     class FRDGBuilder {
-        -passes: FRDGPass[]
+        -passes: Map<string, FRDGPass>
         -resources: Map<string, FRDGResource>
-        -resourceModule: FResourceModule
+        -resourceManager: FResourceManager
         +AddPass(name: string, desc: PassDescriptor): FRDGPass
-        +CreateTexture(desc: TextureDescriptor): FRDGTexture
-        +CreateBuffer(desc: BufferDescriptor): FRDGBuffer
+        +CreateTexture(name: string, desc: TextureDescriptor): FRDGTexture
+        +CreateBuffer(name: string, desc: BufferDescriptor): FRDGBuffer
+        +CreatePipeline(name: string, desc: PipelineDescriptor): FRDGPipeline
+        +CreateBindGroup(name: string, desc: BindGroupDescriptor): FRDGBindGroup
+        +GetResource(name: string): FRDGResource
+        +GetPass(name: string): FRDGPass
         +Execute(commandEncoder: GPUCommandEncoder)
         -BuildExecutionOrder(): FRDGPass[]
         -AllocateResources()
         -ExecutePasses(commandEncoder: GPUCommandEncoder)
+        +CreateShader(name: string, desc: ShaderDescriptor): FRDGShader
+        +CreateRenderState(name: string, desc: RenderStateDescriptor): FRDGRenderState
+        +ImportResource(name: string, resource: GPUResource): FRDGResource
+        +ExportResource(name: string): GPUResource
+        +ValidateGraph(): FRDGValidationError[]
     }
 
     class FRDGResource <<Resource>> {
         #name: string
         #desc: ResourceDescriptor
         #transient: boolean
-        #producers: Set<FRDGPass>
-        #consumers: Set<FRDGPass>
-        #gpuResource: FRenderResource
+        #producers: Map<string, FRDGPass>
+        #consumers: Map<string, FRDGPass>
+        #gpuResource: GPUResource
+        +GetName(): string
+        +GetGPUResource(): GPUResource
         +AddProducer(pass: FRDGPass)
         +AddConsumer(pass: FRDGPass)
         +IsTransient(): boolean
@@ -39,7 +50,7 @@ package "RDG" {
         -width: number
         -height: number
         -usage: GPUTextureUsageFlags
-        +CreateView(): GPUTextureView
+        +CreateView(desc?: GPUTextureViewDescriptor): GPUTextureView
     }
 
     class FRDGBuffer <<Resource>> {
@@ -48,51 +59,116 @@ package "RDG" {
         +GetBuffer(): GPUBuffer
     }
 
+    class FRDGPipeline <<Resource>> {
+        -type: "render" | "compute"
+        -layout: GPUPipelineLayout
+        -shaderModules: Map<string, GPUShaderModule>
+        +GetPipeline(): GPUPipeline
+    }
+
+    class FRDGBindGroup <<Resource>> {
+        -layout: GPUBindGroupLayout
+        -entries: GPUBindGroupEntry[]
+        +GetBindGroup(): GPUBindGroup
+    }
+
     class FRDGPass <<Pass>> {
         -name: string
-        -inputs: Set<FRDGResource>
-        -outputs: Set<FRDGResource>
+        -inputs: Map<string, FRDGResource>
+        -outputs: Map<string, FRDGResource>
+        -pipelines: Map<string, FRDGPipeline>
+        -bindGroups: Map<string, FRDGBindGroup>
         -executeFn: Function
-        -dependencies: Set<FRDGPass>
-        -meshProcessors: FMeshPassProcessor[]
-        +AddInput(resource: FRDGResource)
-        +AddOutput(resource: FRDGResource)
+        -dependencies: Map<string, FRDGPass>
+        -meshProcessors: Map<string, FMeshPassProcessor>
+        +GetName(): string
+        +AddInput(name: string, resource: FRDGResource)
+        +AddOutput(name: string, resource: FRDGResource)
+        +AddPipeline(name: string, pipeline: FRDGPipeline)
+        +AddBindGroup(name: string, bindGroup: FRDGBindGroup)
         +Execute(commandEncoder: GPUCommandEncoder)
-        +AddDependency(pass: FRDGPass)
-        +AddMeshProcessor(processor: FMeshPassProcessor)
+        +AddDependency(name: string, pass: FRDGPass)
+        +AddMeshProcessor(name: string, processor: FMeshPassProcessor)
+        +renderStates: Map<string, FRDGRenderState>
+        +barriers: Map<string, GPUMemoryBarrier>
+        +AddRenderState(name: string, state: FRDGRenderState)
+        +AddBarrier(name: string, barrier: GPUMemoryBarrier)
+        +ValidateResources(): boolean
     }
 
     class FMeshPassProcessor <<Processor>> {
-        -pipeline: FGraphicsPipelineState
-        -meshDrawCommands: FMeshDrawCommand[]
-        -viewUniformBuffer: FUniformBuffer
-        -objectUniformBuffer: FUniformBuffer
-        +ProcessMesh(mesh: FMesh)
+        -name: string
+        -pipeline: GPURenderPipeline
+        -meshDrawCommands: Map<string, FMeshDrawCommand>
+        -viewUniformBuffer: FRDGBuffer
+        -objectUniformBuffer: FRDGBuffer
+        +GetName(): string
+        +ProcessMesh(name: string, mesh: FMesh)
         +Draw(commandEncoder: GPUCommandEncoder)
         +SetupPipeline(desc: PipelineDescriptor)
-        +UpdateViewUniforms(view: FView)
-        +UpdateObjectUniforms(object: FObject)
+        +UpdateViewUniforms(data: any)
+        +UpdateObjectUniforms(name: string, data: any)
     }
 
     class FMeshDrawCommand {
-        -vertexBuffer: FVertexBuffer
-        -indexBuffer: FIndexBuffer
-        -instanceBuffer: FBuffer
-        -uniformBindGroup: FBindGroup
+        -name: string
+        -vertexBuffer: FRDGBuffer
+        -indexBuffer: FRDGBuffer
+        -instanceBuffer: FRDGBuffer
+        -uniformBindGroup: GPUBindGroup
         -indexCount: number
         -instanceCount: number
+        +GetName(): string
         +Setup(commandEncoder: GPUCommandEncoder)
         +Draw(commandEncoder: GPUCommandEncoder)
     }
 
     class FRDGGraph <<Graph>> {
-        -passes: FRDGPass[]
-        -resources: FRDGResource[]
-        +AddPass(pass: FRDGPass)
-        +AddResource(resource: FRDGResource)
+        -passes: Map<string, FRDGPass>
+        -resources: Map<string, FRDGResource>
+        +AddPass(name: string, pass: FRDGPass)
+        +AddResource(name: string, resource: FRDGResource)
+        +GetPass(name: string): FRDGPass
+        +GetResource(name: string): FRDGResource
         +BuildExecutionOrder(): FRDGPass[]
         -DetectCycles()
         -TopologicalSort(): FRDGPass[]
+    }
+
+    class FRDGShader <<Resource>> {
+        -type: "vertex" | "fragment" | "compute"
+        -code: string
+        -entryPoint: string
+        +GetShaderModule(): GPUShaderModule
+    }
+
+    class FRDGRenderState {
+        -colorTargets: GPUColorTargetState[]
+        -depthStencil?: GPUDepthStencilState
+        -primitive?: GPUPrimitiveState
+        -multisample?: GPUMultisampleState
+        +Configure(pipeline: GPURenderPipeline)
+    }
+
+    class FRDGResourceTransition {
+        -resource: FRDGResource
+        -oldLayout: GPUTextureLayout | GPUBufferUsage
+        -newLayout: GPUTextureLayout | GPUBufferUsage
+        -syncScope: GPUScopeFlags
+        +Apply(commandEncoder: GPUCommandEncoder)
+    }
+
+    class FRDGValidationError {
+        -code: number
+        -message: string
+        -source: string
+        -stack: string
+    }
+
+    interface IRDGValidator {
+        +ValidatePass(pass: FRDGPass): FRDGValidationError[]
+        +ValidateResource(resource: FRDGResource): FRDGValidationError[]
+        +ValidateGraph(graph: FRDGGraph): FRDGValidationError[]
     }
 }
 
@@ -100,18 +176,31 @@ package "RDG" {
 FRDGBuilder --> FRDGPass: creates
 FRDGBuilder --> FRDGResource: manages
 FRDGBuilder --> FRDGGraph: uses
+FRDGBuilder --> FResourceManager: uses
 
 FRDGResource <|-- FRDGTexture
 FRDGResource <|-- FRDGBuffer
+FRDGResource <|-- FRDGPipeline
+FRDGResource <|-- FRDGBindGroup
+FRDGResource <|-- FRDGShader
 
 FRDGPass --> FRDGResource: reads/writes
+FRDGPass --> FRDGPipeline: uses
+FRDGPass --> FRDGBindGroup: uses
 FRDGPass --> FRDGPass: depends on
 FRDGPass "1" *--> "0..*" FMeshPassProcessor: contains
 
 FMeshPassProcessor "1" *--> "0..*" FMeshDrawCommand: manages
-FMeshPassProcessor --> FGraphicsPipelineState: uses
+FMeshPassProcessor --> GPURenderPipeline: uses
 
 FRDGGraph --> FRDGPass: contains
 FRDGGraph --> FRDGResource: tracks
+
+FRDGPipeline --> FRDGShader: uses
+FRDGPipeline --> FRDGRenderState: configures
+
+FRDGPass --> FRDGResourceTransition: manages
+
+FRDGBuilder --> IRDGValidator: uses
 
 @enduml

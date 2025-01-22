@@ -15,6 +15,7 @@
     "GPUShaderStage": "readonly",
     "GPUMapMode": "readonly",
     "GPUPipelineStage": "readonly",
+    "GPUColorWrite": "readonly",
     "navigator": "readonly"
   }
 }

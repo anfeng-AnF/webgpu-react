@@ -1,0 +1,75 @@
+@startuml RenderingFlowGraph
+
+' Style settings
+skinparam rectangle {
+    BackgroundColor<<Input>> LightYellow
+    BackgroundColor<<Output>> LightGreen
+    BackgroundColor<<Process>> LightBlue
+    BackgroundColor<<Buffer>> LightPink
+}
+
+' Input resources
+rectangle "Scene Geometry" as Geometry <<Input>>
+rectangle "Material Data" as Materials <<Input>>
+rectangle "Camera Data" as Camera <<Input>>
+rectangle "Light Data" as Lights <<Input>>
+
+package "GBuffer" {
+    rectangle "GBuffer A (Normal)" as GBufferA <<Buffer>>
+    rectangle "GBuffer B (S,R,M)" as GBufferB <<Buffer>>
+    rectangle "GBuffer C (BaseColor)" as GBufferC <<Buffer>>
+    rectangle "GBuffer D (Additional)" as GBufferD <<Buffer>>
+    rectangle "GBuffer E (Additional)" as GBufferE <<Buffer>>
+    rectangle "Depth Buffer" as DepthBuffer <<Buffer>>
+}
+
+' Base Pass (Geometry Pass)
+package "Base Pass" {
+    rectangle "Base Pass" as BasePass <<Process>>
+}
+
+' Lighting Pass
+package "Lighting Pass" {
+    rectangle "Deferred Lighting" as DeferredLight <<Process>>
+    rectangle "Light Accumulation" as LightAccum <<Buffer>>
+}
+
+' Final Pass
+package "Final Pass" {
+    rectangle "Tone Mapping" as ToneMap <<Process>>
+}
+
+' Final output
+rectangle "Display Output" as Output <<Output>>
+
+' Flow connections
+Geometry --> BasePass
+Materials --> BasePass
+Camera --> BasePass
+
+BasePass --> GBufferA
+BasePass --> GBufferB
+BasePass --> GBufferC
+BasePass --> GBufferD
+BasePass --> GBufferE
+BasePass --> DepthBuffer
+BasePass --> DeferredLight
+
+Lights --> DeferredLight
+
+DeferredLight --> LightAccum
+LightAccum --> ToneMap
+ToneMap --> Output
+
+' Layout hints
+Geometry -[hidden]right-> Materials
+Materials -[hidden]right-> Camera
+Camera -[hidden]right-> Lights
+
+GBufferA -[hidden]right-> GBufferB
+GBufferB -[hidden]right-> GBufferC
+GBufferC -[hidden]right-> GBufferD
+GBufferD -[hidden]right-> GBufferE
+GBufferE -[hidden]right-> DepthBuffer
+
+@enduml 

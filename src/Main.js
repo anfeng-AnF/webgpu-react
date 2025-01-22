@@ -138,6 +138,7 @@ class Main {
 
             // 定义 resize 处理函数
             let handleCanvasResize = (width, height) => {
+                /*
                 if (!globals || !globals.canvas) {
                     console.log('Canvas not initialized yet');
                     return;
@@ -225,6 +226,7 @@ class Main {
                         `Canvas resized to ${newWidth}x${newHeight} (DPR: ${devicePixelRatio})`
                     );
                 }
+                    */
             };
 
             const handleCanvasReady = (canvasInfo) => {
