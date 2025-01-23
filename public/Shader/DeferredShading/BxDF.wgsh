@@ -1,0 +1,73 @@
+//这里是BxDF.wgsl
+//是一个函数库，用于计算光照
+
+// BxDF 上下文结构体
+struct BxDFContext {
+    NoV: f32,  // Normal dot View
+    NoL: f32,  // Normal dot Light
+    VoL: f32,  // View dot Light
+    NoH: f32,  // Normal dot Half
+    VoH: f32,  // View dot Half
+    XoV: f32,  // Tangent dot View
+    XoL: f32,  // Tangent dot Light
+    XoH: f32,  // Tangent dot Half
+    YoV: f32,  // Bitangent dot View
+    YoL: f32,  // Bitangent dot Light
+    YoH: f32,  // Bitangent dot Half
+};
+
+// 基础初始化函数 - 只使用法线
+fn InitBxDFContext(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>) -> BxDFContext {
+    var Context: BxDFContext;
+    
+    Context.NoL = dot(N, L);
+    Context.NoV = dot(N, V);
+    Context.VoL = dot(V, L);
+    
+    let InvLenH = inverseSqrt(2.0 + 2.0 * Context.VoL);
+    Context.NoH = saturate((Context.NoL + Context.NoV) * InvLenH);
+    Context.VoH = saturate(InvLenH + InvLenH * Context.VoL);
+    
+    // 初始化切线空间的点积为0
+    Context.XoV = 0.0;
+    Context.XoL = 0.0;
+    Context.XoH = 0.0;
+    Context.YoV = 0.0;
+    Context.YoL = 0.0;
+    Context.YoH = 0.0;
+    
+    return Context;
+}
+
+// 完整初始化函数 - 使用法线、切线和副切线
+fn InitBxDFContextWithTangent(N: vec3<f32>, X: vec3<f32>, Y: vec3<f32>, V: vec3<f32>, L: vec3<f32>) -> BxDFContext {
+    var Context: BxDFContext;
+    
+    Context.NoL = dot(N, L);
+    Context.NoV = dot(N, V);
+    Context.VoL = dot(V, L);
+    
+    let InvLenH = inverseSqrt(2.0 + 2.0 * Context.VoL);
+    Context.NoH = saturate((Context.NoL + Context.NoV) * InvLenH);
+    Context.VoH = saturate(InvLenH + InvLenH * Context.VoL);
+    
+    // 计算切线空间的点积
+    Context.XoV = dot(X, V);
+    Context.XoL = dot(X, L);
+    Context.XoH = (Context.XoL + Context.XoV) * InvLenH;
+    Context.YoV = dot(Y, V);
+    Context.YoL = dot(Y, L);
+    Context.YoH = (Context.YoL + Context.YoV) * InvLenH;
+    
+    return Context;
+}
+
+// 辅助函数：饱和度处理
+fn saturate(x: f32) -> f32 {
+    return clamp(x, 0.0, 1.0);
+}
+
+// 辅助函数：平方根倒数
+fn inverseSqrt(x: f32) -> f32 {
+    return 1.0 / sqrt(x);
+}

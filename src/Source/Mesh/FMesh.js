@@ -1,66 +1,142 @@
-/**
- * 网格类型枚举
- */
-export const EMeshType = {
-    Static: 'Static',         // 静态网格体
-    Skeletal: 'Skeletal',     // 骨骼网格体
-    Instanced: 'Instanced',   // 实例化网格体
-};
+import { IMesh } from './IMesh.js';
+import { EMeshType } from './EMeshType.js';
 
 /**
- * 基础网格类
+ * Abstract base class for all mesh types
+ * @abstract
+ * @implements {IMesh}
  */
-class FMesh {
-    #Type;              // 网格类型
-    #IsVisible = true;  // 可见性
-    #IsTransparent = false; // 是否透明
-    #VertexBuffer;      // 顶点缓冲
-    #IndexBuffer;       // 索引缓冲
-    #IndexCount;        // 索引数量
-    #IndexBindGroup;    // 包含网格索引的绑定组
-    #MeshIndex;         // 在变换缓冲区中的索引
+class FMesh extends IMesh{
+    constructor() {
+        super();
+        // 几何数据
+        /** @type {GPUBuffer} */
+        this.vertexBuffer = null;
+        /** @type {GPUBuffer} */
+        this.indexBuffer = null;
+        /** @type {number} */
+        this.vertexCount = 0;
+        /** @type {number} */
+        this.indexCount = 0;
+        /** @type {Float32Array} */
+        this.transform = new Float32Array(16); // 4x4 matrix
+        /** @type {BoundingBox} */
+        this.boundingBox = null;
+        /** @type {number} */
+        this.meshIndex = -1;
+        /** @type {EMeshType} */
+        this.meshType = null;
 
-    constructor(InType) {
-        this.#Type = InType;
+        // 材质
+        /** @type {Material} */
+        this.material = null;
     }
 
-    get Type() { return this.#Type; }
-    get IsVisible() { return this.#IsVisible; }
-    get IsTransparent() { return this.#IsTransparent; }
-    get VertexBuffer() { return this.#VertexBuffer; }
-    get IndexBuffer() { return this.#IndexBuffer; }
-    get IndexCount() { return this.#IndexCount; }
-    get IndexBindGroup() { return this.#IndexBindGroup; }
-    get MeshIndex() { return this.#MeshIndex; }
-
-    set IsVisible(Value) { this.#IsVisible = Value; }
-    set IsTransparent(Value) { this.#IsTransparent = Value; }
-
     /**
-     * 设置网格数据
-     * @param {GPUBuffer} InVertexBuffer 顶点缓冲
-     * @param {GPUBuffer} InIndexBuffer 索引缓冲
-     * @param {number} InIndexCount 索引数量
-     * @param {GPUBindGroup} InIndexBindGroup 包含网格索引的绑定组
-     * @param {number} InMeshIndex 在变换缓冲区中的索引
+     * @inheritdoc
      */
-    SetMeshData(InVertexBuffer, InIndexBuffer, InIndexCount, InIndexBindGroup, InMeshIndex) {
-        this.#VertexBuffer = InVertexBuffer;
-        this.#IndexBuffer = InIndexBuffer;
-        this.#IndexCount = InIndexCount;
-        this.#IndexBindGroup = InIndexBindGroup;
-        this.#MeshIndex = InMeshIndex;
+    GetVertexBuffer() {
+        return this.vertexBuffer;
     }
 
     /**
-     * 销毁网格资源
+     * @inheritdoc
+     */
+    GetIndexBuffer() {
+        return this.indexBuffer;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    GetIndexCount() {
+        return this.indexCount;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    GetMeshIndex() {
+        return this.meshIndex;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    GetMeshType() {
+        return this.meshType;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    GetTransform() {
+        return this.transform;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    GetMaterial() {
+        return this.material;
+    }
+
+    /**
+     * Create vertex buffer
+     * @protected
+     * @abstract
+     */
+    CreateVertexBuffer() {
+        throw new Error('CreateVertexBuffer() must be implemented');
+    }
+
+    /**
+     * Create index buffer
+     * @protected
+     * @abstract
+     */
+    CreateIndexBuffer() {
+        throw new Error('CreateIndexBuffer() must be implemented');
+    }
+
+    /**
+     * @inheritdoc
+     */
+    Update() {
+        // 子类可以覆盖此方法以提供自定义更新逻辑
+    }
+
+    /**
+     * @inheritdoc
      */
     Destroy() {
-        // 由资源管理器处理具体的资源销毁
-        this.#VertexBuffer = null;
-        this.#IndexBuffer = null;
-        this.#IndexBindGroup = null;
+        // 销毁GPU资源
+        this.vertexBuffer?.destroy();
+        this.indexBuffer?.destroy();
+        
+        // 清除引用
+        this.vertexBuffer = null;
+        this.indexBuffer = null;
+        this.material = null;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    SetTransform(matrix) {
+        // 确保输入是正确的大小
+        if (matrix.length !== 16) {
+            throw new Error('Transform matrix must be 4x4 (16 elements)');
+        }
+        
+        // 如果输入是普通数组，转换为Float32Array
+        if (Array.isArray(matrix)) {
+            this.transform.set(matrix);
+        } else {
+            // 如果已经是 TypedArray，直接复制
+            this.transform.set(matrix);
+        }
     }
 }
 
-export default FMesh; 
+export { FMesh }; 

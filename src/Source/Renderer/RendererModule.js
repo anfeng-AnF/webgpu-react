@@ -4,6 +4,7 @@ import FModuleManager from '../Core/FModuleManager';
 import ViewportCanvas from '../UI/Components/MainContent/ViewportCanvas';
 import { FSceneRenderer } from './FSceneRenderer';
 import FResourceManager from '../Core/Resource/FResourceManager';
+import InitDefaultPipeline from './InitResource/DeferredRendering/InitDefaultPipeline';
 /**
  * 渲染器模块
  */
@@ -44,11 +45,11 @@ class RendererModule extends IModule {
     }
 
     handleResize(width, height) {
-
+        this.sceneRenderer.OnResize(width, height);
     }
 
     handleCanvasReady(canvas) {
-      
+        this.sceneRenderer.InitCanvas(canvas);
     }
 
     Update(DeltaTime) {

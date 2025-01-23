@@ -1,0 +1,249 @@
+@startuml Meshs
+
+' 枚举
+enum EMeshType {
+    Static
+    Skeletal
+    Instanced
+}
+
+' 基础接口和抽象类
+interface IMesh {
+    ' 几何数据
+    + GetVertexBuffer(): GPUBuffer
+    + GetIndexBuffer(): GPUBuffer
+    + GetIndexCount(): number
+    + GetMeshIndex(): number
+    + GetMeshType(): EMeshType
+    + GetTransform(): mat4
+    + SetTransform(matrix: mat4)
+    
+    ' 渲染资源
+    + GetMaterial(): Material
+    
+    ' 生命周期
+    + Update()
+    + Destroy()
+}
+
+abstract class AMesh {
+    ' 几何数据
+    # vertexBuffer: GPUBuffer
+    # indexBuffer: GPUBuffer
+    # vertexCount: number
+    # indexCount: number
+    # transform: mat4
+    # boundingBox: BoundingBox
+    # meshIndex: number
+    # meshType: EMeshType
+    
+    ' 渲染资源
+    # material: Material
+    
+    + GetVertexBuffer(): GPUBuffer
+    + GetIndexBuffer(): GPUBuffer
+    + GetIndexCount(): number
+    + GetMeshIndex(): number
+    + GetMeshType(): EMeshType
+    + GetTransform(): mat4
+    + SetTransform(matrix: mat4)
+    + GetMaterial(): Material
+    
+    + Update()
+    + Destroy()
+    # CreateVertexBuffer()
+    # CreateIndexBuffer()
+}
+
+' 具体Mesh类
+class StaticMesh {
+    - vertices: Float32Array  ' Position(12) + Normal(12) + Tangent(12) + UV0(8) + UV1(8) + UV2(8) + UV3(8)
+    - indices: Uint32Array
+    + StaticMesh(vertices: Float32Array, indices: Uint32Array)
+    + GetMeshType(): EMeshType.Static
+    + static CreateCube(width: number, height: number, depth: number): StaticMesh
+    + static CreateSphere(radius: number, segments: number): StaticMesh
+}
+
+class SkeletalMesh {
+    - vertices: Float32Array  ' StaticMesh顶点数据(60) + BoneIndices(4) + BoneWeights(16)
+    - indices: Uint32Array
+    - bones: Array<Bone>
+    - skeleton: Skeleton
+    - boneMatrices: Float32Array
+    - boneBuffer: GPUBuffer
+    + SkeletalMesh(vertices: Float32Array, indices: Uint32Array, skeleton: Skeleton)
+    + UpdateBoneMatrices()
+    + GetBoneBuffer(): GPUBuffer
+    + GetMeshType(): EMeshType.Skeletal
+}
+
+' 批处理相关类
+class MeshBatch {
+    - meshes: Array<IMesh>
+    - material: Material
+    - transformBuffer: GPUBuffer
+    - transformData: Float32Array
+    - meshCount: number
+    - meshType: EMeshType
+    - pipelineStates: Map<string, GPUPipelineState>
+    - bindGroups: Map<string, GPUBindGroup>
+    
+    ' 只保留必要的公共接口
+    + GetMeshType(): EMeshType
+    + GetMeshCount(): number
+    + SetBindGroup(passName: string, bindGroup: GPUBindGroup)
+    
+    ' 渲染相关
+    + Draw(passEncoder: GPURenderPassEncoder, passName: string)
+    + Update()
+    + Destroy()
+    
+    ' 私有方法
+    - UpdateTransformBuffer()
+    - SetupDrawState(passEncoder: GPURenderPassEncoder, passName: string)
+    - GetMaterial(): Material
+    - GetPipelineState(passName: string): GPUPipelineState
+    - GetTransformBuffer(): GPUBuffer
+    - GetBindGroup(passName: string): GPUBindGroup
+}
+
+class FMeshBatchBuilder {
+    - static TRANSFORM_ALIGNMENT: number
+    + static BuildBatches(meshes: Array<IMesh>): Array<MeshBatch>
+    - static GroupByMaterialAndType(meshes: Array<IMesh>): Map<string, Array<IMesh>>
+    - static CreateBatch(meshes: Array<IMesh>, material: Material, type: EMeshType): MeshBatch
+    - static CreateTransformBuffer(meshes: Array<IMesh>): GPUBuffer
+}
+
+' 渲染器相关类
+class FRenderer {
+    - passes: Map<string, FPass>
+    - meshes: Array<IMesh>
+    - meshBatches: Array<MeshBatch>
+    + AddMesh(mesh: IMesh)
+    + RemoveMesh(mesh: IMesh)
+    + Render(commandEncoder: GPUCommandEncoder)
+    - UpdateBatches()
+}
+
+' 渲染相关类
+class FEarlyZPass {
+    - uniformBuffer: GPUBuffer
+    - alignedSize: number
+    - resourceManager: FResourceManager
+    + Execute(commandEncoder: GPUCommandEncoder, meshBatches: Array<MeshBatch>)
+    - SetupBindGroups(batch: MeshBatch)
+}
+
+' 辅助类
+class Bone {
+    - name: string
+    - index: number
+    - localMatrix: mat4
+    - worldMatrix: mat4
+    - parent: Bone
+    - children: Array<Bone>
+    + UpdateWorldMatrix()
+}
+
+class Skeleton {
+    - bones: Map<string, Bone>
+    - rootBones: Array<Bone>
+    - bindPose: Array<mat4>
+    + UpdatePose()
+    + GetBoneMatrices(): Float32Array
+}
+
+class BoundingBox {
+    - min: vec3
+    - max: vec3
+    + Update(vertices: Float32Array)
+    + Merge(other: BoundingBox)
+}
+
+' 关系定义
+IMesh <|.. AMesh
+AMesh <|-- StaticMesh
+AMesh <|-- SkeletalMesh
+
+SkeletalMesh o-- Skeleton
+Skeleton o-- Bone
+Bone o-- Bone
+
+AMesh o-- BoundingBox
+MeshBatch o-- "*" IMesh: meshes
+MeshBatch o-- "1" Material
+MeshBatch o-- "1" GPURenderPipeline
+
+FRenderer o-- "*" IMesh: meshes
+FRenderer o-- "*" MeshBatch: batches
+FEarlyZPass ..> MeshBatch: uses
+IMesh ..> EMeshType: uses
+
+note right of StaticMesh
+  Vertex Layout (60 bytes):
+  - Position: float32x3
+  - Normal: float32x3
+  - Tangent: float32x3
+  - UV0: float32x2
+  - UV1: float32x2
+  - UV2: float32x2
+  - UV3: float32x2
+end note
+
+note right of SkeletalMesh
+  Vertex Layout (80 bytes):
+  - StaticMesh Layout (60 bytes)
+  - BoneIndices: uint8x4
+  - BoneWeights: float32x4
+end note
+
+note right of MeshBatch
+  批处理职责:
+  1. 管理相同材质和类型的Mesh集合
+  2. 维护渲染状态(Pipeline, BindGroups)
+  3. 管理共享的GPU资源(Transform Buffer)
+  4. 自主执行批量渲染指令
+  5. 管理资源生命周期
+end note
+
+note right of MeshBatch::Draw
+  渲染流程:
+  1. 获取当前Pass的Pipeline和BindGroups
+  2. 设置渲染状态
+  3. 设置共享资源(Transform Buffer等)
+  4. 执行绘制命令
+end note
+
+note right of FMeshBatchBuilder
+  批处理策略:
+  1. 按材质分组
+  2. 按Mesh类型分组
+  3. 创建共享资源
+  4. 设置渲染状态
+end note
+
+note right of FEarlyZPass
+  Binding Layout:
+  Group 0: Scene Data
+  Group 1: Transform Matrices (Storage)
+  Group 2: Material Data
+  Group 3: Bone Data (Optional)
+end note
+
+note right of IMesh
+  渲染资源管理:
+  1. Material - 材质数据
+  2. PipelineState - 不同Pass的渲染管线状态
+  3. BindGroup - 不同Pass的资源绑定
+end note
+
+note right of AMesh
+  资源创建职责:
+  1. 几何数据缓冲区
+  2. Pass相关的BindGroup
+  3. 管理资源生命周期
+end note
+
+@enduml

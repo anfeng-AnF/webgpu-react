@@ -1,12 +1,12 @@
 import FResourceManager from '../../Core/Resource/FResourceManager.js';
 
 /**
- * Pass资源依赖类型枚举
+ * Pass 资源类型枚举
  */
-const EPassDependencyType = {
-    Input: 'Input',      // 输入资源
-    Output: 'Output',    // 输出资源
-    Temporary: 'Temp'    // 临时资源(Pass内部使用)
+export const EPassResourceType = {
+    Input: 'Input',       // 输入资源
+    Output: 'Output',     // 输出资源
+    Fixed: 'Fixed'        // 固定资源(Pipeline、BindGroup等)
 };
 
 /**
@@ -14,91 +14,126 @@ const EPassDependencyType = {
  * 用于描述渲染通道的资源依赖关系
  */
 class FPass {
-    #Name;                  // Pass名称
-    #Dependencies;          // 资源依赖映射
-    #ResourceManager;       // 资源管理器引用
-    
+    #Name;                   // Pass名称
+    #InputResources = [];     // 输入资源数组
+    #OutputResources = [];    // 输出资源数组
+    #FixedResources = [];     // 固定资源数组(Pipeline、BindGroup等)
+    #ResourceManager;
+
     constructor(InName) {
         this.#Name = InName;
-        this.#Dependencies = new Map();
         this.#ResourceManager = FResourceManager.GetInstance();
     }
 
     /**
-     * 添加资源依赖
-     * @param {string} InResourceName 资源名称
-     * @param {EPassDependencyType} InDependencyType 依赖类型
-     * @param {Object} InMetadata 额外的元数据信息
+     * 添加输入资源
+     * @param {string} InName 资源名称
+     * @param {Object} InDesc 资源描述
      */
-    AddDependency(InResourceName, InDependencyType, InMetadata = {}) {
-        this.#Dependencies.set(InResourceName, {
-            Type: InDependencyType,
-            Metadata: InMetadata
+    AddInputResource(InName, InDesc = {}) {
+        this.#InputResources.push({
+            Name: InName,
+            Description: InDesc.Description || '',
+            Resource: null
         });
     }
-    /*
-     * 移除资源依赖
-     * @param {string} InResourceName 资源名称
-     */
-    RemoveDependency(InResourceName) {
-        this.#Dependencies.delete(InResourceName);
-    }
+
     /**
-     * 获取资源实例
-     * @param {string} InResourceName 资源名称
-     * @returns {GPUResource|null} GPU资源实例
+     * 添加输出资源
+     * @param {string} InName 资源名称
+     * @param {Object} InDesc 资源描述
      */
-    GetResource(InResourceName) {
-        if (!this.#Dependencies.has(InResourceName)) {
-            console.warn(`Pass "${this.#Name}" tries to access undeclared resource "${InResourceName}"`);
-            return null;
+    AddOutputResource(InName, InDesc = {}) {
+        this.#OutputResources.push({
+            Name: InName,
+            Description: InDesc.Description || '',
+            Resource: null
+        });
+    }
+
+    /**
+     * 添加固定资源
+     * @param {string} InName 资源名称
+     * @param {Object} InDesc 资源描述
+     */
+    AddFixedResource(InName, InDesc = {}) {
+        this.#FixedResources.push({
+            Name: InName,
+            Description: InDesc.Description || '',
+            Resource: null
+        });
+    }
+
+    /**
+     * 设置资源
+     * @param {string} InName 资源名称
+     * @param {GPUResource} InResource GPU资源
+     * @param {EPassResourceType} InType 资源类型
+     */
+    SetResource(InName, InResource, InType) {
+        let resourceArray;
+        switch (InType) {
+            case EPassResourceType.Input:
+                resourceArray = this.#InputResources;
+                break;
+            case EPassResourceType.Output:
+                resourceArray = this.#OutputResources;
+                break;
+            case EPassResourceType.Fixed:
+                resourceArray = this.#FixedResources;
+                break;
+            default:
+                console.error(`Unknown resource type: ${InType}`);
+                return;
         }
-        return this.#ResourceManager.GetResource(InResourceName);
-    }
 
-    /**
-     * 获取所有依赖资源信息
-     * @returns {Map} 依赖资源映射
-     */
-    GetDependencies() {
-        return this.#Dependencies;
-    }
-
-    /**
-     * 获取特定类型的依赖资源
-     * @param {EPassDependencyType} InType 依赖类型
-     * @returns {Array} 资源名称列表
-     */
-    GetDependenciesByType(InType) {
-        const Resources = [];
-        for (const [Name, Info] of this.#Dependencies) {
-            if (Info.Type === InType) {
-                Resources.push(Name);
-            }
+        const resource = resourceArray.find(r => r.Name === InName);
+        if (resource) {
+            resource.Resource = InResource;
+        } else {
+            console.warn(`Resource "${InName}" not found in ${this.#Name}`);
         }
-        return Resources;
     }
 
     /**
-     * 验证资源依赖是否都存在
-     * @returns {boolean} 是否所有依赖都有效
+     * 获取资源
+     * @param {string} InName 资源名称
+     * @returns {GPUResource|null} GPU资源
      */
-    ValidateDependencies() {
-        for (const [Name] of this.#Dependencies) {
-            if (!this.#ResourceManager.HasResource(Name)) {
-                console.error(`Missing required resource "${Name}" for pass "${this.#Name}"`);
-                return false;
-            }
-        }
-        return true;
+    GetResource(InName) {
+        const resource = 
+            this.#InputResources.find(r => r.Name === InName) ||
+            this.#OutputResources.find(r => r.Name === InName) ||
+            this.#FixedResources.find(r => r.Name === InName);
+        
+        return resource ? resource.Resource : null;
     }
 
     /**
-     * 执行Pass
-     * 子类需要重写此方法实现具体的渲染逻辑
-     * @param {GPUCommandEncoder} InCommandEncoder 命令编码器
+     * 验证所有资源是否就绪
+     * @returns {boolean} 是否所有资源都已就绪
      */
-    Execute(InCommandEncoder) {
+    ValidateResources() {
+        const validateArray = (array) => {
+            return array.every(r => {
+                if (!r.Resource) {
+                    console.warn(`Resource "${r.Name}" not set in ${this.#Name}`);
+                    return false;
+                }
+                return true;
+            });
+        };
+
+        return validateArray(this.#InputResources) && 
+               validateArray(this.#OutputResources) &&
+               validateArray(this.#FixedResources);
+    }
+
+    /**
+     * 执行渲染通道
+     * @abstract
+     */
+    Execute() {
         throw new Error('Execute() must be implemented by subclass');
     }
 
@@ -110,4 +145,4 @@ class FPass {
     }
 }
 
-export { FPass as default, EPassDependencyType }; 
+export default FPass; 

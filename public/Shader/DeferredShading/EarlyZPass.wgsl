@@ -1,17 +1,4 @@
-// 场景数据
-struct SceneData {
-    viewProj: mat4x4<f32>
-};
-
-// 所有网格的变换矩阵
-struct ModelMatrices {
-    matrices: array<mat4x4<f32>>
-};
-
-// 网格索引
-struct MeshIndex {
-    index: u32
-};
+#include "SceneData.wgsh"
 
 // 骨骼数据
 struct BoneMatrices {
@@ -19,10 +6,7 @@ struct BoneMatrices {
 };
 
 // 绑定组
-@group(0) @binding(0) var<uniform> scene: SceneData;
-@group(1) @binding(0) var<storage> modelMatrices: ModelMatrices;
-@group(2) @binding(0) var<uniform> meshIndex: MeshIndex;
-@group(3) @binding(0) var<storage> boneMatrices: BoneMatrices;
+@group(1) @binding(0) var<storage> boneMatrices: BoneMatrices;
 
 // 顶点着色器输出
 struct VertexOutput {
@@ -35,17 +19,11 @@ fn vsStaticMesh(
     @location(0) position: vec3<f32>
 ) -> VertexOutput {
     var output: VertexOutput;
-    let worldPos = modelMatrices.matrices[meshIndex.index] * vec4(position, 1.0);
-    output.position = scene.viewProj * worldPos;
+    output.position = GetClipPosition(position);
     return output;
 }
 
 // 骨骼网格顶点着色器
-struct BoneData {
-    weights: vec4<f32>,
-    indices: vec4<u32>
-};
-
 @vertex
 fn vsSkeletalMesh(
     @location(0) position: vec3<f32>,
@@ -73,10 +51,7 @@ fn vsSkeletalMesh(
         skinnedPosition = position;
     }
 
-    // 应用模型变换和视图投影变换
-    let worldPos = modelMatrices.matrices[meshIndex.index] * vec4(skinnedPosition, 1.0);
-    output.position = scene.viewProj * worldPos;
-    
+    output.position = GetClipPosition(skinnedPosition);
     return output;
 }
 
@@ -87,9 +62,7 @@ fn vsInstancedMesh(
     @builtin(instance_index) instanceIndex: u32
 ) -> VertexOutput {
     var output: VertexOutput;
-    // 实例化渲染时，使用 instanceIndex 作为偏移
-    let worldPos = modelMatrices.matrices[meshIndex.index + instanceIndex] * vec4(position, 1.0);
-    output.position = scene.viewProj * worldPos;
+    output.position = GetClipPosition(position);
     return output;
 }
 

@@ -1,0 +1,61 @@
+// 场景矩阵结构体
+struct SceneMatrices {
+    model: mat4x4f,              
+    modelInverse: mat4x4f,       
+    modelView: mat4x4f,          
+    modelViewInverse: mat4x4f,   
+    modelViewProjection: mat4x4f, 
+    view: mat4x4f,               
+    projection: mat4x4f,         
+    viewProjection: mat4x4f,     
+    viewInverse: mat4x4f,        
+    projectionInverse: mat4x4f,  
+    viewProjectionInverse: mat4x4f
+};
+
+// 相机属性结构体
+struct CameraAttributes {
+    position: vec3f,    
+    direction: vec3f,   
+    up: vec3f,         
+    right: vec3f,      
+    aspect: f32        
+};
+
+// 场景参数结构体
+struct SceneParameters {
+    time: vec2f,      
+};
+
+// 场景数据绑定组
+@group(0) @binding(0) var<uniform> matrices: SceneMatrices;
+@group(0) @binding(1) var<uniform> camera: CameraAttributes;
+@group(0) @binding(2) var<uniform> scene: SceneParameters;
+
+// 常用的变换函数
+fn GetWorldPosition(localPosition: vec3f) -> vec3f {
+    return (matrices.model * vec4f(localPosition, 1.0)).xyz;
+}
+
+fn GetViewPosition(localPosition: vec3f) -> vec3f {
+    return (matrices.modelView * vec4f(localPosition, 1.0)).xyz;
+}
+
+fn GetClipPosition(localPosition: vec3f) -> vec4f {
+    return matrices.modelViewProjection * vec4f(localPosition, 1.0);
+}
+
+fn GetWorldNormal(localNormal: vec3f) -> vec3f {
+    return normalize((matrices.modelInverse * vec4f(localNormal, 0.0)).xyz);
+}
+
+fn GetViewNormal(localNormal: vec3f) -> vec3f {
+    return normalize((matrices.modelViewInverse * vec4f(localNormal, 0.0)).xyz);
+}
+
+// 视图空间深度计算
+fn GetLinearDepth(clipSpaceZ: f32) -> f32 {
+    let near = camera.position.z - camera.direction.z;
+    let far = camera.position.z + camera.direction.z;
+    return (2.0 * near * far) / (far + near - clipSpaceZ * (far - near));
+} 

@@ -708,26 +708,73 @@ class Main {
                         const initialHeight = canvasInfo.clientHeight || 600; // 提供默认值
                         handleCanvasResize(initialWidth, initialHeight);
 
-                        function createViewMatrix() {
-                            return new Float32Array([
-                                1,
-                                0,
-                                0,
-                                0,
-                                0,
-                                1,
-                                0,
-                                0,
-                                0,
-                                0,
-                                1,
-                                0,
-                                -cameraState.position[0],
-                                -cameraState.position[1],
-                                -cameraState.position[2],
-                                1,
-                            ]);
+                        function degToRad(degrees) {
+                            return degrees * Math.PI / 180;
                         }
+                        
+                        function createViewMatrix() {
+                            const rotation = cameraState.rotation;  // [yaw, pitch, roll] or [x, y, z]
+                            const [yaw, pitch, roll] = rotation.map(degToRad);  // 转换为弧度
+                        
+                            // 计算绕 X 轴的旋转矩阵 (Pitch)
+                            const rotationX = new Float32Array([
+                                1, 0, 0, 0,
+                                0, Math.cos(pitch), -Math.sin(pitch), 0,
+                                0, Math.sin(pitch), Math.cos(pitch), 0,
+                                0, 0, 0, 1,
+                            ]);
+                        
+                            // 计算绕 Y 轴的旋转矩阵 (Yaw)
+                            const rotationY = new Float32Array([
+                                Math.cos(yaw), 0, Math.sin(yaw), 0,
+                                0, 1, 0, 0,
+                                -Math.sin(yaw), 0, Math.cos(yaw), 0,
+                                0, 0, 0, 1,
+                            ]);
+                        
+                            // 计算绕 Z 轴的旋转矩阵 (Roll)
+                            const rotationZ = new Float32Array([
+                                Math.cos(roll), -Math.sin(roll), 0, 0,
+                                Math.sin(roll), Math.cos(roll), 0, 0,
+                                0, 0, 1, 0,
+                                0, 0, 0, 1,
+                            ]);
+                        
+                            // 组合旋转矩阵：先绕 Y 轴，再绕 X 轴，最后绕 Z 轴
+                            const rotationMatrix = multiplyMatrices(rotationY, multiplyMatrices(rotationX, rotationZ));
+                        
+                            // 计算视图矩阵，结合平移和旋转
+                            const viewMatrix = new Float32Array(16);
+                            // 这里设置旋转矩阵的前 12 个值
+                            for (let i = 0; i < 12; i++) {
+                                viewMatrix[i] = rotationMatrix[i];
+                            }
+                        
+                            // 设置平移部分（位置）
+                            viewMatrix[12] = -cameraState.position[0];
+                            viewMatrix[13] = -cameraState.position[1];
+                            viewMatrix[14] = -cameraState.position[2];
+                        
+                            // 视图矩阵的最后一列设置为 [0, 0, 0, 1]
+                            viewMatrix[15] = 1;
+                        
+                            return viewMatrix;
+                        }
+                        
+                        // 矩阵相乘函数
+                        function multiplyMatrices(a, b) {
+                            const result = new Float32Array(16);
+                            for (let row = 0; row < 4; row++) {
+                                for (let col = 0; col < 4; col++) {
+                                    result[row * 4 + col] = a[row * 4 + 0] * b[0 * 4 + col] +
+                                                            a[row * 4 + 1] * b[1 * 4 + col] +
+                                                            a[row * 4 + 2] * b[2 * 4 + col] +
+                                                            a[row * 4 + 3] * b[3 * 4 + col];
+                                }
+                            }
+                            return result;
+                        }
+                        
 
                         function createProjectionMatrix() {
                             const f = 1.0 / Math.tan(cameraState.fov / 2);
