@@ -66,7 +66,7 @@ class FResourceManager {
                 this.DeleteResource(InName);
             } else {
                 console.warn(`Resource "${InName}" already exists`);
-                return null;
+                return this.GetResource(InName);
             }
         }
 

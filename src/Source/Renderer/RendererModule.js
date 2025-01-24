@@ -53,7 +53,7 @@ class RendererModule extends IModule {
     }
 
     Update(DeltaTime) {
-
+        this.sceneRenderer.Render(DeltaTime);
     }
 
     async Shutdown() {

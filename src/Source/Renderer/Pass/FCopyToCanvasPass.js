@@ -1,57 +1,59 @@
-import FPass, { EPassDependencyType } from '../../Core/Resource/FPass.js';
+import FPass from './FPass.js';
+import FResourceManager from '../../Core/Resource/FResourceManager.js';
 
 class FCopyToCanvasPass extends FPass {
-    #Context;
-    #SourceTexture;
-    #Width;
-    #Height;
+    #context;
+    #width;
+    #height;
+
     /**
-     * @param {string} InName Pass名称
-     * @param {GPUCanvasContext} ConfiguredContext 配置好的WebGPU上下文
-     * @param {string} InSourceTextureName 源纹理名称
-     * @param {number} InWidth Canvas宽度
-     * @param {number} InHeight Canvas高度
+     * @param {GPUCanvasContext} context WebGPU上下文
+     * @param {GPUTexture} sourceTexture 源纹理
      */
-    constructor(InName, ConfiguredContext, InSourceTextureName, InWidth, InHeight) {
-        super(InName);
-        this.#Context = ConfiguredContext;
-        this.#SourceTexture = InSourceTextureName;
-        this.#Width = InWidth;
-        this.#Height = InHeight;
+    constructor(context, sourceTexture) {
+        super('CopyToCanvasPass');
+        this.#context = context;
+        this.#width = context.canvas.width;
+        this.#height = context.canvas.height;
 
-
-        // 声明输入资源依赖
-        this.AddDependency('SourceTexture', EPassDependencyType.Input, {
+        // 添加固定资源 - 源纹理
+        this.AddInputResource('SourceTexture', {
             Description: '需要拷贝到Canvas的源纹理'
         });
+
+        // 设置初始资源
+        if (sourceTexture) {
+            this.SetResource('SourceTexture', sourceTexture, 'Input');
+        }
     }
 
     /**
      * 执行拷贝到Canvas的渲染Pass
-     * @param {GPUCommandEncoder} InCommandEncoder 命令编码器
+     * @param {GPUCommandEncoder} commandEncoder 命令编码器
      */
-    Execute(InCommandEncoder) {
-        if (!this.ValidateDependencies()) {
+    Execute(commandEncoder) {
+        if (!this.ValidateResources()) {
+            console.error('CopyToCanvasPass: Resources not ready');
             return;
         }
 
-        const SourceTexture = this.GetResource('SourceTexture');
-        if (!SourceTexture) {
-            console.error('Source texture not found');
+        const sourceTexture = this.GetResource('SourceTexture');
+        if (!sourceTexture) {
+            console.error('CopyToCanvasPass: Source texture not found');
             return;
         }
 
         // 直接执行纹理拷贝
-        InCommandEncoder.copyTextureToTexture(
+        commandEncoder.copyTextureToTexture(
             {
-                texture: SourceTexture
+                texture: sourceTexture
             },
             {
-                texture: this.#Context.getCurrentTexture()
+                texture: this.#context.getCurrentTexture()
             },
             {
-                width: this.#Width,
-                height: this.#Height,
+                width: this.#width,
+                height: this.#height,
                 depthOrArrayLayers: 1
             }
         );
@@ -59,27 +61,28 @@ class FCopyToCanvasPass extends FPass {
 
     /**
      * 更新Canvas尺寸
-     * @param {number} InWidth 宽度
-     * @param {number} InHeight 高度
-     * @param {GPUCanvasContext} ConfiguredContext 配置好的WebGPU上下文
+     * @param {number} width 新的宽度
+     * @param {number} height 新的高度
+     * @param {GPUCanvasContext} context 新的WebGPU上下文
      */
-    Resize(InWidth, InHeight, ConfiguredContext) {
-        this.#Width = InWidth;
-        this.#Height = InHeight;
-        this.#Context = ConfiguredContext;
+    Resize(width, height, context) {
+        this.#width = width;
+        this.#height = height;
+        this.#context = context;
     }
 
     /**
      * 设置源纹理
-     * @param {string} InSourceTexture 要拷贝的源纹理name
+     * @param {string} textureName 要拷贝的源纹理名称
      */
-    SetSourceTexture(InSourceTexture) {
-        this.RemoveDependency('SourceTexture');
-
-        this.#SourceTexture = InSourceTexture;
-        this.AddDependency(InSourceTexture, EPassDependencyType.Input, {
-            Description: '需要拷贝到Canvas的源纹理'
-        });
+    SetSourceTexture(textureName) {
+        const resourceManager = FResourceManager.GetInstance();
+        const texture = resourceManager.GetResource(textureName);
+        if (!texture) {
+            console.error(`CopyToCanvasPass: Texture "${textureName}" not found`);
+            return;
+        }
+        this.SetResource('SourceTexture', texture, 'Input');
     }
 }
 

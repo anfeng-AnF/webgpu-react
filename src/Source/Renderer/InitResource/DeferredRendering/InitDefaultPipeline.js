@@ -6,13 +6,13 @@ class InitDefaultPipeline {
     static #resourceManager = FResourceManager.GetInstance();
 
     /*
-     * 初始化基本资源如 相机参数的UniformBuffer
+     * 初始化基本资源如 相机参数的UniformBuffer 包括MVP矩阵 相机参数 场景参数
      */
     static async #InitializeBaseResources() {
         const sceneBuffer = ResourceConfig.GetSceneBuffers();
         try {
             // 1. 创建各个UniformBuffer
-            // 创建VP矩阵UniformBuffer
+            // 创建MVP矩阵UniformBuffer
             this.#resourceManager.CreateResource(sceneBuffer.matrices.name, {
                 Type: EResourceType.Buffer,
                 desc: {
@@ -138,7 +138,7 @@ class InitDefaultPipeline {
      */
     static async #InitializeEarlyZPipelines() {
         try {
-            // EarlyZPassShader 已经是导入的代码字符串
+            // 获取Shader代码
             const processedShaderCode = await ShaderIncluder.GetShaderCode('Shader/DeferredShading/EarlyZPass.wgsl');
 
             const shader = this.#resourceManager.CreateResource('EarlyZPassShader', {
@@ -147,16 +147,18 @@ class InitDefaultPipeline {
             });
 
             // 2. 创建不同类型网格的Pipeline
-            const pipelineTypes = ['StaticMesh', 'SkeletalMesh'];
+            const pipelineTypes = ['StaticMesh', 'SkeletalMesh','InstancedMesh'];
             
             for (const type of pipelineTypes) {
                 const buffers = [];
-                
+
                 // 添加基本顶点布局
                 if (type === 'StaticMesh') {
                     buffers.push(ResourceConfig.GetStaticMeshLayout());
                 } else if (type === 'SkeletalMesh') {
                     buffers.push(ResourceConfig.GetSkeletalMeshLayout());
+                } else if (type === 'InstancedMesh') {  
+                    buffers.push(ResourceConfig.GetStaticMeshLayout());
                 }
 
                 // 创建Pipeline
@@ -203,12 +205,21 @@ class InitDefaultPipeline {
     }
 
     /**
+     * 初始化拷贝到Canvas的Pass
+     */
+    static async #InitCopyToCanvasPass() {
+
+    }
+
+    /**
      * 初始化延迟渲染管线
      */
     static async InitializeDeferredRenderPipeline() {
         try {
             await InitDefaultPipeline.#InitializeEarlyZPipelines();
             await InitDefaultPipeline.#InitializeBaseResources();
+
+            await InitDefaultPipeline.#InitCopyToCanvasPass();
         } catch (error) {
             console.error('Failed to initialize deferred render pipeline:', error);
             throw error;
@@ -220,7 +231,7 @@ class InitDefaultPipeline {
      * @param {HTMLCanvasElement} canvas - Canvas元素
      */
     static async InitializeDeferredRenderPipelineTextureByCanvas(canvas) {
-        await this.InitializeDeferredRenderPipelineTextureByCanvasSize(canvas.width, canvas.height);
+        
     }
 
     /**
