@@ -5,6 +5,7 @@ import ViewportCanvas from '../UI/Components/MainContent/ViewportCanvas';
 import { FSceneRenderer } from './FSceneRenderer';
 import FResourceManager from '../Core/Resource/FResourceManager';
 import InitDefaultPipeline from './InitResource/DeferredRendering/InitDefaultPipeline';
+import TestRenderer from './Test/TestRenderer';
 /**
  * 渲染器模块
  */
@@ -40,8 +41,10 @@ class RendererModule extends IModule {
             />
         );
         FResourceManager.GetInstance().InitDevice(this.device);
-        this.sceneRenderer = new FSceneRenderer(this.device);
-        this.sceneRenderer.Initialize();
+        //this.sceneRenderer = new FSceneRenderer(this.device);
+        //this.sceneRenderer.Initialize();
+        this.sceneRenderer = new TestRenderer(this.device);
+        this.sceneRenderer.Initialize(this.device);
     }
 
     handleResize(width, height) {
