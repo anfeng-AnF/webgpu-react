@@ -19,7 +19,12 @@ class FMesh extends IMesh{
         /** @type {number} */
         this.indexCount = 0;
         /** @type {Float32Array} */
-        this.transform = new Float32Array(16); // 4x4 matrix
+        this.transform = new Float32Array([
+            1, 0, 0, 0,  // 第一列
+            0, 1, 0, 0,  // 第二列
+            0, 0, 1, 0,  // 第三列
+            0, 0, 0, 1   // 第四列
+        ]); // 4x4 matrix，列主序
         /** @type {BoundingBox} */
         this.boundingBox = null;
         /** @type {number} */

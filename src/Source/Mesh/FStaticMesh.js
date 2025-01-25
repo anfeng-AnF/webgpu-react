@@ -1,6 +1,7 @@
 import { FMesh } from './FMesh.js';
 import { EMeshType } from './EMeshType.js';
 import FResourceManager, { EResourceType } from '../Core/Resource/FResourceManager.js';
+import { ResourceConfig } from '../Renderer/InitResource/DeferredRendering/ResourceConfig';
 
 /**
  * Static mesh implementation
@@ -18,7 +19,7 @@ class FStaticMesh extends FMesh {
         /** @type {Uint32Array} */
         this.indices = indices;
         
-        this.vertexCount = vertices.length / 15; // 60 bytes / 4 bytes = 15 floats per vertex
+        this.vertexCount = vertices.byteLength / ResourceConfig.GetStaticMeshLayout().arrayStride;
         this.indexCount = indices.length;
         this.meshType = EMeshType.Static;
 

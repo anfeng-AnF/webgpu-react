@@ -38,7 +38,7 @@ class ResourceConfig {
     static GetStaticMeshLayout() {
         if (!this.#staticMeshLayout) {
             this.#staticMeshLayout = {
-                arrayStride: 60, // Position(12) + Normal(12) + Tangent(12) + UV0(8) + UV1(8) + UV2(8) + UV3(8)
+                arrayStride: 68, // Position(12) + Normal(12) + Tangent(12) + UV0(8) + UV1(8) + UV2(8) + UV3(8)
                 attributes: [
                     {
                         shaderLocation: 0,
@@ -67,12 +67,12 @@ class ResourceConfig {
                     },
                     {
                         shaderLocation: 5,
-                        offset: 48,
+                        offset: 52,
                         format: 'float32x2', // UV2
                     },
                     {
                         shaderLocation: 6,
-                        offset: 52,
+                        offset: 60,
                         format: 'float32x2', // UV3
                     },
                 ],
@@ -93,13 +93,13 @@ class ResourceConfig {
                     ...this.GetStaticMeshLayout().attributes,
                     {
                         shaderLocation: 7,
-                        offset: 60,
+                        offset: 68,
                         format: 'uint8x4', // BoneIndices
                         normalized: false,
                     },
                     {
                         shaderLocation: 8,
-                        offset: 64,
+                        offset: 84,
                         format: 'float32x4', // BoneWeights
                     },
                 ],

@@ -75,7 +75,8 @@ class FEarlyZPass extends FPass {
         if (!this.ValidateResources()) {
             return;
         }
-
+        const t =  this._resourceManager
+                    .GetResource(this._resourceNames.DepthTexture.Name);
         // 创建深度纹理的渲染通道
         const passEncoder = commandEncoder.beginRenderPass({
             colorAttachments: [],
