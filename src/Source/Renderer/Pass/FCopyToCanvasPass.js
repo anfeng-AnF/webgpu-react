@@ -24,7 +24,7 @@ class FCopyToCanvasPass extends FPass {
     _initializeResourceNames() {
         this._resourceNames = {
             Source: {
-                Name: 'CopyToCanvasSourceTexture',
+                Name: null,  // 将在 SetSourceTexture 中设置
                 Description: '需要拷贝到Canvas的源纹理'
             },
             Shader: {
@@ -40,9 +40,8 @@ class FCopyToCanvasPass extends FPass {
             BindGroup: {
                 Name: 'CopyToCanvasBindGroup'
             },
-            IntermediateTexture: {
-                Name: 'CopyToCanvasIntermediateTexture',
-                Description: '深度纹理转换为颜色纹理的中间结果'
+            BindGroupLayout: {
+                Name: 'CopyToCanvasBindGroupLayout'
             }
         };
     }
@@ -77,58 +76,54 @@ class FCopyToCanvasPass extends FPass {
         }
 
         const sourceTexture = this._resourceManager.GetResource(this._resourceNames.Source.Name);
+        const isColorTexture = sourceTexture.format === 'bgra8unorm';
 
-        if (this.#isDepthTexture) {
-            // 创建中间纹理的渲染通道
+        if (isColorTexture) {
+            // 直接拷贝颜色纹理到 Canvas
+            commandEncoder.copyTextureToTexture(
+                { texture: sourceTexture },
+                { texture: this.#context.getCurrentTexture() },
+                { width: this.#width, height: this.#height, depthOrArrayLayers: 1 }
+            );
+        } else {
+            // 对深度纹理进行可视化处理
             const passEncoder = commandEncoder.beginRenderPass({
                 colorAttachments: [{
-                    view: this._resourceManager.GetResource(this._resourceNames.IntermediateTexture.Name).createView(),
+                    view: this.#context.getCurrentTexture().createView(),
                     clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
                     loadOp: 'clear',
                     storeOp: 'store'
                 }]
             });
 
-            // 设置管线和绑定组
-            passEncoder.setPipeline(this._resourceManager.GetResource(this._resourceNames.Pipeline.Name));
-            passEncoder.setBindGroup(0, this._resourceManager.GetResource(this._resourceNames.BindGroup.Name));
-            
-            // 绘制全屏三角形
+            const pipeline = this._resourceManager.GetResource(this._resourceNames.Pipeline.Name);
+            const bindGroup = this._resourceManager.GetResource(this._resourceNames.BindGroup.Name);
+
+            passEncoder.setPipeline(pipeline);
+            passEncoder.setBindGroup(0, bindGroup);
             passEncoder.draw(3, 1, 0, 0);
             passEncoder.end();
-
-            // 将转换后的颜色纹理拷贝到Canvas
-            commandEncoder.copyTextureToTexture(
-                { texture: this._resourceManager.GetResource(this._resourceNames.IntermediateTexture.Name) },
-                { texture: this.#context.getCurrentTexture() },
-                { width: this.#width, height: this.#height, depthOrArrayLayers: 1 }
-            );
-        } else {
-            // 直接拷贝颜色纹理
-            commandEncoder.copyTextureToTexture(
-                { texture: sourceTexture },
-                { texture: this.#context.getCurrentTexture() },
-                { width: this.#width, height: this.#height, depthOrArrayLayers: 1 }
-            );
         }
     }
 
     /**
      * 初始化该pass的默认资源
      */
-    async Initialize() {
+    async Initialize(width, height) {
         try {
-            // 创建深度转换着色器
+            // 1. 加载并创建着色器
             const shaderCode = await ShaderIncluder.GetShaderCode(this._resourceNames.Shader.Path);
-            const shader = this._resourceManager.CreateResource(this._resourceNames.Shader.Name, {
-                Type: EResourceType.ShaderModule,
-                desc: { code: shaderCode }
-            });
+            const shader = this._resourceManager.CreateResource(
+                this._resourceNames.Shader.Name,
+                {
+                    Type: EResourceType.ShaderModule,
+                    desc: { code: shaderCode }
+                }
+            );
 
-            // 1. 创建 BindGroupLayout
-            const bindGroupLayoutName = `${this._resourceNames.Pipeline.Name}BindGroupLayout`;
-            const bindGroupLayout = this._resourceManager.CreateResource(
-                bindGroupLayoutName,
+            // 2. 创建 BindGroupLayout
+            this._resourceManager.CreateResource(
+                this._resourceNames.BindGroupLayout.Name,
                 {
                     Type: EResourceType.BindGroupLayout,
                     desc: {
@@ -143,35 +138,35 @@ class FCopyToCanvasPass extends FPass {
                 }
             );
 
-            // 2. 创建 PipelineLayout
-            const pipelineLayoutName = `${this._resourceNames.Pipeline.Name}Layout`;
-            const pipelineLayout = this._resourceManager.CreateResource(
-                pipelineLayoutName,
+            // 3. 创建 PipelineLayout
+            this._resourceManager.CreateResource(
+                this._resourceNames.PipelineLayout.Name,
                 {
                     Type: EResourceType.PipelineLayout,
                     desc: {
-                        bindGroupLayouts: [bindGroupLayout]
+                        bindGroupLayouts: [
+                            this._resourceManager.GetResource(this._resourceNames.BindGroupLayout.Name)
+                        ]
                     }
                 }
             );
 
-            // 3. 创建渲染管线
+            // 4. 创建渲染管线
             this._resourceManager.CreateResource(
                 this._resourceNames.Pipeline.Name,
                 {
                     Type: EResourceType.RenderPipeline,
                     desc: {
-                        layout: pipelineLayout,  // 使用显式布局而不是 'auto'
+                        layout: this._resourceManager.GetResource(this._resourceNames.PipelineLayout.Name),
                         vertex: {
                             module: shader,
-                            entryPoint: 'vsMain',
-                            buffers: []
+                            entryPoint: 'vsMain'
                         },
                         fragment: {
                             module: shader,
                             entryPoint: 'fsMain',
                             targets: [{
-                                format: 'rgba8unorm'
+                                format: 'bgra8unorm'
                             }]
                         },
                         primitive: {
@@ -182,14 +177,8 @@ class FCopyToCanvasPass extends FPass {
                 }
             );
 
-            // 更新资源名称配置
-            this._resourceNames.PipelineLayout.Name = pipelineLayoutName;
-            this._resourceNames.BindGroupLayout = {
-                Name: bindGroupLayoutName
-            };
-
         } catch (error) {
-            console.error('FCopyToCanvasPass Initialize failed:', error);
+            console.error('FCopyToCanvasPass initialization failed:', error);
             throw error;
         }
     }
@@ -223,36 +212,15 @@ class FCopyToCanvasPass extends FPass {
             console.error(`FCopyToCanvasPass: Source texture '${textureName}' not found`);
             return;
         }
-        
-        // 检查是否是深度纹理
-        this.#isDepthTexture = sourceTexture.format === 'depth24plus';
-        
-        if (this.#isDepthTexture) {
+
+        // 只有深度纹理需要创建 BindGroup
+        if (sourceTexture.format !== 'bgra8unorm') {
             try {
-                this.#createOrUpdateIntermediateTexture();
                 this.#createOrUpdateBindGroup(sourceTexture);
             } catch (error) {
                 console.error('FCopyToCanvasPass: Error updating resources:', error);
             }
         }
-    }
-
-    #createOrUpdateIntermediateTexture() {
-        if (this._resourceManager.HasResource(this._resourceNames.IntermediateTexture.Name)) {
-            this._resourceManager.DeleteResource(this._resourceNames.IntermediateTexture.Name);
-        }
-        
-        this._resourceManager.CreateResource(
-            this._resourceNames.IntermediateTexture.Name,
-            {
-                Type: EResourceType.Texture,
-                desc: {
-                    size: [this.#width, this.#height],
-                    format: 'rgba8unorm',
-                    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
-                }
-            }
-        );
     }
 
     #createOrUpdateBindGroup(sourceTexture) {

@@ -1,5 +1,6 @@
 import { PerspectiveCamera, Matrix4, Vector3 } from 'three';
-
+import FResourceManager,{EResourceType} from '../../Core/Resource/FResourceManager';
+import FCopyToCanvasPass from '../Pass/FCopyToCanvasPass';
 class TestRenderer {
     constructor() {
         /** @type {GPUDevice} */
@@ -33,6 +34,12 @@ class TestRenderer {
         this.modelMatrix = new Matrix4();
         /** @type {number} */
         this.rotationAngle = 0;
+
+        this.resourceManager = FResourceManager.GetInstance();
+
+        this.FCopyToCanvasPass = null;
+
+        this.colorAttachmentsName = 'TestColorAttachmentsName'
     }
 
     async Initialize(device) {
@@ -54,6 +61,8 @@ class TestRenderer {
         this.modelMatrix.setPosition(0, 0, 0);
 
         await this.createPipelineAndResources();
+
+        
     }
 
     async InitCanvas(canvas) {
@@ -66,7 +75,11 @@ class TestRenderer {
             format: 'bgra8unorm',
             usage: GPUTextureUsage.RENDER_ATTACHMENT
         });
-
+        this.FCopyToCanvasPass = new FCopyToCanvasPass(this.context,canvas.width,canvas.height);
+        this.FCopyToCanvasPass.OnCanvasResize(canvas.width, canvas.height, this.context);
+        await this.FCopyToCanvasPass.Initialize(canvas.width,canvas.height);
+        await this.FCopyToCanvasPass.SetSourceTexture(this.depthTextureName);
+        
         // 创建深度纹理
         await this.createDepthTexture(canvas.width, canvas.height);
     }
@@ -274,11 +287,32 @@ class TestRenderer {
             this.depthTexture.destroy();
         }
 
-        this.depthTexture = this.device.createTexture({
-            size: { width, height, depthOrArrayLayers: 1 },
-            format: 'depth24plus',
-            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-        });
+        if(this.resourceManager.GetResource(this.depthTextureName)){
+            this.resourceManager.DeleteResource(this.depthTextureName);
+        }
+
+
+        this.depthTexture = this.resourceManager.CreateResource(this.depthTextureName,{
+            Type: EResourceType.Texture,
+            desc: {
+                size: { width, height, depthOrArrayLayers: 1 },
+                format: 'depth24plus',
+                usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
+            }
+        })
+
+        if(this.resourceManager.GetResource(this.colorAttachmentsName)){
+            this.resourceManager.DeleteResource(this.colorAttachmentsName);
+        }
+
+        this.resourceManager.CreateResource(this.colorAttachmentsName,{
+            Type: EResourceType.Texture,
+            desc: {
+                size: { width, height, depthOrArrayLayers: 1 },
+                format: 'bgra8unorm',
+                usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
+            }
+        })
     }
 
     /**
@@ -308,10 +342,12 @@ class TestRenderer {
         await this.createDepthTexture(width, height);
 
         // 重新配置 Canvas
+        this.FCopyToCanvasPass.OnCanvasResize(width, height,this.context);
+
         this.context.configure({
             device: this.device,
             format: 'bgra8unorm',
-            usage: GPUTextureUsage.RENDER_ATTACHMENT
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST
         });
     }
 
@@ -333,7 +369,6 @@ class TestRenderer {
 
     Render() {
         if (!this.context || !this.depthTexture) return;
-
         this.updateMVPMatrix();
 
         const commandEncoder = this.device.createCommandEncoder();
@@ -341,7 +376,7 @@ class TestRenderer {
 
         const renderPassDescriptor = {
             colorAttachments: [{
-                view: textureView,
+                view: this.resourceManager.GetResource(this.colorAttachmentsName).createView(),
                 clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
                 loadOp: 'clear',
                 storeOp: 'store',
@@ -361,6 +396,12 @@ class TestRenderer {
         passEncoder.setIndexBuffer(this.indexBuffer, 'uint16');
         passEncoder.drawIndexed(36); // 6 faces * 2 triangles * 3 vertices
         passEncoder.end();
+
+        this.FCopyToCanvasPass.SetSourceTexture(this.colorAttachmentsName);
+        this.FCopyToCanvasPass.SetSourceTexture(this.depthTextureName);
+        this.FCopyToCanvasPass.Execute(commandEncoder);
+
+ 
 
         this.device.queue.submit([commandEncoder.finish()]);
     }
