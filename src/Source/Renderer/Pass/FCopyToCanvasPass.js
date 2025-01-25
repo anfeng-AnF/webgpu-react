@@ -76,7 +76,7 @@ class FCopyToCanvasPass extends FPass {
         }
 
         const sourceTexture = this._resourceManager.GetResource(this._resourceNames.Source.Name);
-        const isColorTexture = sourceTexture.format === 'bgra8unorm';
+        const isColorTexture = sourceTexture.format === 'rgba8unorm';
 
         if (isColorTexture) {
             // 直接拷贝颜色纹理到 Canvas
@@ -166,7 +166,7 @@ class FCopyToCanvasPass extends FPass {
                             module: shader,
                             entryPoint: 'fsMain',
                             targets: [{
-                                format: 'bgra8unorm'
+                                format: 'rgba8unorm'
                             }]
                         },
                         primitive: {
@@ -214,7 +214,7 @@ class FCopyToCanvasPass extends FPass {
         }
 
         // 只有深度纹理需要创建 BindGroup
-        if (sourceTexture.format !== 'bgra8unorm') {
+        if (sourceTexture.format !== 'rgba8unorm') {
             try {
                 this.#createOrUpdateBindGroup(sourceTexture);
             } catch (error) {

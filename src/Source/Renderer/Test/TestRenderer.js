@@ -1,6 +1,8 @@
 import { PerspectiveCamera, Matrix4, Vector3 } from 'three';
 import FResourceManager,{EResourceType} from '../../Core/Resource/FResourceManager';
 import FCopyToCanvasPass from '../Pass/FCopyToCanvasPass';
+import { FStaticMesh } from '../../Mesh/FStaticMesh';
+import { ResourceConfig } from '../InitResource/DeferredRendering/ResourceConfig';
 class TestRenderer {
     constructor() {
         /** @type {GPUDevice} */
@@ -40,6 +42,8 @@ class TestRenderer {
         this.FCopyToCanvasPass = null;
 
         this.colorAttachmentsName = 'TestColorAttachmentsName'
+
+        this.FStaticMesh = null;
     }
 
     async Initialize(device) {
@@ -62,7 +66,7 @@ class TestRenderer {
 
         await this.createPipelineAndResources();
 
-        
+        this.FStaticMesh = FStaticMesh.CreateCube(2,1,3);
     }
 
     async InitCanvas(canvas) {
@@ -72,7 +76,7 @@ class TestRenderer {
         // 配置 Canvas
         this.context.configure({
             device: this.device,
-            format: 'bgra8unorm',
+            format: 'rgba8unorm',
             usage: GPUTextureUsage.RENDER_ATTACHMENT
         });
         this.FCopyToCanvasPass = new FCopyToCanvasPass(this.context,canvas.width,canvas.height);
@@ -85,76 +89,10 @@ class TestRenderer {
     }
 
     async createPipelineAndResources() {
-        // 创建顶点缓冲区 - 添加颜色属性
-        const vertices = new Float32Array([
-            // 位置(x,y,z)    颜色(r,g,b)
-            // 前面 (红色) - 逆时针
-            -1, -1,  1,     1, 0, 0,  // 左下
-             1, -1,  1,     1, 0, 0,  // 右下
-             1,  1,  1,     1, 0, 0,  // 右上
-            -1,  1,  1,     1, 0, 0,  // 左上
-            
-            // 后面 (绿色) - 逆时针 (从后面看)
-             1, -1, -1,     0, 1, 0,  // 右下
-            -1, -1, -1,     0, 1, 0,  // 左下
-            -1,  1, -1,     0, 1, 0,  // 左上
-             1,  1, -1,     0, 1, 0,  // 右上
-            
-            // 右面 (蓝色) - 逆时针
-             1, -1,  1,     0, 0, 1,  // 前下
-             1, -1, -1,     0, 0, 1,  // 后下
-             1,  1, -1,     0, 0, 1,  // 后上
-             1,  1,  1,     0, 0, 1,  // 前上
-            
-            // 左面 (黄色) - 逆时针
-            -1, -1, -1,     1, 1, 0,  // 后下
-            -1, -1,  1,     1, 1, 0,  // 前下
-            -1,  1,  1,     1, 1, 0,  // 前上
-            -1,  1, -1,     1, 1, 0,  // 后上
-            
-            // 上面 (青色) - 逆时针
-            -1,  1,  1,     0, 1, 1,  // 前左
-             1,  1,  1,     0, 1, 1,  // 前右
-             1,  1, -1,     0, 1, 1,  // 后右
-            -1,  1, -1,     0, 1, 1,  // 后左
-            
-            // 下面 (品红) - 逆时针
-            -1, -1, -1,     1, 0, 1,  // 后左
-             1, -1, -1,     1, 0, 1,  // 后右
-             1, -1,  1,     1, 0, 1,  // 前右
-            -1, -1,  1,     1, 0, 1,  // 前左
-        ]);
-
-        this.vertexBuffer = this.device.createBuffer({
-            size: vertices.byteLength,
-            usage: GPUBufferUsage.VERTEX,
-            mappedAtCreation: true,
-        });
-        new Float32Array(this.vertexBuffer.getMappedRange()).set(vertices);
-        this.vertexBuffer.unmap();
-
-        // 索引缓冲区 - 确保所有三角形都是逆时针
-        const indices = new Uint16Array([
-            // 每个面四个顶点，从0开始
-            0,  1,  2,  2,  3,  0,  // 前面
-            4,  5,  6,  6,  7,  4,  // 后面
-            8,  9,  10, 10, 11, 8,  // 右面
-            12, 13, 14, 14, 15, 12, // 左面
-            16, 17, 18, 18, 19, 16, // 上面
-            20, 21, 22, 22, 23, 20  // 下面
-        ]);
-
-        this.indexBuffer = this.device.createBuffer({
-            size: indices.byteLength,
-            usage: GPUBufferUsage.INDEX,
-            mappedAtCreation: true,
-        });
-        new Uint16Array(this.indexBuffer.getMappedRange()).set(indices);
-        this.indexBuffer.unmap();
 
         // 创建 MVP 矩阵的 Uniform 缓冲区
         this.uniformBuffer = this.device.createBuffer({
-            size: 64, // 4x4 矩阵
+            size: 128, // 两个 4x4 矩阵 (64 * 2)
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
@@ -177,12 +115,18 @@ class TestRenderer {
             code: `
                 struct Uniforms {
                     mvpMatrix : mat4x4<f32>,
+                    modelMatrix : mat4x4<f32>,  // 添加模型矩阵
                 };
                 @binding(0) @group(0) var<uniform> uniforms : Uniforms;
 
                 struct VertexInput {
                     @location(0) position : vec3<f32>,
-                    @location(1) color : vec3<f32>,
+                    @location(1) normal : vec3<f32>,
+                    @location(2) tangent : vec3<f32>,
+                    @location(3) uv0 : vec2<f32>,
+                    @location(4) uv1 : vec2<f32>,
+                    @location(5) uv2 : vec2<f32>,
+                    @location(6) uv3 : vec2<f32>,
                 };
 
                 struct VertexOutput {
@@ -190,11 +134,28 @@ class TestRenderer {
                     @location(0) color : vec3<f32>,
                 };
 
+                // 辅助函数：计算法线矩阵（模型矩阵的逆转置矩阵的3x3部分）
+                fn getNormalMatrix(modelMatrix: mat4x4<f32>) -> mat3x3<f32> {
+                    let inverse = mat3x3<f32>(
+                        modelMatrix[0].xyz,
+                        modelMatrix[1].xyz,
+                        modelMatrix[2].xyz
+                    );
+                    return transpose(inverse);
+                }
+
                 @vertex
                 fn vs_main(input: VertexInput) -> VertexOutput {
                     var output : VertexOutput;
                     output.position = uniforms.mvpMatrix * vec4<f32>(input.position, 1.0);
-                    output.color = input.color;
+                    
+                    // 使用法线矩阵变换法线
+                    let normalMatrix = getNormalMatrix(uniforms.modelMatrix);
+                    let worldNormal = normalize(normalMatrix * input.normal);
+                    
+                    // 将世界空间法线转换为颜色
+                    output.color = worldNormal * 0.5 + 0.5;
+                    
                     return output;
                 }
 
@@ -211,29 +172,13 @@ class TestRenderer {
             vertex: {
                 module: shader,
                 entryPoint: 'vs_main',
-                buffers: [{
-                    arrayStride: 24, // 6个float：3个位置 + 3个颜色
-                    attributes: [
-                        {
-                            // 位置
-                            shaderLocation: 0,
-                            offset: 0,
-                            format: 'float32x3'
-                        },
-                        {
-                            // 颜色
-                            shaderLocation: 1,
-                            offset: 12,
-                            format: 'float32x3'
-                        }
-                    ]
-                }]
+                buffers:[ResourceConfig.GetStaticMeshLayout()]
             },
             fragment: {
                 module: shader,
                 entryPoint: 'fs_main',
                 targets: [{
-                    format: 'bgra8unorm'
+                    format: 'rgba8unorm'
                 }]
             },
             primitive: {
@@ -274,11 +219,19 @@ class TestRenderer {
             .multiplyMatrices(projectionMatrix, viewMatrix)
             .multiply(this.modelMatrix);
 
+        // 创建一个足够大的数组来存储两个矩阵
+        const uniformData = new Float32Array(32); // 8 x 4 = 32 个浮点数
+
+        // 复制 MVP 矩阵
+        uniformData.set(mvpMatrix.elements, 0);
+        // 复制模型矩阵
+        uniformData.set(this.modelMatrix.elements, 16);
+
         // 更新 Uniform 缓冲区
         this.device.queue.writeBuffer(
             this.uniformBuffer,
             0,
-            new Float32Array(mvpMatrix.elements)
+            uniformData
         );
     }
 
@@ -309,7 +262,7 @@ class TestRenderer {
             Type: EResourceType.Texture,
             desc: {
                 size: { width, height, depthOrArrayLayers: 1 },
-                format: 'bgra8unorm',
+                format: 'rgba8unorm',
                 usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
             }
         })
@@ -346,7 +299,7 @@ class TestRenderer {
 
         this.context.configure({
             device: this.device,
-            format: 'bgra8unorm',
+            format: 'rgba8unorm',
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST
         });
     }
@@ -392,13 +345,13 @@ class TestRenderer {
         const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
         passEncoder.setPipeline(this.pipeline);
         passEncoder.setBindGroup(0, this.bindGroup);
-        passEncoder.setVertexBuffer(0, this.vertexBuffer);
-        passEncoder.setIndexBuffer(this.indexBuffer, 'uint16');
-        passEncoder.drawIndexed(36); // 6 faces * 2 triangles * 3 vertices
+        passEncoder.setVertexBuffer(0, this.FStaticMesh.GetVertexBuffer());
+        passEncoder.setIndexBuffer(this.FStaticMesh.GetIndexBuffer(), 'uint32');
+        passEncoder.drawIndexed(this.FStaticMesh.GetIndexCount()); // 6 faces * 2 triangles * 3 vertices
         passEncoder.end();
 
-        this.FCopyToCanvasPass.SetSourceTexture(this.colorAttachmentsName);
         this.FCopyToCanvasPass.SetSourceTexture(this.depthTextureName);
+        this.FCopyToCanvasPass.SetSourceTexture(this.colorAttachmentsName);
         this.FCopyToCanvasPass.Execute(commandEncoder);
 
  
