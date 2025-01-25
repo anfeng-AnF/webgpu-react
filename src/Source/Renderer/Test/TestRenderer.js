@@ -66,7 +66,7 @@ class TestRenderer {
 
         await this.createPipelineAndResources();
 
-        this.FStaticMesh = FStaticMesh.CreateCube(2,1,3);
+        this.FStaticMesh = FStaticMesh.CreateSphere();
     }
 
     async InitCanvas(canvas) {
@@ -115,7 +115,7 @@ class TestRenderer {
             code: `
                 struct Uniforms {
                     mvpMatrix : mat4x4<f32>,
-                    modelMatrix : mat4x4<f32>,  // 添加模型矩阵
+                    modelMatrix : mat4x4<f32>,
                 };
                 @binding(0) @group(0) var<uniform> uniforms : Uniforms;
 
@@ -131,36 +131,27 @@ class TestRenderer {
 
                 struct VertexOutput {
                     @builtin(position) position : vec4<f32>,
-                    @location(0) color : vec3<f32>,
+                    @location(0) worldNormal : vec3<f32>,
                 };
-
-                // 辅助函数：计算法线矩阵（模型矩阵的逆转置矩阵的3x3部分）
-                fn getNormalMatrix(modelMatrix: mat4x4<f32>) -> mat3x3<f32> {
-                    let inverse = mat3x3<f32>(
-                        modelMatrix[0].xyz,
-                        modelMatrix[1].xyz,
-                        modelMatrix[2].xyz
-                    );
-                    return transpose(inverse);
-                }
 
                 @vertex
                 fn vs_main(input: VertexInput) -> VertexOutput {
                     var output : VertexOutput;
+                    
+                    // 变换位置到裁剪空间
                     output.position = uniforms.mvpMatrix * vec4<f32>(input.position, 1.0);
                     
-                    // 使用法线矩阵变换法线
-                    let normalMatrix = getNormalMatrix(uniforms.modelMatrix);
-                    let worldNormal = normalize(normalMatrix * input.normal);
-                    
-                    // 将世界空间法线转换为颜色
-                    output.color = worldNormal * 0.5 + 0.5;
+                    // 变换法线到世界空间，但不受平移影响
+                    let worldNormal = (uniforms.modelMatrix * vec4<f32>(input.normal, 0.0)).xyz;
+                    output.worldNormal = normalize(worldNormal);
                     
                     return output;
                 }
 
                 @fragment
-                fn fs_main(@location(0) color : vec3<f32>) -> @location(0) vec4<f32> {
+                fn fs_main(@location(0) worldNormal : vec3<f32>) -> @location(0) vec4<f32> {
+                    // 世界空间法线已经是单位向量，直接映射到颜色空间
+                    let color = worldNormal * 0.5 + 0.5;
                     return vec4<f32>(color, 1.0);
                 }
             `

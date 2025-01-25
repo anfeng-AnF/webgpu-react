@@ -195,78 +195,94 @@ class FStaticMesh extends FMesh {
         const vertexCount = (segments + 1) * (segments + 1);
         const indexCount = segments * segments * 6;
         
-        // 每个顶点15个浮点数：position(3) + normal(3) + tangent(3) + uv0(2) + uv1(2) + uv2(2) + uv3(2)
-        const vertices = new Float32Array(vertexCount * 15);
+        // 每个顶点17个浮点数：position(3) + normal(3) + tangent(3) + uv0(2) + uv1(2) + uv2(2) + uv3(2)
+        const vertices = new Float32Array(vertexCount * 17);
         const indices = new Uint32Array(indexCount);
 
         // 生成顶点
         let vertexIndex = 0;
         for (let lat = 0; lat <= segments; lat++) {
-            const theta = lat * Math.PI / segments;
-            const sinTheta = Math.sin(theta);
-            const cosTheta = Math.cos(theta);
+            // phi 从 0 到 PI (纬度)
+            const phi = lat * Math.PI / segments;
+            const sinPhi = Math.sin(phi);
+            const cosPhi = Math.cos(phi);
 
             for (let lon = 0; lon <= segments; lon++) {
-                const phi = lon * 2 * Math.PI / segments;
-                const sinPhi = Math.sin(phi);
-                const cosPhi = Math.cos(phi);
+                // theta 从 0 到 2PI (经度)
+                const theta = lon * 2 * Math.PI / segments;
+                const sinTheta = Math.sin(theta);
+                const cosTheta = Math.cos(theta);
 
-                // 位置
-                const x = cosPhi * sinTheta;
-                const y = cosTheta;
-                const z = sinPhi * sinTheta;
+                // 计算球面上的点
+                const x = cosTheta * sinPhi;
+                const y = cosPhi;
+                const z = sinTheta * sinPhi;
 
-                // 计算切线
-                const tx = -sinPhi;
+                // 计算切线 (经度方向的切线)
+                const tx = -sinTheta;
                 const ty = 0;
-                const tz = cosPhi;
+                const tz = cosTheta;
+
+                // 归一化切线
+                const len = Math.sqrt(tx * tx + ty * ty + tz * tz);
+                const ntx = tx / len;
+                const nty = ty / len;
+                const ntz = tz / len;
 
                 // UV坐标
                 const u = lon / segments;
                 const v = lat / segments;
 
-                const offset = vertexIndex * 15;
+                const offset = vertexIndex * 17;
                 
-                // Position
+                // Position (缩放到指定半径)
                 vertices[offset] = x * radius;
                 vertices[offset + 1] = y * radius;
                 vertices[offset + 2] = z * radius;
                 
-                // Normal (归一化的位置即为法线)
+                // Normal (使用未缩放的位置作为法线)
                 vertices[offset + 3] = x;
                 vertices[offset + 4] = y;
                 vertices[offset + 5] = z;
                 
                 // Tangent
-                vertices[offset + 6] = tx;
-                vertices[offset + 7] = ty;
-                vertices[offset + 8] = tz;
+                vertices[offset + 6] = ntx;
+                vertices[offset + 7] = nty;
+                vertices[offset + 8] = ntz;
                 
                 // UV0
                 vertices[offset + 9] = u;
                 vertices[offset + 10] = v;
                 
-                // UV1, UV2, UV3 (复制UV0)
+                // UV1
                 vertices[offset + 11] = u;
                 vertices[offset + 12] = v;
+                
+                // UV2
                 vertices[offset + 13] = u;
                 vertices[offset + 14] = v;
+                
+                // UV3
+                vertices[offset + 15] = u;
+                vertices[offset + 16] = v;
 
                 vertexIndex++;
             }
         }
 
-        // 生成索引
+        // 生成索引 - 确保三角形方向正确
         let indexIndex = 0;
         for (let lat = 0; lat < segments; lat++) {
             for (let lon = 0; lon < segments; lon++) {
                 const first = lat * (segments + 1) + lon;
                 const second = first + segments + 1;
 
+                // 第一个三角形
                 indices[indexIndex++] = first;
                 indices[indexIndex++] = second;
                 indices[indexIndex++] = first + 1;
 
+                // 第二个三角形
                 indices[indexIndex++] = second;
                 indices[indexIndex++] = second + 1;
                 indices[indexIndex++] = first + 1;
