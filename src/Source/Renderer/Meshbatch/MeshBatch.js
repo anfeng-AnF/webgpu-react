@@ -1,5 +1,7 @@
 import { EMeshType } from '../../Mesh/EMeshType.js';
 import FResourceManager from '../../Core/Resource/FResourceManager.js';
+import FDeferredRenderingResourceManager from '../InitResource/DeferredRendering/FDeferredRenderingResourceManager';
+import { GPUIndexFormat } from 'three/src/renderers/webgpu/utils/WebGPUConstants';
 
 /**
  * Manages a batch of meshes with same material and type
@@ -28,15 +30,15 @@ class MeshBatch {
         this.transformBuffer = null;
         /** @type {Float32Array} */
         this.transformData = null;
-        /** @type {Map<string, GPUPipelineState>} */
-        this.pipelineStates = new Map();
+        /** @type {string} */
+        this.pipelineName = null;
         /** @type {Map<string, GPUBindGroup>} */
         this.bindGroups = new Map();
 
-        // 初始化
-        this.CreateTransformBuffer();
         // 绘制命令 回调函数
         this.MeshDrawCommand = null;
+
+        this.deferredRenderingResourceManager = FDeferredRenderingResourceManager.GetInstance();
     }
 
     /**
@@ -103,7 +105,7 @@ class MeshBatch {
      * @param {string} PipelineName
      */
     SetPipeline(PipelineName){
-        this.pipelineStates.set(PipelineName, FResourceManager.GetInstance().GetResource(PipelineName));
+        this.pipelineName = PipelineName;
     }
 
     /**
@@ -112,16 +114,33 @@ class MeshBatch {
      * @param {string} passName 
      */
     Draw(passEncoder, passName) {
-        if (!this.SetupDrawState(passEncoder, passName)) {
-            return;
-        }
         if(this.Material) {
             this.material.draw(passEncoder, this.meshType, this.meshCount, this.transformBuffer);
         }
-        else
+        else if(this.MeshDrawCommand)
         {
-            //执行默认绘制
+            //执行custom绘制
             this.MeshDrawCommand(passEncoder, this);
+        }
+        else {
+            //执行默认绘制
+            passEncoder.setPipeline(FResourceManager.GetInstance().GetResource(this.pipelineName));
+            //slot 0  -- sceneBuffer
+            passEncoder.setBindGroup(0,this.deferredRenderingResourceManager.GetSceneBindgroup());
+            //slot 1  -- Instance/Transform Data
+            ///...
+            
+
+
+            for(let i = 0; i < this.meshCount; i++) {
+                //更新ModuleMatrix
+                this.deferredRenderingResourceManager.UpdateModuleMatrices(this.meshes[i].GetTransform());
+
+                passEncoder.setVertexBuffer(0,this.meshes[i].GetVertexBuffer());
+                passEncoder.setIndexBuffer(this.meshes[i].GetIndexBuffer(),GPUIndexFormat.Uint32);
+
+                passEncoder.drawIndexed(this.meshes[i].GetIndexCount(),1,0,0,0);
+            }
         }
     }
 

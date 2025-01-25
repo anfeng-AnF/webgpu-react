@@ -1,4 +1,3 @@
-import InitDefaultPipeline from '../Renderer/InitResource/DeferredRendering/InitDefaultPipeline';
 import { MeshBatch } from './Meshbatch/MeshBatch.js';
 import { FStaticMesh } from '../Mesh/FStaticMesh';
 import { Matrix4, Vector3, Euler, Quaternion, PerspectiveCamera } from 'three';
@@ -9,6 +8,9 @@ import { ResourceConfig } from '../Renderer/InitResource/DeferredRendering/Resou
 import { mat4, vec3 } from 'gl-matrix/mat4';
 import ShaderIncluder from '../Core/Shader/ShaderIncluder.js';
 import FCopyToCanvasPass from './Pass/FCopyToCanvasPass.js';
+import FEarlyZPass from './Pass/FEarlyZPass.js';
+import FDeferredRenderingResourceManager from './InitResource/DeferredRendering/FDeferredRenderingResourceManager.js';
+import { EMeshType } from '../Mesh/EMeshType';
 
 export class FSceneRenderer {
     constructor(device) {
@@ -20,13 +22,6 @@ export class FSceneRenderer {
         this.trianglePipeline = null;
         this.testVertexBuffer = null;
         this.bInitializedCanvas = false;
-        
-        // 测试资源集合
-        this.testResources = {
-            vertexBuffer: null,
-            pipeline: null,
-            shader: null
-        };
 
         // 初始化相机
         this.camera = new PerspectiveCamera(
@@ -40,6 +35,12 @@ export class FSceneRenderer {
         this.camera.position.set(0, 10, 20);
         this.camera.lookAt(0, 0, 0);
         this.resourceManager = null;
+
+        // 初始化资源管理器
+        this.deferredResourceManager = FDeferredRenderingResourceManager.Initialize(device);
+
+        // 延迟管线的所有pass
+        this.passes = new Map();
     }
 
     /**
@@ -96,8 +97,9 @@ export class FSceneRenderer {
      */
     async Initialize() {
         this.resourceManager = FResourceManager.GetInstance();
-        //初始化基本的渲染资源
-        await InitDefaultPipeline.InitializeDeferredRenderPipeline();
+
+        // 设置相机到资源管理器
+        this.deferredResourceManager.SetCamera(this.camera);
 
         // 创建100个随机立方体
         this.meshes = this.CreateRandomCubes(100);
@@ -117,6 +119,10 @@ export class FSceneRenderer {
         );
         new Float32Array(transformStorageBuffer.getMappedRange()).set(transformMatrixs.flat());
         transformStorageBuffer.unmap();
+
+        this.MeshBatches = [];
+        const EarlyZPassMeshBatch = new MeshBatch(this.meshes, null, EMeshType.Static, "early-z");
+        this.MeshBatches.push(EarlyZPassMeshBatch);
 
         // 更新相机投影矩阵
         this.camera.updateProjectionMatrix();
@@ -208,253 +214,70 @@ export class FSceneRenderer {
             return;
         }
 
-        //更新场景数据
-        this.UpdateSceneData(DeltaTime);
+        // 更新场景通用数据
+        this.deferredResourceManager.UpdateSceneData(DeltaTime);
 
         // 创建命令编码器
         const commandEncoder = this.device.createCommandEncoder();
 
-        // 开始渲染通道
-        const renderPassDescriptor = {
-            colorAttachments: [{
-                view: this.resourceManager.GetResource('TestTriangleTexture').createView(),
-                clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-                loadOp: 'clear',
-                storeOp: 'store'
-            }]
-        };
+        // 使用 get 方法访问 Map 中的 pass
+        const earlyZPass = this.passes.get('EarlyZPass');
+        const copyToCanvasPass = this.passes.get('CopyToCanvasPass');
 
-        const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-        passEncoder.setPipeline(this.testResources.pipeline);
-        passEncoder.setVertexBuffer(0, this.testResources.vertexBuffer);
-        passEncoder.draw(3, 1, 0, 0); // 绘制三角形
-        passEncoder.end();
-
-        
-        this.copyToCanvasPass.Execute(commandEncoder);
-        // 提交命令
-        this.device.queue.submit([commandEncoder.finish()]);
-    }
-
-    /**
-     * 更新场景数据
-     * @param {number} deltaTime 帧间隔时间
-     */
-    UpdateSceneData(deltaTime) {
-        const resourceManager = FResourceManager.GetInstance();
-        const sceneBuffers = ResourceConfig.GetSceneBuffers();
-
-        // 1. 更新矩阵数据
-        const matricesBuffer = resourceManager.GetResource(sceneBuffers.matrices.name);
-        if (matricesBuffer) {
-            const matrixData = new Float32Array(sceneBuffers.matrices.totalSize / 4);
-
-            // 获取相机矩阵
-            const view = this.camera.matrixWorldInverse.elements;
-            const projection = this.camera.projectionMatrix.elements;
-
-            // 计算组合矩阵
-            const viewProjection = this.GetViewProjectionMatrix();
-
-            // 计算逆矩阵
-            const viewInverse = this.camera.matrixWorld.elements;
-            const projectionInverse = new Matrix4()
-                .copy(this.camera.projectionMatrix)
-                .invert().elements;
-            const viewProjectionInverse = new Matrix4().fromArray(viewProjection).invert().elements;
-
-            // 按照偏移填充数据
-            // 注意：model相关的矩阵会在每个mesh绘制时单独更新
-            matrixData.set(view, sceneBuffers.matrices.values.view.offset / 4);
-            matrixData.set(projection, sceneBuffers.matrices.values.projection.offset / 4);
-            matrixData.set(viewProjection, sceneBuffers.matrices.values.viewProjection.offset / 4);
-            matrixData.set(viewInverse, sceneBuffers.matrices.values.viewInverse.offset / 4);
-            matrixData.set(
-                projectionInverse,
-                sceneBuffers.matrices.values.projectionInverse.offset / 4
-            );
-            matrixData.set(
-                viewProjectionInverse,
-                sceneBuffers.matrices.values.viewProjectionInverse.offset / 4
-            );
-
-            this.device.queue.writeBuffer(matricesBuffer, 0, matrixData);
+        if (!earlyZPass || !copyToCanvasPass) {
+            console.warn('Required passes not initialized yet');
+            return;
         }
 
-        // 2. 更新相机属性数据
-        const cameraBuffer = resourceManager.GetResource(sceneBuffers.camera.name);
-        if (cameraBuffer) {
-            const cameraData = new Float32Array(sceneBuffers.camera.totalSize / 4);
+        try {
+            // 执行 EarlyZPass
+            earlyZPass.Execute(commandEncoder, this.MeshBatches);
 
-            // 获取相机数据
-            const position = this.camera.position;
-            const direction = new Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
-            const up = new Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion);
-            const right = new Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+            // 获取 EarlyZPass 的输出纹理名称
+            const outputTextureName = earlyZPass.GetDefaultOutputTextureName();
+            if (!outputTextureName) {
+                console.error('EarlyZPass output texture name is null');
+                return;
+            }
 
-            // 按照偏移填充数据
-            cameraData.set(
-                [position.x, position.y, position.z],
-                sceneBuffers.camera.values.position.offset / 4
-            );
-            cameraData.set(
-                [direction.x, direction.y, direction.z],
-                sceneBuffers.camera.values.direction.offset / 4
-            );
-            cameraData.set([up.x, up.y, up.z], sceneBuffers.camera.values.up.offset / 4);
-            cameraData.set(
-                [right.x, right.y, right.z],
-                sceneBuffers.camera.values.right.offset / 4
-            );
-            cameraData.set([this.camera.aspect], sceneBuffers.camera.values.aspect.offset / 4);
+            // 设置深度纹理作为源纹理并执行 CopyToCanvasPass
+            copyToCanvasPass.SetSourceTexture(outputTextureName);
+            copyToCanvasPass.Execute(commandEncoder);
 
-            this.device.queue.writeBuffer(cameraBuffer, 0, cameraData);
-        }
-
-        // 3. 更新场景参数数据
-        const sceneBuffer = resourceManager.GetResource(sceneBuffers.Scene.name);
-        if (sceneBuffer) {
-            const sceneParamData = new Float32Array(sceneBuffers.Scene.totalSize / 4);
-
-            // 设置时间数据
-            const currentTime = performance.now() / 1000; // 转换为秒
-            sceneParamData.set([currentTime, deltaTime], sceneBuffers.Scene.values.time.offset / 4);
-
-            this.device.queue.writeBuffer(sceneBuffer, 0, sceneParamData);
+            // 提交命令
+            this.device.queue.submit([commandEncoder.finish()]);
+        } catch (error) {
+            console.error('Error during render:', error);
         }
     }
 
     /**
      * 初始化画布
      */
-    InitCanvas(canvas) {
+    async InitCanvas(canvas) {
         this.Canvas = canvas;
         this.context = canvas.getContext('webgpu');
         this.context.configure({
             device: this.device,
             format: 'rgba8unorm',
-            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
+            usage:
+                GPUTextureUsage.RENDER_ATTACHMENT |
+                GPUTextureUsage.COPY_DST |
+                GPUTextureUsage.COPY_SRC,
         });
 
-        //以下是测试用例
-        this.#initializeTestResources(canvas);
-    }
+        // 创建所有的pass
+        await this.CreateAllPasses();
 
-    /**
-     * 初始化测试资源
-     * @private
-     */
-    #initializeTestResources(canvas) {
-        // 1. 创建着色器模块
-        this.testResources.shader = this.resourceManager.CreateResource('TestTriangleShader', {
-            Type: EResourceType.ShaderModule,
-            desc: {
-                code: `
-                    struct VertexOutput {
-                        @builtin(position) position: vec4<f32>
-                    }
-
-                    @vertex
-                    fn vsMain(@location(0) position: vec2<f32>) -> VertexOutput {
-                        var output: VertexOutput;
-                        output.position = vec4<f32>(position, 0.0, 1.0);
-                        return output;
-                    }
-
-                    @fragment
-                    fn fsMain() -> @location(0) vec4<f32> {
-                        return vec4<f32>(1.0, 0.0, 0.0, 1.0); // 红色三角形
-                    }
-                `
+        // 更新所有pass的资源
+        for (let [key, pass] of this.passes.entries()) {
+            try {
+                pass.OnCanvasResize(canvas.width, canvas.height, this.context);
+            } catch (error) {
+                console.error('Error updating pass resources [', key, ']:', error);
             }
-        });
-
-        // 2. 创建顶点缓冲区
-        if(this.resourceManager.GetResource('TestTriangleVertexBuffer')){
-            this.resourceManager.DeleteResource('TestTriangleVertexBuffer');
         }
-        
-        this.testResources.vertexBuffer = this.resourceManager.CreateResource('TestTriangleVertexBuffer', {
-            Type: EResourceType.Buffer,
-            desc: {
-                size: 3 * 2 * 4, // 3个顶点 * 2个分量 * 4字节
-                usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-                mappedAtCreation: true
-            }
-        });
-
-        // 设置三角形顶点数据
-        new Float32Array(this.testResources.vertexBuffer.getMappedRange()).set([
-            0.0, 0.5,    // 顶部顶点
-            -0.5, -0.5,  // 左下顶点
-            0.5, -0.5    // 右下顶点
-        ]);
-        this.testResources.vertexBuffer.unmap();
-
-        // 3. 创建渲染管线
-        this.testResources.pipeline = this.resourceManager.CreateResource('TestTrianglePipeline', {
-            Type: EResourceType.RenderPipeline,
-            desc: {
-                layout: 'auto',
-                vertex: {
-                    module: this.testResources.shader,
-                    entryPoint: 'vsMain',
-                    buffers: [{
-                        arrayStride: 8, // 2个float32 = 8字节
-                        attributes: [{
-                            shaderLocation: 0,
-                            offset: 0,
-                            format: 'float32x2'
-                        }]
-                    }]
-                },
-                fragment: {
-                    module: this.testResources.shader,
-                    entryPoint: 'fsMain',
-                    targets: [{
-                        format: 'rgba8unorm'
-                    }]
-                },
-                primitive: {
-                    topology: 'triangle-list'
-                }
-            }
-        });
-
-        // 4. 创建测试纹理
-        this.testResources.texture = this.resourceManager.CreateResource('TestTriangleTexture', {
-            Type: EResourceType.Texture,
-            desc: {
-                size: [canvas.width, canvas.height],
-                format: 'rgba8unorm',
-                usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC
-            }
-        });
-
         this.bInitializedCanvas = true;
-
-        this.copyToCanvasPass = new FCopyToCanvasPass(this.context, this.resourceManager.GetResource('TestTriangleTexture'));
-        this.copyToCanvasPass.SetSourceTexture('TestTriangleTexture');
-        this.copyToCanvasPass.Resize(canvas.width, canvas.height, this.context);
-    }
-
-    /**
-     * 清理测试资源
-     */
-    #cleanupTestResources() {
-        if (this.testResources) {
-            const resourceNames = ['TestTriangleShader', 'TestTriangleVertexBuffer', 'TestTrianglePipeline'];
-            for (const name of resourceNames) {
-                if (this.resourceManager.HasResource(name)) {
-                    this.resourceManager.DeleteResource(name);
-                }
-            }
-            this.testResources = {
-                vertexBuffer: null,
-                pipeline: null,
-                shader: null
-            };
-        }
     }
 
     /**
@@ -465,47 +288,27 @@ export class FSceneRenderer {
             return;
         }
 
-        // 重新创建受Canvas尺寸影响的资源
-        InitDefaultPipeline.InitializeDeferredRenderPipelineTextureByCanvasSize(width, height);
+        // 更新所有pass的资源
+        for (let [key, pass] of this.passes.entries()) {
+            try {
+                pass.OnCanvasResize(width, height, this.context);
+            } catch (error) {
+                console.error('Error updating pass resources [', key, ']:', error);
+            }
+        }
 
-        // 更新相机宽高比和投影矩阵
-        this.camera.aspect = width / height;
-        this.camera.updateProjectionMatrix();
+        // 更新相机宽高比和相关资源
+        this.deferredResourceManager.UpdateCameraAspect(width, height);
 
         // 更新画布配置
         this.context.configure({
             device: this.device,
             format: 'rgba8unorm',
-            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST,
+            usage:
+                GPUTextureUsage.RENDER_ATTACHMENT |
+                GPUTextureUsage.COPY_SRC |
+                GPUTextureUsage.COPY_DST,
         });
-
-        // 更新拷贝到Canvas的Pass
-        if (this.copyToCanvasPass) {
-            this.copyToCanvasPass.Resize(width, height, this.context);
-        }
-
-        //测试资源Size更新
-        if(this.resourceManager.GetResource('TestTriangleTexture')){
-            this.resourceManager.DeleteResource('TestTriangleTexture');
-            // 创建新纹理
-            const newTexture = this.resourceManager.CreateResource('TestTriangleTexture', {
-                Type: EResourceType.Texture,
-                desc: {
-                    size: [width, height],
-                    format: 'rgba8unorm',
-                    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC
-                }
-            });
-
-            // 更新 testResources 中的引用
-            this.testResources.texture = newTexture;
-
-            // 更新 CopyToCanvasPass 中的纹理引用
-            if(this.copyToCanvasPass){
-                this.copyToCanvasPass.SetSourceTexture('TestTriangleTexture');
-                this.copyToCanvasPass.Resize(width, height, this.context);
-            }
-        }
     }
 
     /**
@@ -513,7 +316,7 @@ export class FSceneRenderer {
      * @returns {Float32Array}
      */
     GetViewMatrix() {
-        return this.camera.matrixWorldInverse.elements;
+        return this.deferredResourceManager.GetCamera().matrixWorldInverse.elements;
     }
 
     /**
@@ -521,7 +324,7 @@ export class FSceneRenderer {
      * @returns {Float32Array}
      */
     GetProjectionMatrix() {
-        return this.camera.projectionMatrix.elements;
+        return this.deferredResourceManager.GetCamera().projectionMatrix.elements;
     }
 
     /**
@@ -529,11 +332,34 @@ export class FSceneRenderer {
      * @returns {Float32Array}
      */
     GetViewProjectionMatrix() {
+        const camera = this.deferredResourceManager.GetCamera();
         const viewProjectionMatrix = new Matrix4();
-        viewProjectionMatrix.multiplyMatrices(
-            this.camera.projectionMatrix,
-            this.camera.matrixWorldInverse
-        );
+        viewProjectionMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
         return viewProjectionMatrix.elements;
+    }
+
+    async CreateAllPasses() {
+        try {
+            // 创建所有的pass
+            this.passes = new Map();  // 确保 Map 被正确初始化
+            
+            // 创建并初始化 passes
+            const earlyZPass = new FEarlyZPass(this.device);
+            await earlyZPass.Initialize();
+            this.passes.set('EarlyZPass', earlyZPass);
+
+            const copyToCanvasPass = new FCopyToCanvasPass(
+                this.context, 
+                this.Canvas.width, 
+                this.Canvas.height
+            );
+            await copyToCanvasPass.Initialize();
+            this.passes.set('CopyToCanvasPass', copyToCanvasPass);
+
+            console.log('All passes initialized successfully');
+        } catch (error) {
+            console.error('Error initializing passes:', error);
+            throw error;
+        }
     }
 }

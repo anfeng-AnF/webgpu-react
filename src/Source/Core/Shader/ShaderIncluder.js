@@ -4,8 +4,6 @@
 class ShaderIncluder {
     // 缓存已处理的shader文件
     static #processedShaders = new Map();
-    // 记录正在处理的文件，用于检测循环引用
-    static #processingFiles = new Set();
 
     /**
      * 直接从路径加载并处理shader文件中的include指令
@@ -24,15 +22,8 @@ class ShaderIncluder {
             return this.#processedShaders.get(shaderPath);
         }
 
-        // 检测循环引用
-        if (this.#processingFiles.has(shaderPath)) {
-            throw new Error(`ShaderIncluder: Circular dependency detected for ${shaderPath}`);
-        }
 
         try {
-            // 标记文件正在处理
-            this.#processingFiles.add(shaderPath);
-
             // 从路径加载原始的shader代码
             const shaderCode = await this.#loadShaderFile(shaderPath);
             
@@ -50,8 +41,7 @@ class ShaderIncluder {
             console.error(`ShaderIncluder: Error processing shader at ${shaderPath}:`, err);
             throw err;
         } finally {
-            // 处理完成后移除文件标记
-            this.#processingFiles.delete(shaderPath);
+
         }
     }
 
@@ -130,7 +120,6 @@ class ShaderIncluder {
      */
     static ClearCache() {
         this.#processedShaders.clear();
-        this.#processingFiles.clear();
     }
 
     /**
@@ -140,7 +129,6 @@ class ShaderIncluder {
     static GetCacheStatus() {
         return {
             cachedFiles: Array.from(this.#processedShaders.keys()),
-            processingFiles: Array.from(this.#processingFiles),
             cacheSize: this.#processedShaders.size
         };
     }

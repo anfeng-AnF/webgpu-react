@@ -126,6 +126,12 @@ class FResourceManager {
         return this.#Resources.get(InName);
     }
 
+    /**
+     *
+     * @param InName
+     * @returns {GPUBuffer|GPUTexture|GPUBindGroup|null}
+     * @constructor
+     */
     GetResource(InName) {
         const Info = this.#Resources.get(InName);
         return Info ? Info.Resource : null;
