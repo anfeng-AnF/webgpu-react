@@ -84,8 +84,9 @@ class FDeferredRenderingResourceManager {
     /**
      * 更新场景通用数据（相机、时间等）
      * @param {number} deltaTime 帧间隔时间
+     * @param {boolean} [updateMatrices=true] 是否更新矩阵
      */
-    UpdateSceneData(deltaTime) {
+    UpdateSceneData(deltaTime, updateMatrices = true) {
         if (!this.#camera) {
             console.warn('DeferredRenderingResourceManager: Camera not set');
             return;
@@ -93,8 +94,10 @@ class FDeferredRenderingResourceManager {
 
         const sceneBuffers = ResourceConfig.GetSceneBuffers();
 
-        // 1. 更新矩阵数据
-        this.#updateMatricesBuffer(this.#camera, sceneBuffers);
+        // 1. 更新矩阵数据（如果需要）
+        if (updateMatrices) {
+            this.#updateMatricesBuffer(this.#camera, sceneBuffers);
+        }
 
         // 2. 更新相机属性数据
         this.#updateCameraBuffer(this.#camera, sceneBuffers);
@@ -123,55 +126,41 @@ class FDeferredRenderingResourceManager {
 
         // 获取相机矩阵
         const view = camera.matrixWorldInverse.elements;
+        const viewInverse = camera.matrixWorld.elements;
         const projection = camera.projectionMatrix.elements;
-        const viewProjection = this.#getViewProjectionMatrix(camera);
+        const projectionInverse = new Matrix4()
+            .copy(camera.projectionMatrix)
+            .invert()
+            .elements;
 
-        // 计算组合矩阵
-        const modelView = new Matrix4()
-            .fromArray(view)
-            .multiply(new Matrix4().fromArray(moduleMatrix));
-
-        const modelViewProjection = new Matrix4()
-            .fromArray(viewProjection)
-            .multiply(new Matrix4().fromArray(moduleMatrix));
-
-        // 计算逆矩阵
+        // 计算模型矩阵的逆矩阵
         const modelInverse = new Matrix4()
             .fromArray(moduleMatrix)
-            .invert();
+            .invert()
+            .elements;
 
-        const modelViewInverse = new Matrix4()
-            .fromArray(modelView.elements)
-            .invert();
-
-        // 创建或获取矩阵缓冲区
-        const bufferName = 'CurrentModuleMatrixBuffer';
-        const matrixBuffer = this.#resourceManager.GetResource(bufferName) || 
-            this.#resourceManager.CreateResource(bufferName, {
-                Type: EResourceType.Buffer,
-                desc: {
-                    size: sceneBuffers.matrices.totalSize,
-                    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-                }
-            });
+        // 获取已存在的矩阵缓冲区
+        const matricesBuffer = this.#resourceManager.GetResource(sceneBuffers.matrices.name);
+        if (!matricesBuffer) {
+            console.error('Matrices buffer not found');
+            return null;
+        }
 
         // 创建矩阵数据数组
         const matrixData = new Float32Array(sceneBuffers.matrices.totalSize / 4);
 
-        // 按照偏移填充数据
+        // 按照新的偏移填充数据
         matrixData.set(moduleMatrix, sceneBuffers.matrices.values.model.offset / 4);
-        matrixData.set(modelInverse.elements, sceneBuffers.matrices.values.modelInverse.offset / 4);
-        matrixData.set(modelView.elements, sceneBuffers.matrices.values.modelView.offset / 4);
-        matrixData.set(modelViewInverse.elements, sceneBuffers.matrices.values.modelViewInverse.offset / 4);
-        matrixData.set(modelViewProjection.elements, sceneBuffers.matrices.values.modelViewProjection.offset / 4);
+        matrixData.set(modelInverse, sceneBuffers.matrices.values.modelInverse.offset / 4);
         matrixData.set(view, sceneBuffers.matrices.values.view.offset / 4);
+        matrixData.set(viewInverse, sceneBuffers.matrices.values.viewInverse.offset / 4);
         matrixData.set(projection, sceneBuffers.matrices.values.projection.offset / 4);
-        matrixData.set(viewProjection, sceneBuffers.matrices.values.viewProjection.offset / 4);
+        matrixData.set(projectionInverse, sceneBuffers.matrices.values.projectionInverse.offset / 4);
 
         // 写入缓冲区
-        this.#device.queue.writeBuffer(matrixBuffer, 0, matrixData);
+        this.#device.queue.writeBuffer(matricesBuffer, 0, matrixData);
 
-        return matrixBuffer;
+        return matricesBuffer;
     }
 
     // 私有辅助方法
@@ -182,25 +171,24 @@ class FDeferredRenderingResourceManager {
 
             // 获取相机矩阵
             const view = camera.matrixWorldInverse.elements;
-            const projection = camera.projectionMatrix.elements;
-            const viewProjection = this.#getViewProjectionMatrix(camera);
-
-            // 计算逆矩阵
             const viewInverse = camera.matrixWorld.elements;
+            const projection = camera.projectionMatrix.elements;
             const projectionInverse = new Matrix4()
                 .copy(camera.projectionMatrix)
-                .invert().elements;
-            const viewProjectionInverse = new Matrix4()
-                .fromArray(viewProjection)
-                .invert().elements;
+                .invert()
+                .elements;
 
-            // 按照偏移填充数据
+            // 使用单位矩阵作为默认的模型矩阵
+            const model = new Matrix4().elements;
+            const modelInverse = new Matrix4().elements;
+
+            // 按照新的偏移填充数据
+            matrixData.set(model, sceneBuffers.matrices.values.model.offset / 4);
+            matrixData.set(modelInverse, sceneBuffers.matrices.values.modelInverse.offset / 4);
             matrixData.set(view, sceneBuffers.matrices.values.view.offset / 4);
-            matrixData.set(projection, sceneBuffers.matrices.values.projection.offset / 4);
-            matrixData.set(viewProjection, sceneBuffers.matrices.values.viewProjection.offset / 4);
             matrixData.set(viewInverse, sceneBuffers.matrices.values.viewInverse.offset / 4);
+            matrixData.set(projection, sceneBuffers.matrices.values.projection.offset / 4);
             matrixData.set(projectionInverse, sceneBuffers.matrices.values.projectionInverse.offset / 4);
-            matrixData.set(viewProjectionInverse, sceneBuffers.matrices.values.viewProjectionInverse.offset / 4);
 
             this.#device.queue.writeBuffer(matricesBuffer, 0, matrixData);
         }

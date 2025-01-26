@@ -2,15 +2,10 @@
 struct SceneMatrices {
     model: mat4x4f,              
     modelInverse: mat4x4f,       
-    modelView: mat4x4f,          
-    modelViewInverse: mat4x4f,   
-    modelViewProjection: mat4x4f, 
     view: mat4x4f,               
-    projection: mat4x4f,         
-    viewProjection: mat4x4f,     
     viewInverse: mat4x4f,        
+    projection: mat4x4f,         
     projectionInverse: mat4x4f,  
-    viewProjectionInverse: mat4x4f
 };
 
 // 相机属性结构体
@@ -32,37 +27,10 @@ struct SceneParameters {
 @group(0) @binding(1) var<uniform> camera: CameraAttributes;
 @group(0) @binding(2) var<uniform> scene: SceneParameters;
 
-// 常用的变换函数
-fn GetWorldPosition(localPosition: vec3f) -> vec3f {
-    return (matrices.model * vec4f(localPosition, 1.0)).xyz;
+fn GetMVPMatrix() -> mat4x4f {
+    return matrices.projection * matrices.view * matrices.model;
 }
 
-fn GetViewPosition(localPosition: vec3f) -> vec3f {
-    return (matrices.modelView * vec4f(localPosition, 1.0)).xyz;
+fn GetMVPInverseMatrix() -> mat4x4f {
+    return matrices.projectionInverse * matrices.viewInverse * matrices.modelInverse;
 }
-
-fn GetClipPosition(localPosition: vec3f) -> vec4f {
-    let MVP : mat4x4f = mat4x4f(
-        vec4(0.0, -0.5785061255843997, -0.5785061255843998, -0.5785061255844),
-        vec4(2.7292762403510085, -0.5773502691896257, -0.5773502691896258, -0.577350269189626),
-        vec4(1.0, 4.285216042639925e-16, -2.729276240351007, -9.427475293807834e-15),
-        vec4(-0.9855985596534886, 1.9711971193069784, -0.9855985596534892, -3.2163785799707193e-15)
-    );
-    //return matrices.modelViewProjection * vec4f(localPosition, 1.0);
-    return MVP * vec4f(localPosition, 1.0);
-}
-
-fn GetWorldNormal(localNormal: vec3f) -> vec3f {
-    return normalize((matrices.modelInverse * vec4f(localNormal, 0.0)).xyz);
-}
-
-fn GetViewNormal(localNormal: vec3f) -> vec3f {
-    return normalize((matrices.modelViewInverse * vec4f(localNormal, 0.0)).xyz);
-}
-
-// 视图空间深度计算
-fn GetLinearDepth(clipSpaceZ: f32) -> f32 {
-    let near = camera.position.z - camera.direction.z;
-    let far = camera.position.z + camera.direction.z;
-    return (2.0 * near * far) / (far + near - clipSpaceZ * (far - near));
-} 

@@ -129,55 +129,30 @@ class ResourceConfig {
                         modelInverse: {
                             name: 'ModelInverseMatrix',
                             type: 'float4x4',
-                            offset: 64  // 16 * 4
-                        },
-                        modelView: {
-                            name: 'ModelViewMatrix',
-                            type: 'float4x4',
-                            offset: 128  // 16 * 4 * 2
-                        },
-                        modelViewInverse: {
-                            name: 'ModelViewInverseMatrix',
-                            type: 'float4x4',
-                            offset: 192  // 16 * 4 * 3
-                        },
-                        modelViewProjection: {
-                            name: 'ModelViewProjectionMatrix',
-                            type: 'float4x4',
-                            offset: 256  // 16 * 4 * 4
+                            offset: 64  // 16 
                         },
                         view: {
                             name: 'ViewMatrix',
                             type: 'float4x4',
-                            offset: 320  // 16 * 4 * 5
-                        },
-                        projection: {
-                            name: 'ProjectionMatrix',
-                            type: 'float4x4',
-                            offset: 384  // 16 * 4 * 6
-                        },
-                        viewProjection: {
-                            name: 'ViewProjectionMatrix',
-                            type: 'float4x4',
-                            offset: 448  // 16 * 4 * 7
+                            offset: 128  // 16 * 2
                         },
                         viewInverse: {
                             name: 'ViewInverseMatrix',
                             type: 'float4x4',
-                            offset: 512  // 16 * 4 * 8
+                            offset: 192  // 16 * 3
+                        },
+                        projection: {
+                            name: 'ProjectionMatrix',
+                            type: 'float4x4',
+                            offset: 256  // 16 * 4
                         },
                         projectionInverse: {
                             name: 'ProjectionInverseMatrix',
                             type: 'float4x4',
-                            offset: 576  // 16 * 4 * 9
+                            offset: 320  // 16 * 5
                         },
-                        viewProjectionInverse: {
-                            name: 'ViewProjectionInverseMatrix',
-                            type: 'float4x4',
-                            offset: 640  // 16 * 4 * 10
-                        }
                     },
-                    totalSize: 704  // 16 * 4 * 11 (11个4x4矩阵)
+                    totalSize: 384  // 16 * 6 * 4 (6个4x4矩阵)
                 },
                 // 相机属性
                 camera: {

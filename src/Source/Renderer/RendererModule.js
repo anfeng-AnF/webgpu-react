@@ -37,7 +37,7 @@ class RendererModule extends IModule {
             <ViewportCanvas
                 onResize={(width, height) => this.handleResize(width, height)}
                 onCanvasReady={(canvas) => this.handleCanvasReady(canvas)}
-                id="RendererModuleViewportCanvas"
+                canvasId="RendererModuleViewportCanvas"
             />
         );
         FResourceManager.GetInstance().InitDevice(this.device);

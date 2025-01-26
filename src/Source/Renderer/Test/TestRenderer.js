@@ -3,6 +3,9 @@ import FResourceManager,{EResourceType} from '../../Core/Resource/FResourceManag
 import FCopyToCanvasPass from '../Pass/FCopyToCanvasPass';
 import { FStaticMesh } from '../../Mesh/FStaticMesh';
 import { ResourceConfig } from '../InitResource/DeferredRendering/ResourceConfig';
+import ShaderIncluder from '../../Core/Shader/ShaderIncluder';
+import FDeferredRenderingResourceManager from '../InitResource/DeferredRendering/FDeferredRenderingResourceManager';
+
 class TestRenderer {
     constructor() {
         /** @type {GPUDevice} */
@@ -44,10 +47,16 @@ class TestRenderer {
         this.colorAttachmentsName = 'TestColorAttachmentsName'
 
         this.FStaticMesh = null;
+
+        /** @type {FDeferredRenderingResourceManager} */
+        this.deferredResourceManager = null;
     }
 
     async Initialize(device) {
         this.device = device;
+
+        // 初始化延迟渲染资源管理器
+        this.deferredResourceManager = FDeferredRenderingResourceManager.Initialize(device);
 
         // 初始化相机
         this.camera = new PerspectiveCamera(
@@ -61,12 +70,12 @@ class TestRenderer {
         this.camera.position.set(0, 2, 8);
         this.camera.lookAt(new Vector3(0, 0, 0));
         
-        // 设置模型矩阵（将物体放置在原点附近）
-        this.modelMatrix.setPosition(0, 0, 0);
+        // 设置相机到资源管理器
+        this.deferredResourceManager.SetCamera(this.camera);
 
         await this.createPipelineAndResources();
 
-        this.FStaticMesh = FStaticMesh.CreateSphere();
+        this.FStaticMesh = FStaticMesh.CreateSphere(1,10);
     }
 
     async InitCanvas(canvas) {
@@ -89,72 +98,16 @@ class TestRenderer {
     }
 
     async createPipelineAndResources() {
-
-        // 创建 MVP 矩阵的 Uniform 缓冲区
-        this.uniformBuffer = this.device.createBuffer({
-            size: 128, // 两个 4x4 矩阵 (64 * 2)
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-        });
-
-        // 创建绑定组布局
-        const bindGroupLayout = this.device.createBindGroupLayout({
-            entries: [{
-                binding: 0,
-                visibility: GPUShaderStage.VERTEX,
-                buffer: { type: 'uniform' }
-            }]
-        });
-
-        // 创建渲染管线布局
+        // 创建渲染管线布局，使用 SceneBuffer 的布局
         const pipelineLayout = this.device.createPipelineLayout({
-            bindGroupLayouts: [bindGroupLayout]
+            bindGroupLayouts: [
+                this.resourceManager.GetResource(ResourceConfig.GetSceneBuffers().layoutName)
+            ]
         });
 
         // 更新着色器代码
         const shader = this.device.createShaderModule({
-            code: `
-                struct Uniforms {
-                    mvpMatrix : mat4x4<f32>,
-                    modelMatrix : mat4x4<f32>,
-                };
-                @binding(0) @group(0) var<uniform> uniforms : Uniforms;
-
-                struct VertexInput {
-                    @location(0) position : vec3<f32>,
-                    @location(1) normal : vec3<f32>,
-                    @location(2) tangent : vec3<f32>,
-                    @location(3) uv0 : vec2<f32>,
-                    @location(4) uv1 : vec2<f32>,
-                    @location(5) uv2 : vec2<f32>,
-                    @location(6) uv3 : vec2<f32>,
-                };
-
-                struct VertexOutput {
-                    @builtin(position) position : vec4<f32>,
-                    @location(0) worldNormal : vec3<f32>,
-                };
-
-                @vertex
-                fn vs_main(input: VertexInput) -> VertexOutput {
-                    var output : VertexOutput;
-                    
-                    // 变换位置到裁剪空间
-                    output.position = uniforms.mvpMatrix * vec4<f32>(input.position, 1.0);
-                    
-                    // 变换法线到世界空间，但不受平移影响
-                    let worldNormal = (uniforms.modelMatrix * vec4<f32>(input.normal, 0.0)).xyz;
-                    output.worldNormal = normalize(worldNormal);
-                    
-                    return output;
-                }
-
-                @fragment
-                fn fs_main(@location(0) worldNormal : vec3<f32>) -> @location(0) vec4<f32> {
-                    // 世界空间法线已经是单位向量，直接映射到颜色空间
-                    let color = worldNormal * 0.5 + 0.5;
-                    return vec4<f32>(color, 1.0);
-                }
-            `
+            code: await ShaderIncluder.GetShaderCode('Shader/DeferredShading/TestShader.wgsl')
         });
 
         // 更新渲染管线配置
@@ -163,7 +116,7 @@ class TestRenderer {
             vertex: {
                 module: shader,
                 entryPoint: 'vs_main',
-                buffers:[ResourceConfig.GetStaticMeshLayout()]
+                buffers: [ResourceConfig.GetStaticMeshLayout()]
             },
             fragment: {
                 module: shader,
@@ -182,48 +135,6 @@ class TestRenderer {
                 depthCompare: 'less'
             }
         });
-
-        // 创建绑定组
-        this.bindGroup = this.device.createBindGroup({
-            layout: bindGroupLayout,
-            entries: [{
-                binding: 0,
-                resource: { buffer: this.uniformBuffer }
-            }]
-        });
-    }
-
-    updateMVPMatrix() {
-        // 更新模型旋转
-        this.rotationAngle += 0.01;
-        this.modelMatrix.makeRotationY(this.rotationAngle);
-        
-        // 确保相机矩阵是最新的
-        this.camera.updateMatrixWorld();
-        
-        // 获取视图矩阵和投影矩阵
-        const viewMatrix = this.camera.matrixWorldInverse;
-        const projectionMatrix = this.camera.projectionMatrix;
-        
-        // 计算 MVP 矩阵
-        const mvpMatrix = new Matrix4()
-            .multiplyMatrices(projectionMatrix, viewMatrix)
-            .multiply(this.modelMatrix);
-
-        // 创建一个足够大的数组来存储两个矩阵
-        const uniformData = new Float32Array(32); // 8 x 4 = 32 个浮点数
-
-        // 复制 MVP 矩阵
-        uniformData.set(mvpMatrix.elements, 0);
-        // 复制模型矩阵
-        uniformData.set(this.modelMatrix.elements, 16);
-
-        // 更新 Uniform 缓冲区
-        this.device.queue.writeBuffer(
-            this.uniformBuffer,
-            0,
-            uniformData
-        );
     }
 
     async createDepthTexture(width, height) {
@@ -282,6 +193,9 @@ class TestRenderer {
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
 
+        // 更新延迟渲染资源管理器的相机宽高比
+        this.deferredResourceManager.UpdateCameraAspect(width, height);
+
         // 更新深度纹理
         await this.createDepthTexture(width, height);
 
@@ -311,12 +225,14 @@ class TestRenderer {
         this.camera.updateProjectionMatrix();
     }
 
-    Render() {
-        if (!this.context || !this.depthTexture) return;
-        this.updateMVPMatrix();
+    Render(deltaTime) {
+        if (!this.context || !this.depthTexture || !this.FStaticMesh) return;
 
+        // 1. 更新场景数据（相机、时间等）
+        this.deferredResourceManager.UpdateSceneData(deltaTime);
+
+        // 2. 开始渲染
         const commandEncoder = this.device.createCommandEncoder();
-        const textureView = this.context.getCurrentTexture().createView();
 
         const renderPassDescriptor = {
             colorAttachments: [{
@@ -335,17 +251,26 @@ class TestRenderer {
 
         const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
         passEncoder.setPipeline(this.pipeline);
-        passEncoder.setBindGroup(0, this.bindGroup);
+
+        // 3. 更新并设置每个模型的矩阵
+        // 更新模型旋转
+        this.rotationAngle += 0.01;
+        this.modelMatrix.makeRotationY(this.rotationAngle);
+        
+        // 更新当前模型的矩阵
+        this.deferredResourceManager.UpdateModuleMatrices(this.modelMatrix.elements);
+        
+        // 设置绑定组并绘制
+        passEncoder.setBindGroup(0, this.deferredResourceManager.GetSceneBindgroup());
         passEncoder.setVertexBuffer(0, this.FStaticMesh.GetVertexBuffer());
         passEncoder.setIndexBuffer(this.FStaticMesh.GetIndexBuffer(), 'uint32');
-        passEncoder.drawIndexed(this.FStaticMesh.GetIndexCount()); // 6 faces * 2 triangles * 3 vertices
+        passEncoder.drawIndexed(this.FStaticMesh.GetIndexCount());
+        
         passEncoder.end();
 
         this.FCopyToCanvasPass.SetSourceTexture(this.depthTextureName);
         this.FCopyToCanvasPass.SetSourceTexture(this.colorAttachmentsName);
         this.FCopyToCanvasPass.Execute(commandEncoder);
-
- 
 
         this.device.queue.submit([commandEncoder.finish()]);
     }
