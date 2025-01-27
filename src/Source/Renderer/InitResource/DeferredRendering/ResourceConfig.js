@@ -27,7 +27,7 @@ class ResourceConfig {
     // 缓存配置对象
     static #staticMeshLayout = null;
     static #skeletalMeshLayout = null;
-    static #sceneBuffer = null;
+    static #DefaultBIndgroups = null;
     static #baseBindGroupLayouts = null;
     static #baseRenderStates = null;
     static #baseResourceDesc = null;
@@ -112,96 +112,169 @@ class ResourceConfig {
     /**
      * 获取场景缓冲区名称配置
      */
-    static GetSceneBuffers() {
-        if (!this.#sceneBuffer) {
-            this.#sceneBuffer = {
-                name: 'sceneBufferBindGroup',
-                layoutName: 'sceneBufferBindGroupLayout',
-                // 矩阵
-                matrices: {
-                    name: 'VPMatrixsUniformBuffer',
-                    values: {
-                        model: {
-                            name: 'ModelMatrix',
-                            type: 'float4x4',
-                            offset: 0
-                        },
-                        modelInverse: {
-                            name: 'ModelInverseMatrix',
-                            type: 'float4x4',
-                            offset: 64  // 16 
-                        },
-                        view: {
-                            name: 'ViewMatrix',
-                            type: 'float4x4',
-                            offset: 128  // 16 * 2
-                        },
-                        viewInverse: {
-                            name: 'ViewInverseMatrix',
-                            type: 'float4x4',
-                            offset: 192  // 16 * 3
-                        },
-                        projection: {
-                            name: 'ProjectionMatrix',
-                            type: 'float4x4',
-                            offset: 256  // 16 * 4
-                        },
-                        projectionInverse: {
-                            name: 'ProjectionInverseMatrix',
-                            type: 'float4x4',
-                            offset: 320  // 16 * 5
-                        },
-                    },
-                    totalSize: 384  // 16 * 6 * 4 (6个4x4矩阵)
+    static GetDefaultBIndgroups() {
+        if (!this.#DefaultBIndgroups) {
+            this.#DefaultBIndgroups = {
+                //默认slot0
+                BindGroupSlot0:{
+                    defaultSlot:0,
+                    name: 'SceneBufferBindGroup',
+                    layoutName: 'SceneBufferBindGroupLayout',
+                    layout:{
+                        entries: [
+                            {
+                                /**
+                                 * 视图投影矩阵
+                                 * view mat4x4f viewInverse mat4x4f
+                                 * projection mat4x4f projectionInverse mat4x4f
+                                 */
+                                binding:0,
+                                resource:{
+                                    buffer:{
+                                        name: 'ViewProjectionMatrixUniformBuffer',
+                                        type: 'uniform',
+                                        size: 256,
+                                    }
+                                },
+                            },
+                            {
+                                /**
+                                 * 相机信息
+                                 * 位置 f3、方向 f3、上 f3、右 f3、宽高比 f1 
+                                 */
+                                binding:1,
+                                resource:{
+                                    buffer:{
+                                        name: 'CameraInfoUniformBuffer',
+                                        type: 'uniform',
+                                        size: 256,
+                                    }
+                                },
+                            },
+                            {
+                                /**
+                                 * 时间
+                                 * 时间 f2、时间差 f2
+                                 */
+                                binding:2,
+                                resource:{
+                                    buffer:{
+                                        name: 'TimeUniformBuffer',
+                                        type: 'uniform',
+                                        size: 8,
+                                    }
+                                },
+                            }
+                        ]
+                    }
                 },
-                // 相机属性
-                camera: {
-                    name: 'CameraAttrbuteUniformBuffer',
-                    values: {
-                        position: {
-                            name: 'CameraPosition',
-                            type: 'float3',
-                            offset: 0
-                        },
-                        direction: {
-                            name: 'CameraDirection',
-                            type: 'float3',
-                            offset: 16  // 考虑对齐
-                        },
-                        up: {
-                            name: 'CameraUp',
-                            type: 'float3',
-                            offset: 32
-                        },
-                        right: {
-                            name: 'CameraRight',
-                            type: 'float3',
-                            offset: 48
-                        },
-                        aspect: {
-                            name: 'CameraAspect',
-                            type: 'float',
-                            offset: 64
+                //默认slot1  Mesh相关BIndgroup
+                BindGroupSlot1:{
+                    //如果这次drawCall使用的是静态网格
+                    StaticMesh:{
+                        defaultSlot:1,
+                        name: 'StaticMeshBufferBindGroup',
+                        layoutName: 'StaticMeshBufferBindGroupLayout',
+                        layout:{
+                        entries: [
+                            {
+                                /**
+                                 * 模型矩阵
+                                 * model mat4x4f modelInverse mat4x4f
+                                 */
+                                binding:0,
+                                resource:{
+                                    buffer:{
+                                        name: 'StaticMeshUniformBuffer',
+                                        type: 'uniform',
+                                        size: 128,
+                                    }
+                                },
+                            }
+                        ]
+                    },
+                    //如果这次drawCall使用的是骨骼网格
+                    SkeletalMesh:{
+                        defaultSlot:1,
+                        name: 'SkeletalMeshBufferBindGroup',
+                        layoutName: 'SkeletalMeshBufferBindGroupLayout',
+                        layout:{
+                            entries: [
+                                {
+                                    /**
+                                     * 模型矩阵
+                                     * model mat4x4f modelInverse mat4x4f
+                                     */
+                                    binding:0,
+                                    resource:{
+                                        buffer:{
+                                            name: 'SkeletalMeshUniformBuffer',
+                                            type: 'uniform',
+                                            size: 128,
+                                        }
+                                    }
+                                },
+                                {
+                                    /**
+                                     * 骨骼矩阵
+                                     * bone mat4x4f
+                                     */
+                                    binding:1,
+                                    resource:{
+                                        buffer:{
+                                            name: 'SkeletalMeshBoneMatrixUniformBuffer',
+                                            type: 'uniform',
+                                            size: null,//每个骨骼网格体骨骼数不同
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
-                    totalSize: 68  // 16 * 4 + 4
-                },
-                // 场景参数
-                Scene: {
-                    name: 'SceneBufferUniformBuffer',
-                    values: {
-                        time: {
-                            name: 'Time',
-                            type: 'float2',  // time + deltaTime
-                            offset: 0
+                    //如果这次drawCall使用的是实例化网格
+                    InstancedMesh:{
+                        defaultSlot:1,
+                        name: 'InstancedMeshBufferBindGroup',
+                        layoutName: 'InstancedMeshBufferBindGroupLayout',
+                        layout:{
+                            entries: [
+                                {
+                                    /**
+                                     * 模型矩阵
+                                     * model mat4x4f modelInverse mat4x4f
+                                     */
+                                    binding:0,
+                                    resource:{
+                                        buffer:{
+                                            name: 'InstancedMeshStorageBuffer',
+                                            type: 'storage',
+                                            size: null,//n*128  ，n是实例化网格数量
+                                        }
+                                    }
+                                },
+                                {
+                                    /**
+                                     * 实例化矩阵
+                                     * instance mat4x4f
+                                     */
+                                    binding:1,
+                                    resource:{
+                                        buffer:{
+                                            name: 'InstancedMeshUniformBufferIdx',
+                                            type: 'uniform',
+                                            size: 4,
+                                        }
+                                    }
+                                }
+                            ]
                         }
-                    },
-                    totalSize: 8
+                    }
                 }
+            }
             };
-            Object.freeze(this.#sceneBuffer);
+            Object.freeze(this.#DefaultBIndgroups);
         }
-        return this.#sceneBuffer;
+        return this.#DefaultBIndgroups;
     }
 
     /**
@@ -330,7 +403,7 @@ class ResourceConfig {
         if (!this.#baseResourceNames) {
             this.#baseResourceNames = {
                 buffer: {
-                    SceneBuffer: this.GetSceneBuffers(),
+                    SceneBuffer: this.GetDefaultBIndgroups(),
                 },
                 texture: {
                     EarlyZDepthTexture: 'EarlyZDepthTexture',

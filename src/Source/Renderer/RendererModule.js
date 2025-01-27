@@ -2,10 +2,8 @@ import IModule from '../Core/IModule';
 import React from 'react';
 import FModuleManager from '../Core/FModuleManager';
 import ViewportCanvas from '../UI/Components/MainContent/ViewportCanvas';
-import { FSceneRenderer } from './FSceneRenderer';
 import FResourceManager from '../Core/Resource/FResourceManager';
-import InitDefaultPipeline from './InitResource/DeferredRendering/InitDefaultPipeline';
-import TestRenderer from './Test/TestRenderer';
+import FDeferredShadingSceneRenderer from './DeferredShadingRenderer/FDeferredShadingSceneRenderer';
 /**
  * 渲染器模块
  */
@@ -41,18 +39,16 @@ class RendererModule extends IModule {
             />
         );
         FResourceManager.GetInstance().InitDevice(this.device);
-        //this.sceneRenderer = new FSceneRenderer(this.device);
-        //this.sceneRenderer.Initialize();
-        this.sceneRenderer = new TestRenderer(this.device);
-        this.sceneRenderer.Initialize(this.device);
+        this.sceneRenderer = new FDeferredShadingSceneRenderer(this.device);
+        this.sceneRenderer.Initialize();
     }
 
     handleResize(width, height) {
-        this.sceneRenderer.OnResize(width, height);
+        this.sceneRenderer.OnCanvasResize(width, height);
     }
 
     handleCanvasReady(canvas) {
-        this.sceneRenderer.InitCanvas(canvas);
+        this.sceneRenderer.OnCanvasReady(canvas);
     }
 
     Update(DeltaTime) {

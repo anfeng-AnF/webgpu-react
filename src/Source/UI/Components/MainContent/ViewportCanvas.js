@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import './ViewportCanvas.css';
 
 const ViewportCanvas = ({ 
@@ -7,16 +7,90 @@ const ViewportCanvas = ({
     backgroundColor = '#141414',
     onCanvasReady,
     onResize,
+    onMouseDown,
+    onMouseUp,
+    onMouseMove,
+    onMouseEnter,
+    onMouseLeave,
+    onWheel,
+    onContextMenu,
+    onKeyDown,
+    onKeyUp,
     canvasId = 'ViewportCanvas',
+    tabIndex = 0,  // 使 Canvas 可以接收键盘事件
     ...props 
 }) => {
     const canvasRef = useRef(null);
     const containerRef = useRef(null);
     const resizeObserverRef = useRef(null);
-
-    // 生成唯一ID
-    
     const uniqueId = useRef(canvasId + '_' + Math.random().toString(36).substr(2, 9));
+
+    // 鼠标事件处理
+    const handleMouseEvent = useCallback((event, handler) => {
+        if (!handler) return;
+        
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        
+        // 计算设备像素比下的坐标
+        const dpr = window.devicePixelRatio || 1;
+        const deviceX = x * dpr;
+        const deviceY = y * dpr;
+
+        handler({
+            ...event,
+            canvasX: x,
+            canvasY: y,
+            deviceX,
+            deviceY,
+            buttons: event.buttons,
+            altKey: event.altKey,
+            ctrlKey: event.ctrlKey,
+            shiftKey: event.shiftKey,
+            preventDefault: () => event.preventDefault(),
+            stopPropagation: () => event.stopPropagation()
+        });
+    }, []);
+
+    // 滚轮事件处理
+    const handleWheel = useCallback((event) => {
+        if (!onWheel) return;
+        
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const dpr = window.devicePixelRatio || 1;
+
+        onWheel({
+            ...event,
+            canvasX: x,
+            canvasY: y,
+            deviceX: x * dpr,
+            deviceY: y * dpr,
+            deltaX: event.deltaX,
+            deltaY: event.deltaY,
+            deltaMode: event.deltaMode,
+            preventDefault: () => event.preventDefault(),
+            stopPropagation: () => event.stopPropagation()
+        });
+    }, [onWheel]);
+
+    // 键盘事件处理
+    const handleKeyEvent = useCallback((event, handler) => {
+        if (!handler) return;
+        
+        handler({
+            ...event,
+            key: event.key,
+            code: event.code,
+            altKey: event.altKey,
+            ctrlKey: event.ctrlKey,
+            shiftKey: event.shiftKey,
+            preventDefault: () => event.preventDefault(),
+            stopPropagation: () => event.stopPropagation()
+        });
+    }, []);
 
     useEffect(() => {
         if (!canvasRef.current.__initialized) {
@@ -37,22 +111,39 @@ const ViewportCanvas = ({
             canvas.style.height = `${rect.height}px`;
             
             // 设置渲染尺寸
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-
-            // 通知尺寸变化
-            onResize?.(canvas.width, canvas.height);
+            const newWidth = Math.max(1, Math.floor(rect.width * dpr));
+            const newHeight = Math.max(1, Math.floor(rect.height * dpr));
+            
+            if (canvas.width !== newWidth || canvas.height !== newHeight) {
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                onResize?.(canvas.width, canvas.height, canvas);
+            }
         };
 
-        // 创建 ResizeObserver
-        resizeObserverRef.current = new ResizeObserver(updateCanvasSize);
-        resizeObserverRef.current.observe(container);
+        // 确保容器有初始尺寸
+        if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+            console.warn('Canvas container has zero size');
+            return;
+        }
 
-        // 初始化画布
+        // 先更新一次尺寸
         updateCanvasSize();
-        onCanvasReady?.(canvas);
 
-        // 清理函数
+        // 等待一帧确保尺寸已更新
+        requestAnimationFrame(() => {
+            if (canvas.width > 0 && canvas.height > 0) {
+                onCanvasReady?.(canvas);
+                
+                resizeObserverRef.current = new ResizeObserver(() => {
+                    requestAnimationFrame(updateCanvasSize);
+                });
+                resizeObserverRef.current.observe(container);
+            } else {
+                console.warn('Canvas has zero size after initialization');
+            }
+        });
+
         return () => {
             if (resizeObserverRef.current) {
                 resizeObserverRef.current.disconnect();
@@ -64,12 +155,33 @@ const ViewportCanvas = ({
         <div 
             ref={containerRef}
             className="viewport-canvas-container"
-            style={{ width, height, backgroundColor }}
+            style={{ 
+                width, 
+                height, 
+                backgroundColor,
+                minWidth: '1px',
+                minHeight: '1px',
+                position: 'relative'  // 确保定位正确
+            }}
         >
             <canvas
                 ref={canvasRef}
                 className="viewport-canvas"
                 id={uniqueId.current}
+                tabIndex={tabIndex}
+                onMouseDown={e => handleMouseEvent(e, onMouseDown)}
+                onMouseUp={e => handleMouseEvent(e, onMouseUp)}
+                onMouseMove={e => handleMouseEvent(e, onMouseMove)}
+                onMouseEnter={e => handleMouseEvent(e, onMouseEnter)}
+                onMouseLeave={e => handleMouseEvent(e, onMouseLeave)}
+                onWheel={handleWheel}
+                onContextMenu={e => {
+                    e.preventDefault();
+                    onContextMenu?.(e);
+                }}
+                onKeyDown={e => handleKeyEvent(e, onKeyDown)}
+                onKeyUp={e => handleKeyEvent(e, onKeyUp)}
+                style={{ outline: 'none' }}  // 移除焦点边框
                 {...props}
             />
             <div className="canvas-id-label">

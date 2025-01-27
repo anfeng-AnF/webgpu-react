@@ -9,7 +9,7 @@ class InitDefaultPipeline {
      * 初始化基本资源如 相机参数的UniformBuffer 包括MVP矩阵 相机参数 场景参数
      */
     static async #InitializeBaseResources() {
-        const sceneBuffer = ResourceConfig.GetSceneBuffers();
+        const sceneBuffer = ResourceConfig.GetDefaultBIndgroups();
         try {
             // 1. 创建各个UniformBuffer
             // 创建MVP矩阵UniformBuffer
@@ -73,7 +73,7 @@ class InitDefaultPipeline {
             });
 
             //场景基本数据创建
-            this.#resourceManager.CreateResource(ResourceConfig.GetSceneBuffers().layoutName, {
+            this.#resourceManager.CreateResource(ResourceConfig.GetDefaultBIndgroups().layoutName, {
                 Type: EResourceType.BindGroupLayout,
                 desc: {
                     entries: [
@@ -101,7 +101,7 @@ class InitDefaultPipeline {
                 Type: EResourceType.BindGroup,
                 desc: {
                     layout: this.#resourceManager.GetResource(
-                        ResourceConfig.GetSceneBuffers().layoutName
+                        ResourceConfig.GetDefaultBIndgroups().layoutName
                     ),
                     entries: [
                         {

@@ -49,7 +49,7 @@ class FDeferredRenderingResourceManager {
         }
 
         // 更新相机相关的资源
-        const sceneBuffers = ResourceConfig.GetSceneBuffers();
+        const sceneBuffers = ResourceConfig.GetDefaultBIndgroups();
         
         // 更新矩阵数据
         this.#updateMatricesBuffer(this.#camera, sceneBuffers);
@@ -92,7 +92,7 @@ class FDeferredRenderingResourceManager {
             return;
         }
 
-        const sceneBuffers = ResourceConfig.GetSceneBuffers();
+        const sceneBuffers = ResourceConfig.GetDefaultBIndgroups();
 
         // 1. 更新矩阵数据（如果需要）
         if (updateMatrices) {
@@ -122,22 +122,12 @@ class FDeferredRenderingResourceManager {
 
     // 将原来的 UpdateModuleMatrices 改名为私有方法
     #updateModuleMatrices(camera, moduleMatrix) {
-        const sceneBuffers = ResourceConfig.GetSceneBuffers();
+        const sceneBuffers = ResourceConfig.GetDefaultBIndgroups();
 
-        // 获取相机矩阵
-        const view = camera.matrixWorldInverse.elements;
-        const viewInverse = camera.matrixWorld.elements;
-        const projection = camera.projectionMatrix.elements;
-        const projectionInverse = new Matrix4()
-            .copy(camera.projectionMatrix)
-            .invert()
-            .elements;
-
-        // 计算模型矩阵的逆矩阵
-        const modelInverse = new Matrix4()
-            .fromArray(moduleMatrix)
-            .invert()
-            .elements;
+        // 创建矩阵实例以便进行计算
+        const modelMat = new Matrix4().fromArray(moduleMatrix);
+        const viewMat = new Matrix4().fromArray(camera.matrixWorldInverse.elements);
+        const projMat = new Matrix4().fromArray(camera.projectionMatrix.elements);
 
         // 获取已存在的矩阵缓冲区
         const matricesBuffer = this.#resourceManager.GetResource(sceneBuffers.matrices.name);
@@ -149,13 +139,13 @@ class FDeferredRenderingResourceManager {
         // 创建矩阵数据数组
         const matrixData = new Float32Array(sceneBuffers.matrices.totalSize / 4);
 
-        // 按照新的偏移填充数据
-        matrixData.set(moduleMatrix, sceneBuffers.matrices.values.model.offset / 4);
-        matrixData.set(modelInverse, sceneBuffers.matrices.values.modelInverse.offset / 4);
-        matrixData.set(view, sceneBuffers.matrices.values.view.offset / 4);
-        matrixData.set(viewInverse, sceneBuffers.matrices.values.viewInverse.offset / 4);
-        matrixData.set(projection, sceneBuffers.matrices.values.projection.offset / 4);
-        matrixData.set(projectionInverse, sceneBuffers.matrices.values.projectionInverse.offset / 4);
+        // 按照偏移填充数据
+        matrixData.set(modelMat.elements, sceneBuffers.matrices.values.model.offset / 4);
+        matrixData.set(modelMat.invert().elements, sceneBuffers.matrices.values.modelInverse.offset / 4);
+        matrixData.set(viewMat.elements, sceneBuffers.matrices.values.view.offset / 4);
+        matrixData.set(viewMat.clone().invert().elements, sceneBuffers.matrices.values.viewInverse.offset / 4);
+        matrixData.set(projMat.elements, sceneBuffers.matrices.values.projection.offset / 4);
+        matrixData.set(projMat.clone().invert().elements, sceneBuffers.matrices.values.projectionInverse.offset / 4);
 
         // 写入缓冲区
         this.#device.queue.writeBuffer(matricesBuffer, 0, matrixData);
@@ -242,7 +232,7 @@ class FDeferredRenderingResourceManager {
      * 创建场景所需的缓冲区资源
      */
     CreateSceneBuffers() {
-        const sceneBuffers = ResourceConfig.GetSceneBuffers();
+        const sceneBuffers = ResourceConfig.GetDefaultBIndgroups();
 
         // 1. 创建矩阵缓冲区
         this.#resourceManager.CreateResource(
@@ -346,7 +336,7 @@ class FDeferredRenderingResourceManager {
      * 销毁场景缓冲区资源
      */
     DestroySceneBuffers() {
-        const sceneBuffers = ResourceConfig.GetSceneBuffers();
+        const sceneBuffers = ResourceConfig.GetDefaultBIndgroups();
         
         // 按照创建的相反顺序销毁资源
         const resourceNames = [
@@ -376,7 +366,7 @@ class FDeferredRenderingResourceManager {
      * 获取SceneBuffer的GPU BIndgroup
      */
     GetSceneBindgroup(){
-        return this.#resourceManager.GetResource(ResourceConfig.GetSceneBuffers().name);
+        return this.#resourceManager.GetResource(ResourceConfig.GetDefaultBIndgroups().name);
     }
 }
 

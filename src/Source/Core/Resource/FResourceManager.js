@@ -8,7 +8,7 @@ const EResourceType = {
     RenderPipeline: 'RenderPipeline',
     ComputePipeline: 'ComputePipeline',
     Sampler: 'Sampler',
-    ShaderModule: 'ShaderModule'
+    ShaderModule: 'ShaderModule',
 };
 
 class FResourceManager {
@@ -19,9 +19,15 @@ class FResourceManager {
     #ResourceVersions;
 
     constructor() {
+        if (FResourceManager.#Instance) {
+            return FResourceManager.#Instance;
+        }
+        
         this.#Resources = new Map();
         this.#ResourceStats = new Map();
         this.#ResourceVersions = new Map();
+        
+        FResourceManager.#Instance = this;
     }
 
     /**
@@ -62,12 +68,7 @@ class FResourceManager {
         this.#ResourceVersions.set(InName, Version);
 
         if (this.#Resources.has(InName)) {
-            if (InDesc.bReplace) {
-                this.DeleteResource(InName);
-            } else {
-                console.warn(`Resource "${InName}" already exists`);
-                return this.GetResource(InName);
-            }
+            this.DeleteResource(InName);
         }
 
         let Resource;
@@ -114,7 +115,7 @@ class FResourceManager {
             Descriptor: InDesc,
             CreatedAt: Date.now(),
             Version,
-            Metadata: InDesc.Metadata || {}
+            Metadata: InDesc.Metadata || {},
         });
 
         this.#UpdateResourceStats(InDesc.Type, 'Create');
@@ -205,6 +206,17 @@ class FResourceManager {
     GetResourceDescriptor(InName) {
         const Info = this.#Resources.get(InName);
         return Info ? Info.Descriptor : null;
+    }
+
+    /**
+     * 获取 GPU 设备
+     * @returns {Promise<GPUDevice>} GPU设备实例
+     */
+    async GetDevice() {
+        if (!this.#Device) {
+            throw new Error('Device not initialized');
+        }
+        return this.#Device;
     }
 }
 
