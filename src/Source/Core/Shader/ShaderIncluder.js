@@ -1,18 +1,18 @@
 /**
  * Shader文件包含处理器
+ * 用于处理shader文件中的include指令，支持相对路径和完整路径
  */
 class ShaderIncluder {
     // 缓存已处理的shader文件
     static #processedShaders = new Map();
-
+    
     /**
-     * 直接从路径加载并处理shader文件中的include指令
-     * @param {string} shaderPath - shader文件的路径
+     * 从路径加载并处理shader文件中的include指令
+     * @param {string} shaderPath - shader文件的完整路径
      * @returns {Promise<string>} 处理后的shader代码
-     * @throws {Error} 当文件加载失败、循环引用或处理失败时抛出错误
+     * @throws {Error} 当文件加载失败或处理失败时抛出错误
      */
     static async GetShaderCode(shaderPath) {
-        // 检查参数
         if (!shaderPath) {
             throw new Error('ShaderIncluder: Shader path cannot be empty');
         }
@@ -22,38 +22,87 @@ class ShaderIncluder {
             return this.#processedShaders.get(shaderPath);
         }
 
-
         try {
-            // 从路径加载原始的shader代码
             const shaderCode = await this.#loadShaderFile(shaderPath);
+            // 获取当前shader文件的目录路径，用于解析相对路径
+            const baseDir = this.#getDirectoryPath(shaderPath);
             
-            // 获取基础路径以便解析 #include 指令中的文件路径
-            const basePath = new URL(shaderPath, window.location.href).href;
-
-            // 递归处理shader中的所有include指令
-            const processedCode = await this.#replaceIncludes(shaderCode, basePath, shaderPath);
-
-            // 缓存处理过的代码
+            const processedCode = await this.#processIncludes(shaderCode, baseDir, shaderPath);
             this.#processedShaders.set(shaderPath, processedCode);
-
+            
             return processedCode;
         } catch (err) {
-            console.error(`ShaderIncluder: Error processing shader at ${shaderPath}:`, err);
+            console.error(`ShaderIncluder: Failed to process shader at ${shaderPath}:`, err);
             throw err;
-        } finally {
-
         }
     }
 
     /**
-     * 递归替换文件中的include指令
+     * 获取文件的目录路径
+     * @private
+     * @param {string} filePath - 文件完整路径
+     * @returns {string} 目录路径
+     */
+    static #getDirectoryPath(filePath) {
+        // 确保返回的目录路径以 '/' 结尾
+        const dir = filePath.substring(0, filePath.lastIndexOf('/') + 1);
+        return dir.startsWith('/') ? dir : `/${dir}`;
+    }
+
+    /**
+     * 解析include路径，支持相对路径和完整路径
+     * @private
+     * @param {string} includePath - include指令中的路径
+     * @param {string} baseDir - 当前shader文件的目录路径
+     * @returns {string} 解析后的完整路径
+     */
+    static #resolvePath(includePath, baseDir) {
+        // 如果是相对路径（以 ./ 或 ../ 开头）
+        if (includePath.startsWith('./') || includePath.startsWith('../')) {
+            // 确保baseDir以/Shader开头
+            const shaderBaseDir = baseDir.startsWith('/Shader/') ? baseDir : `/Shader${baseDir}`;
+            // 构建完整路径
+            const parts = shaderBaseDir.split('/');
+            const includeParts = includePath.split('/');
+            
+            let resultParts = [...parts];
+            // 移除最后一个空元素（如果存在）
+            if (resultParts[resultParts.length - 1] === '') {
+                resultParts.pop();
+            }
+
+            for (const part of includeParts) {
+                if (part === '.' || part === '') {
+                    continue;
+                } else if (part === '..') {
+                    resultParts.pop();
+                } else {
+                    resultParts.push(part);
+                }
+            }
+
+            return resultParts.join('/');
+        }
+        
+        // 如果是不带/的普通路径，假定是相对于当前目录
+        if (!includePath.startsWith('/')) {
+            const shaderBaseDir = baseDir.startsWith('/Shader/') ? baseDir : `/Shader${baseDir}`;
+            return `${shaderBaseDir}${includePath}`;
+        }
+
+        // 如果是绝对路径，确保以/Shader开头
+        return includePath.startsWith('/Shader/') ? includePath : `/Shader${includePath}`;
+    }
+
+    /**
+     * 处理shader代码中的所有include指令
      * @private
      * @param {string} shaderCode - shader代码
-     * @param {string} basePath - shader文件基础路径
-     * @param {string} currentFile - 当前处理的文件路径（用于错误报告）
+     * @param {string} baseDir - 基础目录路径
+     * @param {string} currentFile - 当前处理的文件路径
      * @returns {Promise<string>} 处理后的shader代码
      */
-    static async #replaceIncludes(shaderCode, basePath, currentFile) {
+    static async #processIncludes(shaderCode, baseDir, currentFile) {
         const includeRegex = /#include\s+"([^"]+)"/g;
         let resultCode = shaderCode;
         let match;
@@ -61,28 +110,32 @@ class ShaderIncluder {
         let lastIndex = 0;
 
         while ((match = includeRegex.exec(resultCode)) !== null) {
-            // 计算当前include指令的行号
+            // 计算当前include指令的行号，用于错误报告
             lineNumber += resultCode.slice(lastIndex, match.index).split('\n').length - 1;
             lastIndex = match.index;
 
-            const filepath = match[1];
-            const fullPath = new URL(filepath, basePath).href;
+            const includePath = match[1];
+            const resolvedPath = this.#resolvePath(includePath, baseDir);
 
             try {
-                // 读取include的文件内容
-                const includeContent = await this.#loadShaderFile(fullPath);
-                // 递归处理include文件中的include
-                const processedIncludeContent = await this.#replaceIncludes(
-                    includeContent, 
-                    new URL('./', fullPath).href,
-                    fullPath
+                // 读取并处理include文件
+                const includeContent = await this.#loadShaderFile(resolvedPath);
+                const includeBaseDir = this.#getDirectoryPath(resolvedPath);
+                const processedContent = await this.#processIncludes(
+                    includeContent,
+                    includeBaseDir,
+                    resolvedPath
                 );
 
-                // 替换include语句为包含的文件内容
-                resultCode = resultCode.replace(match[0], processedIncludeContent);
+                // 替换include语句
+                resultCode = resultCode.replace(match[0], processedContent);
             } catch (err) {
-                const errorMsg = `Error in file "${currentFile}" at line ${lineNumber}: Failed to process #include "${filepath}"\n${err.message}`;
-                throw new Error(errorMsg);
+                throw new Error(
+                    `Error in file "${currentFile}" at line ${lineNumber}:\n` +
+                    `Failed to process #include "${includePath}"\n` +
+                    `Resolved path: ${resolvedPath}\n` +
+                    `${err.message}`
+                );
             }
         }
 
@@ -90,28 +143,37 @@ class ShaderIncluder {
     }
 
     /**
-     * 读取一个shader文件的内容
+     * 读取shader文件内容
      * @private
-     * @param {string} fullPath - 包含文件的完整路径
+     * @param {string} fullPath - 文件完整路径
      * @returns {Promise<string>} 文件内容
-     * @throws {Error} 当文件加载失败时抛出错误
      */
     static async #loadShaderFile(fullPath) {
         try {
-            const response = await fetch(fullPath);
+            // 确保路径以 '/Shader' 开头
+            const shaderPath = fullPath.startsWith('/Shader/') ? fullPath : `/Shader/${fullPath}`;
+            
+            const response = await fetch(shaderPath);
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`HTTP ${response.status}: ${response.statusText} for path: ${shaderPath}`);
             }
+            
             const content = await response.text();
             if (!content.trim()) {
-                throw new Error('File is empty');
+                throw new Error(`Shader file is empty: ${shaderPath}`);
             }
+            
+            // 检查是否获取到了HTML而不是shader代码
+            if (content.includes('<!DOCTYPE html>')) {
+                throw new Error(`Invalid shader content received for path: ${shaderPath}`);
+            }
+            
             return content;
         } catch (error) {
             if (error instanceof TypeError) {
-                throw new Error(`File not found: ${fullPath}`);
+                throw new Error(`Failed to fetch shader file: ${fullPath}`);
             }
-            throw new Error(`Error loading file from ${fullPath}: ${error.message}`);
+            throw error;
         }
     }
 
@@ -124,7 +186,7 @@ class ShaderIncluder {
 
     /**
      * 获取缓存状态信息
-     * @returns {Object} 缓存状态信息
+     * @returns {{cachedFiles: string[], cacheSize: number}} 缓存状态信息
      */
     static GetCacheStatus() {
         return {

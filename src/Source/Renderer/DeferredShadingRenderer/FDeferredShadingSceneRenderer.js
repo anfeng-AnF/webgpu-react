@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 import TestRenderer from './Test/TestRenderer';
 import FCopyToCanvasPass from './Pass/PostProcess/FCopyToCanvasPass';
+import ShaderIncluder from '../../Core/Shader/ShaderIncluder';
+
 class FDeferredShadingSceneRenderer extends FSceneRenderer {
     constructor() {
         super();
@@ -50,6 +52,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
     async Initialize() {
         this._Device = await FResourceManager.GetInstance().GetDevice();
         this._bInitialized = true;
+
     }
 
     /**

@@ -118,7 +118,7 @@ class FCopyToCanvasPass extends FPass {
 
     async _InitializeDepthCopy() {
         // 创建采样器，使用非过滤模式
-        const sampler = this._ResourceManager.CreateResource(
+        const sampler = await this._ResourceManager.CreateResource(
             this._Name + 'CopySampler',
             {
                 Type: 'Sampler',
@@ -132,59 +132,21 @@ class FCopyToCanvasPass extends FPass {
             }
         );
 
+
+        const shaderCode = await ShaderIncluder.GetShaderCode('/Shader/PostProcess/Depth24ToColor.wgsl');
         // 创建着色器模块
-        const shaderModule = this._ResourceManager.CreateResource(
+        const shaderModule = await this._ResourceManager.CreateResource(
             this._Name + 'ShaderModule',
             {
                 Type: 'ShaderModule',
                 desc: {
-                    code: `
-                        struct VSOutput {
-                            @builtin(position) position: vec4<f32>,
-                            @location(0) texCoord: vec2<f32>
-                        }
-
-                        @vertex
-                        fn VSMain(@builtin(vertex_index) VertexIndex : u32) -> VSOutput {
-                            var pos = array<vec2<f32>, 4>(
-                                vec2<f32>(-1.0, -1.0),
-                                vec2<f32>( 1.0, -1.0),
-                                vec2<f32>(-1.0,  1.0),
-                                vec2<f32>( 1.0,  1.0)
-                            );
-                            var texCoord = array<vec2<f32>, 4>(
-                                vec2<f32>(0.0, 1.0),
-                                vec2<f32>(1.0, 1.0),
-                                vec2<f32>(0.0, 0.0),
-                                vec2<f32>(1.0, 0.0)
-                            );
-                            
-                            var output: VSOutput;
-                            output.position = vec4<f32>(pos[VertexIndex], 0.0, 1.0);
-                            output.texCoord = texCoord[VertexIndex];
-                            return output;
-                        }
-
-                        @group(0) @binding(0) var depthSampler: sampler;
-                        @group(0) @binding(1) var depthTexture: texture_depth_2d;
-
-                        @fragment
-                        fn FSDepthMain(@location(0) texCoord: vec2<f32>) -> @location(0) vec4<f32> {
-                            let depth = textureSample(depthTexture, depthSampler, texCoord);
-                            
-                            // 调整深度值的可视化
-                            // 将 [0,1] 范围的深度值映射到更容易看到的范围
-                            let adjustedDepth = 1.0 - pow(depth, 32.0);
-                            
-                            return vec4<f32>(adjustedDepth, adjustedDepth, adjustedDepth, 1.0);
-                        }
-                    `
+                    code: shaderCode
                 }
             }
         );
 
         // 创建渲染管线
-        this._pipeline = this._ResourceManager.CreateResource(
+        const pipeline = await this._ResourceManager.CreateResource(
             this._Name + 'CopyToCanvasPipeline',
             {
                 Type: 'RenderPipeline',
@@ -210,12 +172,12 @@ class FCopyToCanvasPass extends FPass {
         );
 
         // 修改 BindGroup 创建
-        this._bindGroup = this._ResourceManager.CreateResource(
+        const bindGroup = await this._ResourceManager.CreateResource(
             this._Name + 'CopyToCanvasBindGroup',
             {
                 Type: 'BindGroup',
                 desc: {
-                    layout: this._pipeline.getBindGroupLayout(0),
+                    layout: pipeline.getBindGroupLayout(0),
                     entries: [
                         {
                             binding: 0,
@@ -229,6 +191,11 @@ class FCopyToCanvasPass extends FPass {
                 }
             }
         );
+
+        // 存储引用
+        this._copyMode = 'pipeline';
+        this._pipelineName = this._Name + 'CopyToCanvasPipeline';
+        this._bindGroupName = this._Name + 'CopyToCanvasBindGroup';
     }
 
     /**
@@ -240,15 +207,13 @@ class FCopyToCanvasPass extends FPass {
         context.unconfigure();
 
         // 清理资源
-        if (this._pipeline) {
-            this._ResourceManager.DestroyResource(this._Name + 'CopyToCanvasPipeline');
-            this._pipeline = null;
+        if (this._pipelineName) {
+            this._ResourceManager.DeleteResource(this._pipelineName);
         }
-        if (this._bindGroup) {
-            this._ResourceManager.DestroyResource(this._Name + 'CopyToCanvasBindGroup');
-            this._bindGroup = null;
+        if (this._bindGroupName) {
+            this._ResourceManager.DeleteResource(this._bindGroupName);
         }
-        this._ResourceManager.DestroyResource(this._Name + 'CopySampler');
+        this._ResourceManager.DeleteResource(this._Name + 'CopySampler');
     }
 
     /**
@@ -268,8 +233,16 @@ class FCopyToCanvasPass extends FPass {
                 { texture: canvasTexture },
                 [canvasTexture.width, canvasTexture.height, 1]
             );
-        } else {
-            // 使用渲染管线
+        } else if (this._copyMode === 'pipeline') {
+            // 从资源管理器获取pipeline和bindGroup
+            const pipeline = this._ResourceManager.GetResource(this._pipelineName);
+            const bindGroup = this._ResourceManager.GetResource(this._bindGroupName);
+
+            if (!pipeline || !bindGroup) {
+                console.error('Pipeline or BindGroup not found');
+                return;
+            }
+
             const renderPassDescriptor = {
                 colorAttachments: [{
                     view: canvasTexture.createView(),
@@ -280,8 +253,8 @@ class FCopyToCanvasPass extends FPass {
             };
 
             const passEncoder = CommandEncoder.beginRenderPass(renderPassDescriptor);
-            passEncoder.setPipeline(this._pipeline);
-            passEncoder.setBindGroup(0, this._bindGroup);
+            passEncoder.setPipeline(pipeline);
+            passEncoder.setBindGroup(0, bindGroup);
             passEncoder.draw(4, 1, 0, 0);
             passEncoder.end();
         }
@@ -307,13 +280,19 @@ class FCopyToCanvasPass extends FPass {
 
         // 如果需要，更新资源大小
         if (this._copyMode === 'pipeline') {
+            const pipeline = this._ResourceManager.GetResource(this._pipelineName);
+            if (!pipeline) {
+                console.error('Pipeline not found during resize');
+                return;
+            }
+
             // 重新创建BindGroup
-            this._bindGroup = this._ResourceManager.CreateResource(
-                this._Name + 'CopyToCanvasBindGroup',
+            await this._ResourceManager.CreateResource(
+                this._bindGroupName,
                 {
                     Type: 'BindGroup',
                     desc: {
-                        layout: this._pipeline.getBindGroupLayout(0),
+                        layout: pipeline.getBindGroupLayout(0),
                         entries: [
                             {
                                 binding: 0,
