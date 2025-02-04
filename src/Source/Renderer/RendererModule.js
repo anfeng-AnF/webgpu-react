@@ -17,6 +17,7 @@ class RendererModule extends IModule {
         this.sceneRenderer = null;
         this.moduleManager = FModuleManager.GetInstance();
         this.bInitialized = false;
+
     }
 
     async Initialize() {

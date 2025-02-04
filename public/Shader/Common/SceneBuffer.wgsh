@@ -1,0 +1,12 @@
+struct SceneBuffer {
+    viewMatrix: mat4x4<f32>,
+    projMatrix: mat4x4<f32>,
+    camPos: vec4<f32>,  // (xyz = camPos, w = padding)
+    camDir: vec4<f32>,  // (xyz = camDir, w = padding)
+    camUp: vec4<f32>,   // (xyz = camUp, w = padding)
+    camRight: vec4<f32>,// (xyz = camRight, w = padding)
+    timeDelta: vec4<f32> // (x = time, y = deltaTime, zw = padding)
+};
+
+@group(0) @binding(0)
+var<uniform> scene: SceneBuffer;
