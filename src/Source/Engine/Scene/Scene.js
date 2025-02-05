@@ -5,7 +5,7 @@ import FResourceManager from "../../Core/Resource/FResourceManager";
 /**
  * 场景类，继承自THREE.Scene
  * 扩展了对GPU资源的管理功能
- * 管理Scenebuffer
+ * 管理Scenebuffer（BindGroup(0)），meshUniformBuffer（BindGroup(1)）
  */
 class FScene extends THREE.Scene{
     /**
@@ -28,7 +28,7 @@ class FScene extends THREE.Scene{
     MainCamera = null;
 
     /**
-     * 场景buffer
+     * 场景bufferBindGroup
      * @type {GPUBindGroup}
      */
     SceneBufferBindGroup = null;
@@ -45,6 +45,48 @@ class FScene extends THREE.Scene{
      */
     SceneBufferLayoutName = 'SceneBufferLayout';
 
+    /**
+     * 网格信息buffer及其绑定组相关常量
+     * @type {Object}
+     * @private
+     */
+    static #MESH_INFO_CONSTANTS = {
+        MESH_INFO_SIZE: 256,         // 每个网格信息的大小
+        ALLOCATION_CHUNK: 128,       // 每次分配的块大小
+        MIN_MESHES: 128             // 最小分配数量
+    };
+
+    /**
+     * 当前分配的网格数量
+     * @type {number}
+     * @private
+     */
+    _allocatedMeshCount = 0;
+
+    /**
+     * 网格信息bufferBindGroup
+     * @type {GPUBindGroup}
+     */
+    MeshInfoBufferBindGroup = null;
+
+    /**
+     * 网格信息buffer名称
+     * @type {string}
+     */
+    MeshInfoBufferName = 'MeshInfoBuffer';
+
+    /**
+     * 网格信息buffer布局名称
+     * @type {string}
+     */
+    MeshInfoBufferLayoutName = 'MeshInfoBufferLayout';
+
+    /**
+     * 存储对齐后的大小，用于计算偏移
+     * @type {number}
+     */
+    MeshInfoAlignedSize = 0;
+
     constructor() {
         super();
         this._ResourceManager = FResourceManager.GetInstance();
@@ -60,6 +102,12 @@ class FScene extends THREE.Scene{
 
         // 如果是网格，创建 GPU 资源
         if (object instanceof THREE.Mesh) {
+            // 检查是否需要扩展MeshInfoBuffer
+            const currentMeshCount = this._gpuMeshes.size;
+            if (currentMeshCount >= this._allocatedMeshCount) {
+                await this.#CreateMeshInfoBuffer(currentMeshCount + 1);
+            }
+
             // 确保网格有唯一ID
             if (!object.ID) {
                 object.ID = `mesh_${this.children.length}`;
@@ -73,7 +121,8 @@ class FScene extends THREE.Scene{
                 IndexBufferName: staticMesh.IndexBufferName,
                 VertexCount: staticMesh.VertexCount,
                 IndexCount: staticMesh.IndexCount,
-                bIndexedMesh: staticMesh.bIndexedMesh
+                bIndexedMesh: staticMesh.bIndexedMesh,
+                meshIndex: currentMeshCount // 存储网格在buffer中的索引
             });
 
             // 更新版本号以触发资源更新
@@ -148,7 +197,7 @@ class FScene extends THREE.Scene{
     }
 
     /**
-     * 更新当前的SceneBuffer
+     * 更新当前的SceneBuffer和MeshInfoBuffer
      * @param {number} DeltaTime 
      */
     async Update(DeltaTime) {
@@ -225,6 +274,9 @@ class FScene extends THREE.Scene{
         // 写入数据到buffer
         device.queue.writeBuffer(sceneBuffer, 0, sceneData);
         
+        // 更新MeshInfoBuffer
+        await this.#UpdateMeshInfoBuffer();
+        
         // 更新时间
         this.time += DeltaTime;
     }
@@ -295,6 +347,96 @@ class FScene extends THREE.Scene{
     }
 
     /**
+     * 创建或重新创建网格信息buffer
+     * @param {number} requiredMeshCount 需要的网格数量
+     * @private
+     */
+    async #CreateMeshInfoBuffer(requiredMeshCount = 0) {
+        const { MESH_INFO_SIZE, ALLOCATION_CHUNK, MIN_MESHES } = FScene.#MESH_INFO_CONSTANTS;
+        
+        // 计算需要分配的网格数量，向上取整到ALLOCATION_CHUNK的倍数
+        const chunksNeeded = Math.ceil(Math.max(requiredMeshCount, MIN_MESHES) / ALLOCATION_CHUNK);
+        const meshCount = chunksNeeded * ALLOCATION_CHUNK;
+        
+        // 确保大小是256字节对齐
+        const ALIGNED_MESH_INFO_SIZE = Math.ceil(MESH_INFO_SIZE / 256) * 256;
+        
+        // 如果已存在buffer，先删除旧资源
+        if (this._ResourceManager.HasResource(this.MeshInfoBufferName)) {
+            this._ResourceManager.DeleteResource(this.MeshInfoBufferName);
+            this._ResourceManager.DeleteResource(this.MeshInfoBufferLayoutName);
+            this._ResourceManager.DeleteResource('MeshInfoBufferBindGroup');
+        }
+
+        // 创建新的网格信息buffer
+        await this._ResourceManager.CreateResource(
+            this.MeshInfoBufferName,
+            {
+                Type: 'Buffer',
+                desc: {
+                    size: ALIGNED_MESH_INFO_SIZE * meshCount,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+                }
+            }
+        );
+
+        // 创建绑定组布局
+        await this._ResourceManager.CreateResource(
+            this.MeshInfoBufferLayoutName,
+            {
+                Type: 'BindGroupLayout',
+                desc: {
+                    entries: [
+                        {
+                            binding: 0,
+                            visibility: GPUShaderStage.VERTEX,
+                            buffer: {
+                                type: 'read-only-storage',
+                                hasDynamicOffset: true,
+                                minBindingSize: MESH_INFO_SIZE
+                            }
+                        }
+                    ]
+                }
+            }
+        );
+
+        // 创建绑定组
+        this.MeshInfoBufferBindGroup = await this._ResourceManager.CreateResource(
+            'MeshInfoBufferBindGroup',
+            {
+                Type: 'BindGroup',
+                desc: {
+                    layout: this._ResourceManager.GetResource(this.MeshInfoBufferLayoutName),
+                    entries: [
+                        {
+                            binding: 0,
+                            resource: {
+                                buffer: this._ResourceManager.GetResource(this.MeshInfoBufferName),
+                                offset: 0,
+                                size: MESH_INFO_SIZE
+                            }
+                        }
+                    ]
+                }
+            }
+        );
+
+        // 更新存储的值
+        this.MeshInfoAlignedSize = ALIGNED_MESH_INFO_SIZE;
+        this._allocatedMeshCount = meshCount;
+    }
+
+    /**
+     * 获取指定索引的网格信息偏移量
+     * @param {number} index 网格索引
+     * @returns {number} 偏移量
+     */
+    GetMeshInfoOffset(index) {
+        return index * this.MeshInfoAlignedSize;
+    }
+
+    /**
      * 设置主相机
      * @param {THREE.PerspectiveCamera} camera 
      */
@@ -309,6 +451,52 @@ class FScene extends THREE.Scene{
      */
     GetSceneBufferLayout() {
         return this._ResourceManager.GetResource(this.SceneBufferLayoutName);
+    }
+
+    /**
+     * 更新网格信息buffer
+     * @private
+     */
+    async #UpdateMeshInfoBuffer() {
+        if (!this._ResourceManager.HasResource(this.MeshInfoBufferName)) {
+            await this.#CreateMeshInfoBuffer();
+            if (this._gpuMeshes.size > 0) {
+                await this.#CreateMeshInfoBuffer(this._gpuMeshes.size);
+            }
+        }
+
+        const device = await this._ResourceManager.GetDevice();
+        const meshInfoBuffer = this._ResourceManager.GetResource(this.MeshInfoBufferName);
+
+        // 遍历所有网格，更新它们的信息
+        for (const [id, gpuMesh] of this._gpuMeshes) {
+            const mesh = gpuMesh.originalMesh;
+            if (!mesh) continue;
+
+            // 确保世界矩阵是最新的
+            mesh.updateWorldMatrix(true, false);
+
+            // 准备网格数据 (256字节对齐，但仅使用前64字节作为模型矩阵)
+            const meshData = new Float32Array([
+                // Model Matrix (4x4 = 64字节)
+                ...mesh.matrixWorld.elements,
+                
+                // 预留空间 (192字节)
+                ...new Array(48).fill(0)  // 48 个 float = 192 字节
+            ]);
+
+            // 计算这个网格数据在buffer中的偏移
+            const offset = this.GetMeshInfoOffset(gpuMesh.meshIndex);
+            
+            // 写入数据到buffer
+            device.queue.writeBuffer(
+                meshInfoBuffer,
+                offset,
+                meshData.buffer,
+                meshData.byteOffset,
+                meshData.byteLength
+            );
+        }
     }
 }
 

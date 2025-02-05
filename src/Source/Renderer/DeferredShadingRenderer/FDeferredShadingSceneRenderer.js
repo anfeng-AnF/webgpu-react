@@ -235,6 +235,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         // 先设置旋转，再设置位置
         planeMesh.rotation.x = -Math.PI / 2; // 绕X轴旋转-90度使其水平
         planeMesh.position.y = -1;
+
         planeMesh.updateMatrix(); // 确保矩阵更新
         planeMesh.ID = 'plane';
         await this.Scene.add(planeMesh);
