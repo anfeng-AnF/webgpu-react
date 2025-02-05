@@ -162,13 +162,20 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
      * @param {HTMLCanvasElement} Canvas 画布
      */
     async OnCanvasResize(Width, Height, Canvas) {
+        /**
+         * 因为有资源依赖关系，必须先调用先使用资源的Pass，再调用后使用资源的Pass  (RDG未实现)
+         * 比如 CopyPass 依赖 PrePass 的深度纹理，所以必须先更新 PrePass 的渲染目标大小，再更新 CopyPass 的渲染目标大小
+         */
+
+
+        // 更新 PrePass 的渲染目标大小
+        if (this._PrePass) {
+            await this._PrePass.OnRenderTargetResize(Width, Height);
+        }
+        
         if (this._CopyPass) {
             await this._CopyPass.OnRenderTargetResize(Width, Height);
         }
-
-        // 更新 PrePass 的渲染目标大小
-        await this._PrePass.OnRenderTargetResize(Width, Height);
-
         // 更新相机宽高比
         this._MainCamera.aspect = Width / Height;
         this._MainCamera.updateProjectionMatrix();

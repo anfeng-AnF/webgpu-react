@@ -2,18 +2,12 @@ struct MeshInfo {
     // 模型矩阵 (64 bytes)
     modelMatrix: mat4x4<f32>,
     
-    // 预留空间以满足 256 字节对齐要求
-    // 可以在这里添加更多网格相关的数据
-    padding: array<vec4<f32>, 12>,  // (12 * 16 = 192 bytes)
+    // 预留空间不需要在着色器中定义
 };
 
-struct MeshInfoBuffer {
-    meshes: array<MeshInfo>,
-}
+// 直接绑定单个 MeshInfo，因为我们使用动态偏移来访问不同的网格
+@group(1) @binding(0) var<storage, read> meshInfo: MeshInfo;
 
-@group(1) @binding(0) var<uniform> meshInfo: MeshInfoBuffer;
-
-// 获取指定偏移的网格信息
-fn GetMeshInfo(offset: u32) -> MeshInfo {
-    return meshInfo.meshes[offset];
+fn GetModelMatrix() -> mat4x4<f32> {
+    return meshInfo.modelMatrix;
 }
