@@ -28,9 +28,8 @@ fn VSMain(@builtin(vertex_index) VertexIndex : u32) -> VSOutput {
 fn FSDepthMain(@location(0) texCoord: vec2<f32>) -> @location(0) vec4<f32> {
     let depth = textureSample(depthTexture, depthSampler, texCoord);
     
-    // 调整深度值的可视化
-    // 将 [0,1] 范围的深度值映射到更容易看到的范围
-    let adjustedDepth = 1.0 - pow(depth, 32.0);
+    // 将深度值缩放到更易于观察的范围
+    let scaledDepth = 1.0 - pow(depth, 32.0);
     
-    return vec4<f32>(adjustedDepth, adjustedDepth, adjustedDepth, 1.0);
+    return vec4<f32>(scaledDepth, scaledDepth, scaledDepth, 1.0);
 }

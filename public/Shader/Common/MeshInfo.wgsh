@@ -1,13 +1,67 @@
+const OPACITY_FLAG = 0x00000001;
+
+//如果是PBR，后4位标志是否使用纹理
+const MATERIAL_PBR = 0x00000002;
+const BASE_COLOR_USE_TEXTURE = 0x00000004;
+const METALLIC_USE_TEXTURE = 0x00000008;
+const SPECULAR_USE_TEXTURE = 0x00000010;
+const ROUGHNESS_USE_TEXTURE = 0x00000020;
+
+
+
+// 网格信息 256 bytes
 struct MeshInfo {
     // 模型矩阵 (64 bytes)
     modelMatrix: mat4x4<f32>,
     
-    // 预留空间不需要在着色器中定义
+    // 标志位 (4 bytes)
+    flags: u32,
+
+    // 预留空间 (188 bytes)
+    reserved: array<f32, 44>,
 };
 
-// 直接绑定单个 MeshInfo，因为我们使用动态偏移来访问不同的网格
+// 绑定单个 MeshInfo，使用动态偏移来访问不同的网格
 @group(1) @binding(0) var<storage, read> meshInfo: MeshInfo;
 
 fn GetModelMatrix() -> mat4x4<f32> {
     return meshInfo.modelMatrix;
+}
+
+struct PBRMaterialInfo {
+    modelMatrix: mat4x4<f32>,
+
+    flags: u32,
+
+    BaseColor: vec4<f32>,
+    Metallic: f32,
+    Specular: f32,
+    Roughness: f32,
+    PixelDepthOffset: f32,
+}
+
+fn GetPBRMaterialInfo() -> PBRMaterialInfo {
+    var ret: PBRMaterialInfo;
+    
+    if (((meshInfo.flags & OPACITY_FLAG) == 0) || ((meshInfo.flags & MATERIAL_PBR) == 0)) {
+        // 返回一个默认的无效材质信息
+        ret.modelMatrix = meshInfo.modelMatrix;
+        ret.flags = 0u;  // 清除所有标志位表示无效
+        ret.BaseColor = vec4<f32>(1.0, 0.0, 1.0, 1.0);  // 紫红色表示错误
+        ret.Metallic = 0.0;
+        ret.Specular = 0.0;
+        ret.Roughness = 1.0;
+        ret.PixelDepthOffset = 0.0;
+        return ret;
+    }
+
+    ret.modelMatrix = meshInfo.modelMatrix;
+    ret.flags = meshInfo.flags;
+    ret.BaseColor = vec4<f32>(meshInfo.reserved[0], meshInfo.reserved[1], meshInfo.reserved[2], meshInfo.reserved[3]);
+    ret.Metallic = meshInfo.reserved[4];
+    ret.Specular = meshInfo.reserved[5];
+    ret.Roughness = meshInfo.reserved[6];
+    ret.PixelDepthOffset = meshInfo.reserved[7];
+
+    return ret;
 }

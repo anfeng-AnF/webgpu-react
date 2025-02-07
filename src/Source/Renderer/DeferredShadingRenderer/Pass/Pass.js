@@ -7,7 +7,34 @@ class FPass{
 
     /**
      * 资源 声明自己创建和管理的资源，以及依赖的资源 （资源名称）
-     * @type {Object}
+     * @type {{
+     *   PassName: string,
+     *   Resources: {
+     *     Dependence: {
+     *       Texture?: string[],
+     *       Pipeline?: string[],
+     *       Buffer?: string[],
+     *       BindGroup?: string[],
+     *       BindGroupLayout?: string[],
+     *       ShaderModule?: string[]
+     *     },
+     *     Managed: {
+     *       Texture?: string[],
+     *       Pipeline?: string[],
+     *       Buffer?: string[],
+     *       BindGroup?: string[],
+     *       BindGroupLayout?: string[],
+     *       ShaderModule?: string[]
+     *     },
+     *     Output: {
+     *       Texture?: string[],
+     *       Pipeline?: string[],
+     *       Buffer?: string[],
+     *       BindGroup?: string[],
+     *       BindGroupLayout?: string[]
+     *     }
+     *   }
+     * }}
      * @protected
      */
     _Resources = {};

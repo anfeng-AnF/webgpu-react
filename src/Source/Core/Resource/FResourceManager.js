@@ -47,6 +47,7 @@ class FResourceManager {
      */
     InitDevice(InDevice) {
         this.#Device = InDevice;
+        this.CreatePlaceholderResource();
     }
 
     /**
@@ -116,12 +117,54 @@ class FResourceManager {
             CreatedAt: Date.now(),
             Version,
             Metadata: InDesc.Metadata || {},
+            RefCount: 1
         });
 
         this.#UpdateResourceStats(InDesc.Type, 'Create');
 
         return Resource;
     }
+
+    CreatePlaceholderResource() {
+        const PlaceholderTextureDesc = {
+            Type: EResourceType.Texture,
+            desc: {
+                size: [1, 1],
+                format: 'rgba8unorm',
+                usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+            }
+        };
+        const PlaceholderUniformBufferDesc = {
+            Type: EResourceType.Buffer,
+            desc: {
+                size: 16,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            }
+        };
+        const PlaceholderStorageBufferDesc = {
+            Type: EResourceType.Buffer,
+            desc: {
+                size: 16,
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+            }
+        };
+        const PlaceholderSamplerDesc = {
+            Type: EResourceType.Sampler,
+            desc: {
+                magFilter: 'nearest',
+                minFilter: 'nearest',
+                mipmapFilter: 'nearest',
+                addressModeU: 'clamp-to-edge',
+                addressModeV: 'clamp-to-edge',
+                addressModeW: 'clamp-to-edge',
+            }
+        };
+        this.CreateResource('placeholder_Texture', PlaceholderTextureDesc);
+        this.CreateResource('placeholder_UniformBuffer', PlaceholderUniformBufferDesc);
+        this.CreateResource('placeholder_StorageBuffer', PlaceholderStorageBufferDesc);
+        this.CreateResource('placeholder_Sampler', PlaceholderSamplerDesc);
+    }
+
 
     GetResourceInfo(InName) {
         return this.#Resources.get(InName);
@@ -131,7 +174,7 @@ class FResourceManager {
      *
      * @param InName
      * @returns {GPUBuffer|GPUTexture|GPUBindGroup|null}
-     * @constructor
+     * @private
      */
     GetResource(InName) {
         const Info = this.#Resources.get(InName);
@@ -147,6 +190,12 @@ class FResourceManager {
         return false;
     }
 
+    /**
+     * 获取指定类型的资源
+     * @param {string} InType - 资源类型
+     * @returns {Map<string, Object>} 包含指定类型资源的 Map
+     * @private
+     */
     GetResourcesByType(InType) {
         const Resources = new Map();
         for (const [Name, Info] of this.#Resources) {
@@ -161,6 +210,12 @@ class FResourceManager {
         return Object.fromEntries(this.#ResourceStats);
     }
 
+    /**
+     * 删除指定资源
+     * @param {string} InName - 资源名称
+     * @returns {boolean} 如果成功删除资源，则返回 true；否则返回 false
+     * @private
+     */
     DeleteResource(InName) {
         const Info = this.#Resources.get(InName);
         if (Info) {
@@ -175,6 +230,10 @@ class FResourceManager {
         return false;
     }
 
+    /**
+     * 清除所有资源
+     * @private
+     */
     ClearAll() {
         for (const [Name, Info] of this.#Resources) {
             const { Resource } = Info;
@@ -187,6 +246,12 @@ class FResourceManager {
         this.#ResourceVersions.clear();
     }
 
+    /**
+     * 更新资源统计信息
+     * @param {string} InType - 资源类型
+     * @param {string} InAction - 操作类型（Create 或 Delete）
+     * @private
+     */
     #UpdateResourceStats(InType, InAction) {
         const Stats = this.#ResourceStats.get(InType) || { Count: 0, Created: 0, Deleted: 0 };
         if (InAction === 'Create') {
@@ -199,6 +264,12 @@ class FResourceManager {
         this.#ResourceStats.set(InType, Stats);
     }
 
+    /**
+     * 检查资源是否存在
+     * @param {string} InName - 资源名称
+     * @returns {boolean} 如果资源存在，则返回 true；否则返回 false
+     * @public
+     */
     HasResource(InName) {
         return this.#Resources.has(InName);
     }
@@ -217,6 +288,44 @@ class FResourceManager {
             throw new Error('Device not initialized');
         }
         return this.#Device;
+    }
+
+    /**
+     * 增加指定资源的引用计数，并返回该资源。
+     * 如果资源不存在，则返回 null。
+     *
+     * @param {string} InName - 资源名称
+     * @returns {any|null} 返回 GPUResource，如果资源不存在则返回 null
+     * @public
+     */
+    GetResourceRef(InName) {
+        const info = this.#Resources.get(InName);
+        if (info) {
+            info.RefCount++;
+            return info.Resource;
+        }
+        return null;
+    }
+
+    /**
+     * 释放指定资源的引用计数。
+     * 当资源引用计数减少到 0 时，自动删除该资源。
+     *
+     * @param {string} InName - 资源名称
+     * @returns {boolean} 如果成功释放或资源不存在，则返回 true；否则返回 false
+     * @public
+     */
+    ReleaseResourceRef(InName) {
+        const info = this.#Resources.get(InName);
+        if (info) {
+            info.RefCount--;
+            if (info.RefCount <= 0) {
+                // 当引用计数为 0 时，删除资源
+                this.DeleteResource(InName);
+            }
+            return true;
+        }
+        return false;
     }
 }
 

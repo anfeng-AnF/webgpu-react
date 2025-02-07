@@ -1,54 +1,15 @@
 import * as THREE from 'three';
-import FResourceManager, { EResourceType } from '../Core/Resource/FResourceManager';
-import FMaterialBase from './Material/MaterialBase';
+import IGPUMesh from './IGPUMesh.js';
+import { createPBRMaterial } from '../Material/Mat_Instance/PBR.js';
+
 /**
- * 静态网格 通过Three.js的Mesh创建Gpu数据并进行管理
- */ 
-class FStaticMesh {
-    /**
-     * 顶点缓冲区名称
-     * @type {string}
-     */
-    VertexBufferName = '';  
-    /**
-     * 索引缓冲区名称
-     * @type {string}
-     */
-    IndexBufferName = '';
-    /**
-     * 顶点数量
-     * @type {number}
-     */
-    VertexCount = 0;
-    /**
-     * 索引数量
-     * @type {number}
-     */
-    IndexCount = 0;
-
-    /**
-     * 是否是索引化网格
-     * @type {boolean}
-     */
-    bIndexedMesh = false;
-
-    /**
-     * 模型矩阵 4x4 默认单位矩阵
-     * @type {Float32Array} 
-     */
-    ModuleMatrix = new Float32Array(
-        [1,0,0,0,
-         0,1,0,0,
-         0,0,1,0,
-         0,0,0,1]
-    );
-
-    /**
-     * 索引缓冲区类型
-     * @type {string}
-     */
-    IndexBufferType = 'uint16';
-
+ * StaticMesh
+ * 实现 IGPUMesh 接口的具体类，同时继承自 THREE.Mesh 用于与 Three.js 整合，
+ * 用于管理静态 Mesh 的 GPU 资源，包括顶点和索引缓冲区的上传、更新和销毁。
+ * @extends {THREE.Mesh}
+ * @implements {IGPUMesh}
+ */
+export default class StaticMesh extends THREE.Mesh {
     /**
      * 顶点缓冲区Desc
      * @type {JSON}
@@ -95,138 +56,206 @@ class FStaticMesh {
     };
 
     /**
-     * 几何数据，引用 THREE.BufferGeometry 对象
-     * @type {THREE.BufferGeometry|null}
+     *
+     * @param {THREE.Mesh} mesh 已有的 THREE.Mesh 对象
+     * @param {GPUMaterial} GPUMaterial GPU 材质实例
+     * @param {FResourceManager} resourceManager GPU 资源管理器实例
      */
-    Geometry = null;
+    constructor(mesh, GPUMaterial, resourceManager) {
+        super(mesh.geometry);
+
+        // 如果未提供材质，则创建一个默认的 PBR 材质
+        this.GPUMaterial = GPUMaterial || createPBRMaterial(
+            resourceManager,
+            /* BaseColorTexture */ null,
+            /* NormalTexture */ null,
+            /* MetallicTexture */ null,
+            /* RoughnessTexture */ null,
+            /* SpecularTexture */ null,
+            /* BaseColorSampler */ null,
+            /* NormalSampler */ null,
+            /* MetallicSampler */ null,
+            /* RoughnessSampler */ null,
+            /* SpecularSampler */ null
+        );
+        this.ResourceManager = resourceManager;
+
+        // 使用 mesh 自身的 id 生成资源名称
+        this._vertexBufferName = `${this.id}_Buffer_VERTEX`;
+        this._indexBufferName = `${this.id}_Buffer_INDEX`;
+    }
 
     /**
-     * 材质
-     * @type {FMaterialBase|F}
+     * 创建顶点和索引缓冲区，并上传数据到 GPU。
      */
-    Material = null;
-
-
-    /**
-     * 构造函数
-     * @param {THREE.Mesh} Mesh 
-     */
-    async Initialize(Mesh) {
-        const ResourceManager = FResourceManager.GetInstance();
-
-        this.Geometry = Mesh.geometry;
-        this.VertexBufferName = Mesh.ID + '_VertexBuffer';
-        this.IndexBufferName = Mesh.ID + '_IndexBuffer';
-        
-        // 确保几何体有必要的属性
-        if (!this.Geometry.attributes.normal) {
-            this.Geometry.computeVertexNormals();
-        }
-        if (!this.Geometry.attributes.tangent) {
-            this.Geometry.computeTangents();
-        }
-        if (!this.Geometry.attributes.uv) {
-            console.warn(`Mesh ${Mesh.ID} has no UV coordinates`);
-            // 创建默认UV
-            const positions = this.Geometry.attributes.position.array;
-            const uvs = new Float32Array(positions.length * 2/3);
-            this.Geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    createBuffers() {
+        // 从几何体中直接提取顶点和索引数据
+        const geometry = this.geometry;
+        let vertexDataFromGeometry = null;
+        if (geometry.attributes && geometry.attributes.position) {
+            vertexDataFromGeometry = {
+                position: geometry.attributes.position.array,
+                normal: geometry.attributes.normal ? geometry.attributes.normal.array : null,
+                tangent: geometry.attributes.tangent ? geometry.attributes.tangent.array : null,
+                uv0: geometry.attributes.uv ? geometry.attributes.uv.array : null,
+                uv1: geometry.attributes.uv1 ? geometry.attributes.uv1.array : null,
+                uv2: geometry.attributes.uv2 ? geometry.attributes.uv2.array : null,
+                uv3: geometry.attributes.uv3 ? geometry.attributes.uv3.array : null,
+            };
         }
 
-        // 计算需要的顶点数据大小
-        const vertexCount = this.Geometry.attributes.position.count;
-        const vertexSize = 17; // position(3) + normal(3) + tangent(3) + uv0(2) + uv1(2) + uv2(2) + uv3(2)
-        const meshDataArray = new Float32Array(vertexCount * vertexSize);
+        // 对顶点数据进行归一化，确保统一顶点结构（17 个 float）
+        const normalizedVertexData = this.normalizeVertexData(vertexDataFromGeometry);
 
-        // 填充顶点数据
-        for(let i = 0; i < vertexCount; i++) {
-            const offset = i * vertexSize;
-            
-            // Position (3)
-            meshDataArray[offset] = this.Geometry.attributes.position.array[i * 3];
-            meshDataArray[offset + 1] = this.Geometry.attributes.position.array[i * 3 + 1];
-            meshDataArray[offset + 2] = this.Geometry.attributes.position.array[i * 3 + 2];
-
-            // Normal (3)
-            meshDataArray[offset + 3] = this.Geometry.attributes.normal.array[i * 3];
-            meshDataArray[offset + 4] = this.Geometry.attributes.normal.array[i * 3 + 1];
-            meshDataArray[offset + 5] = this.Geometry.attributes.normal.array[i * 3 + 2];
-
-            // Tangent (3)
-            meshDataArray[offset + 6] = this.Geometry.attributes.tangent.array[i * 4];
-            meshDataArray[offset + 7] = this.Geometry.attributes.tangent.array[i * 4 + 1];
-            meshDataArray[offset + 8] = this.Geometry.attributes.tangent.array[i * 4 + 2];
-
-            // UV0 (2)
-            meshDataArray[offset + 9] = this.Geometry.attributes.uv.array[i * 2];
-            meshDataArray[offset + 10] = this.Geometry.attributes.uv.array[i * 2 + 1];
-
-            // UV1-UV3 (6) - 使用默认值 0
-            for(let j = 11; j < vertexSize; j++) {
-                meshDataArray[offset + j] = 0;
-            }
+        let indexDataFromGeometry = null;
+        if (geometry.index) {
+            indexDataFromGeometry = geometry.index.array;
         }
 
-        this.VertexCount = vertexCount;
-        
-        // 创建顶点缓冲区
-        await ResourceManager.CreateResource(this.VertexBufferName, {
+        // 使用资源管理器创建 GPU 缓冲区
+        this.GPUVertexBuffer = this.ResourceManager.CreateResource(this._vertexBufferName, {
             Type: 'Buffer',
             desc: {
-                size: meshDataArray.byteLength,
+                size: normalizedVertexData.byteLength,
                 usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+                data: normalizedVertexData
             }
         });
+        this.GPUIndexBuffer = this.ResourceManager.CreateResource(this._indexBufferName, {
+            Type: 'Buffer',
+            desc: {
+                size: indexDataFromGeometry.byteLength,
+                usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+                data: indexDataFromGeometry
+            }
+        });
+    }
 
-        const device = await ResourceManager.GetDevice();
-        device.queue.writeBuffer(
-            ResourceManager.GetResource(this.VertexBufferName),
-            0,
-            meshDataArray
-        );
+    /**
+     * 更新 GPU 缓冲区数据。
+     * 目前实现为先释放，再重新创建缓冲区，可以根据实际需求改进为更高效的更新逻辑。
+     */
+    updateBuffers() {
+        this.destroyBuffers();
+        this.createBuffers();
+    }
 
-        // 处理索引缓冲区
-        if(this.Geometry.index) {
-            this.bIndexedMesh = true;
-            this.IndexCount = this.Geometry.index.count;
-            
-            await ResourceManager.CreateResource(this.IndexBufferName, {
-                Type: 'Buffer',
-                desc: {
-                    size: this.Geometry.index.array.byteLength,
-                    usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-                }
-            });
-            device.queue.writeBuffer(
-                ResourceManager.GetResource(this.IndexBufferName),
-                0,
-                this.Geometry.index.array
-            );
+    /**
+     * 实现 IGPUMesh 接口方法，将 Mesh 数据上传到 GPU。
+     */
+    uploadToGPU() {
+        this.createBuffers();
+        // 如有需要，可扩展更多上传逻辑，例如材质等数据上传
+    }
+
+    /**
+     * 销毁顶点和索引缓冲区资源，通过资源管理器调用释放方法，
+     * 并置空对应引用，确保资源及时释放。
+     */
+    destroyBuffers() {
+        if (this.GPUVertexBuffer) {
+            this.ResourceManager.DeleteResource(this._vertexBufferName);
+            this.GPUVertexBuffer = null;
+        }
+        if (this.GPUIndexBuffer) {
+            this.ResourceManager.DeleteResource(this._indexBufferName);
+            this.GPUIndexBuffer = null;
         }
     }
 
     /**
-     * 创建静态网格
-     * @param {THREE.Mesh} Mesh 
-     * @returns {Promise<FStaticMesh>}
+     * 实现 IGPUMesh 接口方法，释放所有与 Mesh 相关的 GPU 资源。
      */
-    static async Create(Mesh) {
-        const mesh = new FStaticMesh();
-        await mesh.Initialize(Mesh);
-        return mesh;
+    destroy() {
+        this.destroyBuffers();
     }
 
     /**
-     * 设置模型矩阵
-     * @param {Float32Array} Matrix 
+     * 根据预定义的顶点布局（17 个 float：位置(3), 法向(3), 切线(3), UV0(2), UV1(2), UV2(2), UV3(2)），归一化顶点数据。
+     * 如果传入的 vertexData 对象中缺少某个属性，则相应部分填充 0。
+     * 
+     * 预期输入的 vertexData 为一个对象，例如：
+     * {
+     *     position: Float32Array, // 必须存在，3 个分量
+     *     normal: Float32Array,   // 可选，3 个分量
+     *     tangent: Float32Array,  // 可选，3 个分量
+     *     uv0: Float32Array,      // 可选，2 个分量
+     *     uv1: Float32Array,      // 可选，2 个分量
+     *     uv2: Float32Array,      // 可选，2 个分量
+     *     uv3: Float32Array       // 可选，2 个分量
+     * }
+     * 如果 vertexData 不是对象或者没有 position，则直接返回原始数据。
+     * 
+     * @param {Object|ArrayBuffer|TypedArray} vertexData
+     * @returns {Float32Array}
      */
-    setModuleMatrix(Matrix){
-        this.ModuleMatrix = Matrix;
+    normalizeVertexData(vertexData) {
+        if (vertexData && vertexData.position) {
+            const position = vertexData.position;
+            const vertexCount = position.length / 3;
+            const normalized = new Float32Array(vertexCount * 17);
+            for (let i = 0; i < vertexCount; i++) {
+                // Position (3 floats)
+                normalized[i * 17 + 0] = position[i * 3 + 0];
+                normalized[i * 17 + 1] = position[i * 3 + 1];
+                normalized[i * 17 + 2] = position[i * 3 + 2];
+                // Normal (3 floats) 或填充 0
+                if (vertexData.normal && vertexData.normal.length >= (i + 1) * 3) {
+                    normalized[i * 17 + 3] = vertexData.normal[i * 3 + 0];
+                    normalized[i * 17 + 4] = vertexData.normal[i * 3 + 1];
+                    normalized[i * 17 + 5] = vertexData.normal[i * 3 + 2];
+                } else {
+                    normalized[i * 17 + 3] = 0;
+                    normalized[i * 17 + 4] = 0;
+                    normalized[i * 17 + 5] = 0;
+                }
+                // Tangent (3 floats) 或填充 0
+                if (vertexData.tangent && vertexData.tangent.length >= (i + 1) * 3) {
+                    normalized[i * 17 + 6] = vertexData.tangent[i * 3 + 0];
+                    normalized[i * 17 + 7] = vertexData.tangent[i * 3 + 1];
+                    normalized[i * 17 + 8] = vertexData.tangent[i * 3 + 2];
+                } else {
+                    normalized[i * 17 + 6] = 0;
+                    normalized[i * 17 + 7] = 0;
+                    normalized[i * 17 + 8] = 0;
+                }
+                // UV0 (2 floats) 或填充 0
+                if (vertexData.uv0 && vertexData.uv0.length >= (i + 1) * 2) {
+                    normalized[i * 17 + 9] = vertexData.uv0[i * 2 + 0];
+                    normalized[i * 17 + 10] = vertexData.uv0[i * 2 + 1];
+                } else {
+                    normalized[i * 17 + 9] = 0;
+                    normalized[i * 17 + 10] = 0;
+                }
+                // UV1 (2 floats) 或填充 0
+                if (vertexData.uv1 && vertexData.uv1.length >= (i + 1) * 2) {
+                    normalized[i * 17 + 11] = vertexData.uv1[i * 2 + 0];
+                    normalized[i * 17 + 12] = vertexData.uv1[i * 2 + 1];
+                } else {
+                    normalized[i * 17 + 11] = 0;
+                    normalized[i * 17 + 12] = 0;
+                }
+                // UV2 (2 floats) 或填充 0
+                if (vertexData.uv2 && vertexData.uv2.length >= (i + 1) * 2) {
+                    normalized[i * 17 + 13] = vertexData.uv2[i * 2 + 0];
+                    normalized[i * 17 + 14] = vertexData.uv2[i * 2 + 1];
+                } else {
+                    normalized[i * 17 + 13] = 0;
+                    normalized[i * 17 + 14] = 0;
+                }
+                // UV3 (2 floats) 或填充 0
+                if (vertexData.uv3 && vertexData.uv3.length >= (i + 1) * 2) {
+                    normalized[i * 17 + 15] = vertexData.uv3[i * 2 + 0];
+                    normalized[i * 17 + 16] = vertexData.uv3[i * 2 + 1];
+                } else {
+                    normalized[i * 17 + 15] = 0;
+                    normalized[i * 17 + 16] = 0;
+                }
+            }
+            return normalized;
+        }
+        // 若 vertexData 不是对象或不包含 position，则直接返回传入的值
+        return vertexData;
     }
 }
-
-export default FStaticMesh;
-
-
-
 

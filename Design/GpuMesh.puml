@@ -1,0 +1,130 @@
+@startuml GpuMesh
+
+' --- THREE.js 基础类 ---
+class THREE.Scene {
+    + children: Object3D[]
+    + add(object: Object3D)
+    + remove(object: Object3D)
+}
+
+class THREE.Mesh {
+    + geometry: BufferGeometry
+    + material: Material
+}
+
+class THREE.SkinnedMesh {
+    + skeleton: Skeleton
+    + bindMatrix: Matrix4
+    + bindMatrixInverse: Matrix4
+}
+
+' --- 定义 GPUDevice，为所有 WebGPU 资源提供上下文 ---
+class GPUDevice {
+    ' 表示 WebGPU 设备，所有 GPU 资源需通过此设备创建
+}
+
+' --- 统一管理 GPU Mesh 资源的接口 ---
+interface GPUMesh {
+    + destroy()
+    + uploadToGPU()
+}
+
+' --- GPUScene: 管理整个场景的 GPU 资源 ---
+class GPUScene {
+    + device: GPUDevice
+    + sceneBuffer: GPUBuffer
+    + meshInfoStorageBuffer: GPUBuffer
+    + meshes: Map<ID, (GPUMesh, storageIndex)>
+    + addMesh(mesh: GPUMesh)
+    + removeMesh(mesh: GPUMesh)
+    + updateSceneBuffer()
+    + uploadMeshToGPU(mesh: GPUMesh)
+    + releaseMeshGPUResource(mesh: GPUMesh)
+}
+
+' --- GPUStaticMesh: 管理静态 Mesh 的 GPU 资源 ---
+class GPUStaticMesh {
+    + vertexBuffer: GPUBuffer
+    + indexBuffer: GPUBuffer
+    + materialDesc: MaterialDescription
+    + createBuffers()
+    + updateBuffers()
+    + uploadToGPU()
+    + destroy()
+}
+
+' --- GPUSkeletonMesh: 管理骨骼动画 Mesh 的 GPU 资源 ---
+class GPUSkeletonMesh {
+    + boneMatricesBuffer: GPUBuffer
+    + createBoneBuffer()
+    + updateBoneMatrices()
+    + uploadToGPU()
+    + destroy()
+}
+
+' --- 材质描述与材质管理 ---
+class MaterialDescription {
+    + parameters: Object
+    + shaderDefines: String[]
+    + renderStates: Object
+}
+
+class MaterialSystem {
+    + {static} createMaterial(description: MaterialDescription): GPUMaterial
+    + {static} updateMaterial(material: GPUMaterial, description: MaterialDescription)
+    + {static} disposeMaterial(material: GPUMaterial)
+}
+
+class GPUMaterial {
+    + renderPipeline: GPURenderPipeline  // 修改：采用 WebGPU 的 GPURenderPipeline
+    + shaderModule: GPUShaderModule
+    + bindGroupLayout: GPUBindGroupLayout
+    + createRenderPipeline() // 修改：更贴合 WebGPU API 命名
+    + createShaderModule()
+    + destroy()
+}
+
+' --- 声明 WebGPU 相关对象类型 ---
+class GPUBuffer
+class GPUShaderModule
+class GPURenderPipeline
+class GPUBindGroupLayout
+
+' --- GPU 资源管理器 ---
+class FResourceManager <<singleton>> {
+    + GetInstance(): FResourceManager
+    + InitDevice(InDevice: GPUDevice)
+    + CreateResource(InName: string, InDesc: Object): GPUResource
+    + DeleteResource(InName: string): boolean
+}
+
+' --- 关联关系 ---
+THREE.Scene <|-- GPUScene
+THREE.Mesh <|-- GPUStaticMesh
+THREE.SkinnedMesh <|-- GPUSkeletonMesh
+
+GPUStaticMesh ..|> GPUMesh
+GPUSkeletonMesh ..|> GPUMesh
+
+MaterialSystem ..> MaterialDescription : uses
+MaterialSystem ..> GPUMaterial : creates
+GPUStaticMesh --> MaterialDescription : has
+
+FResourceManager --> GPUDevice : holds
+GPUScene ..> FResourceManager : uses for resource creation & release
+
+' --- 注释说明 ---
+
+
+note right of GPUMaterial
+  将 pipeline 修改为 renderPipeline，
+  并将 createPipeline() 改为 createRenderPipeline()，
+  更符合 WebGPU 渲染流水线的 API。
+end note
+
+note right of GPUMesh
+  GPUMesh 接口统一了 GPU Mesh
+  的资源释放方法，便于 GPUScene 管理各种 Mesh 资源。
+end note
+
+@enduml

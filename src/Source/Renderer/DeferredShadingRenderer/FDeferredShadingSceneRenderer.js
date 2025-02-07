@@ -1,13 +1,8 @@
 import FSceneRenderer from './FSceneRenderer';
 import FResourceManager, { EResourceType } from '../../Core/Resource/FResourceManager';
 import * as THREE from 'three';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
-import TestRenderer from './Test/TestRenderer';
 import FCopyToCanvasPass from './Pass/PostProcess/FCopyToCanvasPass';
-import ShaderIncluder from '../../Core/Shader/ShaderIncluder';
-import FScene from '../../Engine/Scene/Scene';
 import PrePass from './Pass/RenderPass/PrePass';
-import FModuleManager from '../../Core/FModuleManager';
 
 class FDeferredShadingSceneRenderer extends FSceneRenderer {
     constructor() {
@@ -25,7 +20,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
          * @type {FScene}
          * @public
          */
-        this.Scene = new FScene();
+        //this.Scene = new FScene();
 
         /**
          * 设备
@@ -59,73 +54,6 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
          * @protected
          */
         this._CopyPass = null;
-
-        // 添加到 UI
-        this.#InitializeCameraUI();
-    }
-
-    /**
-     * 初始化相机UI控制
-     * @private
-     */
-    async #InitializeCameraUI() {
-        const UIModule = FModuleManager.GetInstance().GetModule('UIModule');
-        const DetailBuilder = UIModule.GetDetailBuilder();
-
-        // 创建相机控制
-        DetailBuilder.addProperties({
-            'Camera.Position': {
-                value: [0, 2, 5], // 默认相机位置
-                label: '相机位置',
-                type: 'vector3',
-                onChange: (path, value) => {
-                    this._MainCamera.position.set(value[0], value[1], value[2]);
-                    this._MainCamera.updateMatrixWorld();
-                },
-            },
-            'Camera.Target': {
-                value: [0, 0, 0], // 默认观察点
-                label: '观察点',
-                type: 'vector3',
-                onChange: (path, value) => {
-                    this._MainCamera.lookAt(value[0], value[1], value[2]);
-                    this._MainCamera.updateMatrixWorld();
-                },
-            },
-            'Camera.FOV': {
-                value: 60,
-                label: '视野角度',
-                type: 'float',
-                min: 1,
-                max: 179,
-                onChange: (path, value) => {
-                    this._MainCamera.fov = value;
-                    this._MainCamera.updateProjectionMatrix();
-                },
-            },
-            'Camera.Near': {
-                value: 0.1,
-                label: '近裁面',
-                type: 'float',
-                min: 0.01,
-                max: 10,
-                onChange: (path, value) => {
-                    this._MainCamera.near = value;
-                    this._MainCamera.updateProjectionMatrix();
-                },
-            },
-            'Camera.Far': {
-                value: 100,
-                label: '远裁面',
-                type: 'float',
-                min: 1,
-                max: 1000,
-                onChange: (path, value) => {
-                    this._MainCamera.far = value;
-                    this._MainCamera.updateProjectionMatrix();
-                },
-            },
-        });
     }
 
     /**
@@ -133,20 +61,20 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
      */
     async Initialize() {
         this._Device = await FResourceManager.GetInstance().GetDevice();
-        
+        return;
         // 设置相机初始位置
         this._MainCamera.position.set(0, 2, 5);
         this._MainCamera.lookAt(0, 0, 0);
         this._MainCamera.updateMatrixWorld();
         
         // 设置场景的主相机
-        this.Scene.SetMainCamera(this._MainCamera);
+        //this.Scene.SetMainCamera(this._MainCamera);
         
         // 创建测试场景
-        await this.CreateTestScene();
+        //await this.CreateTestScene();
         
         // 先初始化场景
-        await this.Scene.Update(0);
+        //await this.Scene.Update(0);
         
         // 然后初始化 PrePass
         await this._PrePass.InitResourceName();
@@ -167,7 +95,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
          * 比如 CopyPass 依赖 PrePass 的深度纹理，所以必须先更新 PrePass 的渲染目标大小，再更新 CopyPass 的渲染目标大小
          */
 
-
+        return;
         // 更新 PrePass 的渲染目标大小
         if (this._PrePass) {
             await this._PrePass.OnRenderTargetResize(Width, Height);
@@ -188,6 +116,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
      * @param {HTMLCanvasElement} Canvas 画布
      */
     async OnCanvasReady(Canvas) {
+        return;
         // 初始化复制Pass，使用PrePass的深度纹理
         this._CopyPass = new FCopyToCanvasPass(this._PrePass.RenderTargetTexture, Canvas);
         await this._CopyPass.Initialize();
@@ -201,7 +130,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
      */
     async Render(DeltaTime) {
         super.Render(DeltaTime);
-        
+        return;
         if (!this._bInitialized) {
             return;
         }
@@ -265,6 +194,23 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         cylinderMesh.position.set(0, 0, -1.5);
         cylinderMesh.ID = 'cylinder';
         await this.Scene.add(cylinderMesh);
+
+        // 创建天空球几何体并翻转面
+        const skyGeometry = new THREE.SphereGeometry(30, 32, 32);
+        // 翻转所有三角形的顶点顺序
+        const indices = skyGeometry.getIndex().array;
+        for (let i = 0; i < indices.length; i += 3) {
+            // 交换第二个和第三个顶点的索引，实现面的翻转
+            const temp = indices[i + 1];
+            indices[i + 1] = indices[i + 2];
+            indices[i + 2] = temp;
+        }
+        skyGeometry.setIndex(new THREE.BufferAttribute(indices, 1));
+
+        const SkySphereMesh = new THREE.Mesh(skyGeometry);
+        SkySphereMesh.position.set(0, 0, 0);
+        SkySphereMesh.ID = 'SkySphere';
+        await this.Scene.add(SkySphereMesh);
 
         // 确保所有网格的矩阵都被更新
         this.Scene.updateMatrixWorld(true);
