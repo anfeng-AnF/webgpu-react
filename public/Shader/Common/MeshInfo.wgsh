@@ -19,13 +19,14 @@ struct MeshInfo {
 
     // 预留空间 (188 bytes)
     reserved: array<f32, 44>,
+
+    materialInfo: array<f32, 60> // 示例：共60个 float 填充 materialInfo，确保总大小为256字节（请根据实际需要调整）
 };
 
-// 绑定单个 MeshInfo，使用动态偏移来访问不同的网格
-@group(1) @binding(0) var<storage, read> meshInfo: MeshInfo;
+@group(0) @binding(1) var<storage, read> meshInfos: array<MeshInfo>;
 
 fn GetModelMatrix() -> mat4x4<f32> {
-    return meshInfo.modelMatrix;
+    return meshInfos[0].modelMatrix;
 }
 
 struct PBRMaterialInfo {
@@ -43,9 +44,9 @@ struct PBRMaterialInfo {
 fn GetPBRMaterialInfo() -> PBRMaterialInfo {
     var ret: PBRMaterialInfo;
     
-    if (((meshInfo.flags & OPACITY_FLAG) == 0) || ((meshInfo.flags & MATERIAL_PBR) == 0)) {
+    if (((meshInfos[0].flags & OPACITY_FLAG) == 0) || ((meshInfos[0].flags & MATERIAL_PBR) == 0)) {
         // 返回一个默认的无效材质信息
-        ret.modelMatrix = meshInfo.modelMatrix;
+        ret.modelMatrix = meshInfos[0].modelMatrix;
         ret.flags = 0u;  // 清除所有标志位表示无效
         ret.BaseColor = vec4<f32>(1.0, 0.0, 1.0, 1.0);  // 紫红色表示错误
         ret.Metallic = 0.0;
@@ -55,13 +56,13 @@ fn GetPBRMaterialInfo() -> PBRMaterialInfo {
         return ret;
     }
 
-    ret.modelMatrix = meshInfo.modelMatrix;
-    ret.flags = meshInfo.flags;
-    ret.BaseColor = vec4<f32>(meshInfo.reserved[0], meshInfo.reserved[1], meshInfo.reserved[2], meshInfo.reserved[3]);
-    ret.Metallic = meshInfo.reserved[4];
-    ret.Specular = meshInfo.reserved[5];
-    ret.Roughness = meshInfo.reserved[6];
-    ret.PixelDepthOffset = meshInfo.reserved[7];
+    ret.modelMatrix = meshInfos[0].modelMatrix;
+    ret.flags = meshInfos[0].flags;
+    ret.BaseColor = vec4<f32>(meshInfos[0].reserved[0], meshInfos[0].reserved[1], meshInfos[0].reserved[2], meshInfos[0].reserved[3]);
+    ret.Metallic = meshInfos[0].reserved[4];
+    ret.Specular = meshInfos[0].reserved[5];
+    ret.Roughness = meshInfos[0].reserved[6];
+    ret.PixelDepthOffset = meshInfos[0].reserved[7];
 
     return ret;
 }

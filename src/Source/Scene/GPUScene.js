@@ -27,6 +27,19 @@ import FResourceManager from '../Core/Resource/FResourceManager.js';
  *   - removeMeshSlot 仅删除槽记录，不回收空间，实际应用中可考虑场景重新构建缓冲区
  */
 export default class GPUScene extends THREE.Scene {
+
+    /**
+     * GPUScene 资源名称映射，用于标识 GPU 资源名称，
+     * 以便 FResourceManager 统一管理和 IDE 辅助识别。
+     * @type {{ sceneBuffer: string, meshStorageBuffer: string, sceneBindGroup: string, sceneBindGroupLayout: string }}
+     */
+    resourceName = {
+        sceneBuffer: 'SceneBuffer',
+        meshStorageBuffer: 'MeshStorageBuffer',
+        sceneBindGroup: 'SceneBindGroup',
+        sceneBindGroupLayout: 'SceneBindGroupLayout'
+    }
+
     /**
      * 构造函数
      */
@@ -59,11 +72,21 @@ export default class GPUScene extends THREE.Scene {
         this.meshStorageBuffer = null;
 
         /**
+         * @type {GPUBindGroup}
+         */
+        this.sceneBindGroup = null;
+
+        /**
+         * @type {GPUBindGroupLayout}
+         */
+        this.sceneBindGroupLayout = null;
+
+        /**
          * 每个 MeshInfo 数据所占用的字节数，
-         * 此处设置为 2 个 4x4 矩阵的大小（64*2字节）
+         * 此处设置为 256 字节 因为dynamicOffset 必须 256对齐
          * @type {number}
          */
-        this.meshInfoByteSize = 64 * 2;
+        this.meshInfoByteSize = 256 * 1;
 
         /**
          * 初始时不会用 maxMeshes，后续使用 meshCapacity 表示当前缓冲区容量
@@ -150,14 +173,14 @@ export default class GPUScene extends THREE.Scene {
      * 更新场景和SceneBuffer信息
      * @param {number} DeltaTime
      */
-    async update(DeltaTime) {
+    async Update(DeltaTime) {
         await this.updateSceneBuffer(DeltaTime);
     }
 
     /**
      * 将全部网格信息上传到GPU
      */
-    upLoadMeshToGPU(){
+    upLoadMeshToGPU() {
         for (const mesh of this.meshes) {
             mesh.uploadToGPU();
         }
@@ -167,7 +190,7 @@ export default class GPUScene extends THREE.Scene {
      * 初始化 SceneBuffer 与 MeshInfo storage buffer
      * @param {number} initialCapacity - 初始容量
      */
-    async initBuffers(initialCapacity) {
+    async initBuffers(initialCapacity = 128) {
         this.meshCapacity = initialCapacity;
 
         // 创建 SceneBuffer uniform buffer
@@ -175,24 +198,86 @@ export default class GPUScene extends THREE.Scene {
         // camPos(4) + camDir(4) + camUp(4) + camRight(4) + timeDelta(4) 总计 52 floats，
         // 为了对齐，我们申请 256 字节（或更多）缓冲区
         const sceneBufferSize = 256;
-        this.sceneBuffer = this.resourceManager.CreateResource("SceneBuffer", {
-            Type: "Buffer",
+        this.sceneBuffer = this.resourceManager.CreateResource(this.resourceName.sceneBuffer, {
+            Type: 'Buffer',
             desc: {
                 size: sceneBufferSize,
                 usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-            }
+            },
         });
 
         // 创建 MeshInfo storage buffer：每个 MeshInfo 固定 256 字节，数组大小为 initialCapacity * 256
         const meshStorageBufferSize = this.meshInfoByteSize * this.meshCapacity;
-        this.meshStorageBuffer = this.resourceManager.CreateResource("MeshStorageBuffer", {
-            Type: "Buffer",
+        this.meshStorageBuffer = this.resourceManager.CreateResource(this.resourceName.meshStorageBuffer, {
+            Type: 'Buffer',
             desc: {
                 size: meshStorageBufferSize,
                 usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-                mappedAtCreation: false
-            }
+                mappedAtCreation: false,
+            },
         });
+        await this.#reCreateSceneBindGroup();
+    }
+
+    /**
+     * 重新创建 SceneBindGroup
+     */
+    async #reCreateSceneBindGroup() {
+        // 获取 GPU 设备
+        const device = await this.resourceManager.GetDevice();
+        if (!device) {
+            console.error('Device is not available in GPUScene.#reCreateSceneBindGroup');
+            return;
+        }
+
+        // 创建 BindGroupLayout，其中 SceneBuffer 为 uniform buffer，
+        // MeshInfo storage buffer 为 read-only-storage 类型，且启用动态偏移。
+        this.sceneBindGroupLayout = this.resourceManager.CreateResource(this.resourceName.sceneBindGroupLayout, {
+            Type: 'BindGroupLayout',
+            desc: {
+                entries: [
+                    {
+                        binding: 0,
+                        visibility:
+                            GPUShaderStage.VERTEX |
+                            GPUShaderStage.FRAGMENT |
+                            GPUShaderStage.COMPUTE,
+                        buffer: { type: 'uniform' },
+                    },
+                    {
+                        binding: 1,
+                        visibility:
+                            GPUShaderStage.VERTEX |
+                            GPUShaderStage.FRAGMENT |
+                            GPUShaderStage.COMPUTE,
+                        buffer: { type: 'read-only-storage', hasDynamicOffset: true },
+                    },
+                ],
+            },
+        });
+
+        // 使用资源管理器创建 BindGroup（假定 FResourceManager.CreateResource 支持 "BindGroup" 类型）
+        this.sceneBindGroup = this.resourceManager.CreateResource(this.resourceName.sceneBindGroup, {
+            Type: 'BindGroup',
+            desc: {
+                layout: this.sceneBindGroupLayout,
+                entries: [
+                    {
+                        binding: 0,
+                        resource: { buffer: this.sceneBuffer },
+                    },
+                    {
+                        binding: 1,
+                        resource: {
+                            buffer: this.meshStorageBuffer,
+                            size: this.meshInfoByteSize, // 每个 MeshInfo 信息大小，将用作 dynamic offset stride
+                        },
+                    },
+                ],
+            },
+        });
+
+        console.log('SceneBindGroup recreated successfully using FResourceManager.');
     }
 
     /**
@@ -207,7 +292,7 @@ export default class GPUScene extends THREE.Scene {
         const sceneData = new Float32Array(this.sceneBuffer.size / Float32Array.BYTES_PER_ELEMENT);
 
         if (this.camera === null) {
-            console.error("GPUScene: camera is not set!");
+            console.error('GPUScene: camera is not set!');
             return;
         }
 
@@ -217,7 +302,7 @@ export default class GPUScene extends THREE.Scene {
         }
         this.elapsedTime += DeltaTime;
 
-        // 填充 viewMatrix (indices 0-15) 
+        // 填充 viewMatrix (indices 0-15)
         const viewMatrix = this.camera.matrixWorldInverse.elements;
         sceneData.set(viewMatrix, 0);
 
@@ -246,7 +331,9 @@ export default class GPUScene extends THREE.Scene {
         sceneData[43] = 0.0; // padding
 
         // 计算并填充 camRight (indices 44-47)
-        const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
+        const right = new THREE.Vector3()
+            .setFromMatrixColumn(this.camera.matrixWorld, 0)
+            .normalize();
         sceneData[44] = right.x;
         sceneData[45] = right.y;
         sceneData[46] = right.z;
@@ -263,10 +350,9 @@ export default class GPUScene extends THREE.Scene {
         // 写入 sceneData 到 sceneBuffer
         const device = await this.resourceManager.GetDevice();
         if (!device) {
-            console.error("Device is not available in resourceManager.");
+            console.error('Device is not available in resourceManager.');
             return;
         }
-        console.log(device);
         device.queue.writeBuffer(this.sceneBuffer, 0, sceneData);
     }
 
@@ -276,9 +362,9 @@ export default class GPUScene extends THREE.Scene {
      * @param {string} meshID - Mesh 的唯一标识符
      * @returns {number} 返回分配的槽索引
      */
-    _allocateMeshSlot(meshID) {
+    async _allocateMeshSlot(meshID) {
         if (this.currentMeshCount >= this.meshCapacity) {
-            this._expandMeshStorage(128);
+            await this._expandMeshStorage(128);
             this.updateAllMeshInfo();
         }
 
@@ -293,18 +379,19 @@ export default class GPUScene extends THREE.Scene {
      * 扩容 Mesh Storage Buffer
      * @param {number} expansionCount - 本次扩容增加的槽数量
      */
-    _expandMeshStorage(expansionCount) {
+    async _expandMeshStorage(expansionCount) {
         const newCapacity = this.meshCapacity + expansionCount;
         console.log(`Expanding mesh storage buffer from ${this.meshCapacity} to ${newCapacity}`);
         const meshStorageBufferSize = this.meshInfoByteSize * newCapacity;
-        this.meshStorageBuffer = this.resourceManager.CreateResource("MeshStorageBuffer", {
-            Type: "Buffer",
+        this.meshStorageBuffer = this.resourceManager.CreateResource(this.resourceName.meshStorageBuffer, {
+            Type: 'Buffer',
             desc: {
                 size: meshStorageBufferSize,
                 usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
                 mappedAtCreation: false,
-            }
+            },
         });
+        await this.#reCreateSceneBindGroup();
         this.meshCapacity = newCapacity;
     }
 
@@ -315,7 +402,7 @@ export default class GPUScene extends THREE.Scene {
     async updateMeshInfo(meshID) {
         const slotIndex = this.meshSlotMap.get(meshID);
         if (slotIndex === undefined) {
-            console.error("MeshID not allocated in GPUScene:", meshID);
+            console.error('MeshID not allocated in GPUScene:', meshID);
             return;
         }
 
@@ -323,7 +410,7 @@ export default class GPUScene extends THREE.Scene {
         const meshInfoData = new Float32Array(this.meshInfoByteSize / 4);
         const modelMatrix = mesh.modelMatrix || mesh.matrixWorld;
         if (!modelMatrix) {
-            console.error("Mesh has no modelMatrix or matrixWorld property.");
+            console.error('Mesh has no modelMatrix or matrixWorld property.');
             return;
         }
         meshInfoData.set(modelMatrix.elements, 0);
@@ -335,7 +422,7 @@ export default class GPUScene extends THREE.Scene {
         const offset = slotIndex * this.meshInfoByteSize;
         const device = await this.resourceManager.GetDevice();
         if (!device) {
-            console.error("Device is not available in resourceManager.");
+            console.error('Device is not available in resourceManager.');
             return;
         }
         device.queue.writeBuffer(this.meshStorageBuffer, offset, meshInfoData);
@@ -350,7 +437,7 @@ export default class GPUScene extends THREE.Scene {
     _removeMeshSlot(meshID) {
         const slotIndex = this.meshSlotMap.get(meshID);
         if (slotIndex === undefined) {
-            console.error("MeshID not found in GPUScene:", meshID);
+            console.error('MeshID not found in GPUScene:', meshID);
             return;
         }
 
@@ -395,9 +482,9 @@ export default class GPUScene extends THREE.Scene {
             const mesh = this.meshes[i];
             const infoOffset = i * floatsPerMesh;
 
-            const modelMatrix = mesh.modelMatrix || mesh.matrixWorld;
+            const modelMatrix = mesh.matrixWorld;
             if (!modelMatrix) {
-                console.error("Mesh has no modelMatrix or matrixWorld property:", mesh);
+                console.error('Mesh has no modelMatrix or matrixWorld property:', mesh);
                 continue;
             }
             // 写入 modelMatrix (前 16 floats)
@@ -412,10 +499,112 @@ export default class GPUScene extends THREE.Scene {
 
         const device = await this.resourceManager.GetDevice();
         if (!device) {
-            console.error("Device is not available in resourceManager.");
+            console.error('Device is not available in resourceManager.');
             return;
         }
         // 一次性将所有 Mesh 信息写入 storage buffer，从偏移 0 开始
         device.queue.writeBuffer(this.meshStorageBuffer, 0, allMeshInfo);
     }
-} 
+
+    /**
+     * 获取Mesh的Offset
+     * @param {string} meshID - Mesh 的唯一标识符
+     * @returns {number} 返回 Mesh 的 offset
+     */
+    getMeshOffset(meshID) {
+        const slotIndex = this.meshSlotMap.get(meshID);
+        if (slotIndex === undefined) {
+            console.error('MeshID not allocated in GPUScene:', meshID);
+            return -1;
+        }
+        return slotIndex * this.meshInfoByteSize;
+    }
+
+    /**
+     * 获取所有mesh
+     * @returns {Array<GPUMesh>}
+     */
+    GetAllMesh(){
+        return this.meshes;
+    }
+
+    /**
+     * Debug：读取指定 Mesh 的 MeshInfo 数据，并打印输出到控制台
+     * @param {string} meshID - Mesh 的唯一标识符
+     */
+    async debugCheckMeshInfo(meshID) {
+        const offset = this.getMeshOffset(meshID);
+        const size = this.meshInfoByteSize;
+        const device = await this.resourceManager.GetDevice();
+
+        // 创建一个目标缓冲区方便从 GPU 读取数据
+        const stagingBuffer = device.createBuffer({
+            size: size,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        });
+
+        // 使用命令编码器复制 meshStorageBuffer 内对应区域的数据到 stagingBuffer
+        const commandEncoder = device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(this.meshStorageBuffer, offset, stagingBuffer, 0, size);
+        const commandBuffer = commandEncoder.finish();
+        device.queue.submit([commandBuffer]);
+
+        // 异步映射 stagingBuffer，读取数据
+        await stagingBuffer.mapAsync(GPUMapMode.READ);
+        const arrayBuffer = stagingBuffer.getMappedRange();
+        const data = new Float32Array(arrayBuffer);
+        // 取前 16 个 float 作为 ModelMatrix
+        const modelMatrix = data.slice(0, 16);
+        console.log(`Debug ModelMatrix for mesh ${meshID} at offset ${offset}:`, modelMatrix);
+        stagingBuffer.unmap();
+    }
+
+    /**
+     * Debug：读取并打印 SceneBuffer 信息，根据 struct SceneBuffer 定义
+     */
+    async debugCheckSceneBuffer() {
+        // sceneBuffer 应该已经创建，且大小为已分配大小（例如256字节）
+        const sceneBufferSize = this.sceneBuffer.size;
+        const device = await this.resourceManager.GetDevice();
+        
+        // 创建一个 staging buffer 用于读取 sceneBuffer 数据
+        const stagingBuffer = device.createBuffer({
+            size: sceneBufferSize,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        });
+
+        // 使用命令编码器将 sceneBuffer 中所有数据复制到 stagingBuffer
+        const commandEncoder = device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(this.sceneBuffer, 0, stagingBuffer, 0, sceneBufferSize);
+        const commandBuffer = commandEncoder.finish();
+        device.queue.submit([commandBuffer]);
+
+        // 异步映射 stagingBuffer 进行读取
+        await stagingBuffer.mapAsync(GPUMapMode.READ);
+        const arrayBuffer = stagingBuffer.getMappedRange();
+        const data = new Float32Array(arrayBuffer);
+
+        // 根据 struct SceneBuffer 定义，共含 7 个字段
+        // viewMatrix: 16 floats, projMatrix: 16 floats,
+        // camPos: 4 floats, camDir: 4 floats, camUp: 4 floats,
+        // camRight: 4 floats, timeDelta: 4 floats.
+        const viewMatrix = data.slice(0, 16);
+        const projMatrix = data.slice(16, 32);
+        const camPos = data.slice(32, 36);
+        const camDir = data.slice(36, 40);
+        const camUp = data.slice(40, 44);
+        const camRight = data.slice(44, 48);
+        const timeDelta = data.slice(48, 52);
+
+        console.log("SceneBuffer Debug Information:");
+        console.log("ViewMatrix:", viewMatrix);
+        console.log("ProjMatrix:", projMatrix);
+        console.log("CamPos:", camPos);
+        console.log("CamDir:", camDir);
+        console.log("CamUp:", camUp);
+        console.log("CamRight:", camRight);
+        console.log("TimeDelta:", timeDelta);
+
+        stagingBuffer.unmap();
+    }
+}

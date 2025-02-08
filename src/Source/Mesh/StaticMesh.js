@@ -64,6 +64,16 @@ export default class StaticMesh extends THREE.Mesh {
     constructor(mesh, GPUMaterial, resourceManager) {
         super(mesh.geometry);
 
+        // 复制传入mesh的变换信息，确保StaticMesh具有正确的世界矩阵
+        this.position.copy(mesh.position);
+        this.rotation.copy(mesh.rotation);
+        this.scale.copy(mesh.scale);
+        // 更新本身的局部和世界矩阵
+        this.updateMatrix();
+        // 使用原始mesh更新后世界矩阵
+        mesh.updateMatrixWorld(true);
+        this.matrixWorld.copy(mesh.matrixWorld);
+
         // 如果未提供材质，则创建一个默认的 PBR 材质
         this.GPUMaterial = GPUMaterial || createPBRMaterial(
             resourceManager,
@@ -88,7 +98,7 @@ export default class StaticMesh extends THREE.Mesh {
     /**
      * 创建顶点和索引缓冲区，并上传数据到 GPU。
      */
-    createBuffers() {
+    async createBuffers() {
         // 从几何体中直接提取顶点和索引数据
         const geometry = this.geometry;
         let vertexDataFromGeometry = null;
@@ -113,22 +123,73 @@ export default class StaticMesh extends THREE.Mesh {
         }
 
         // 使用资源管理器创建 GPU 缓冲区
+        const device = await this.ResourceManager.GetDevice();
+
+        // 创建 staging buffer 用于写入顶点数据
+        const vertexStagingBuffer = device.createBuffer({
+            size: normalizedVertexData.byteLength,
+            usage: GPUBufferUsage.MAP_WRITE | GPUBufferUsage.COPY_SRC,
+            mappedAtCreation: true,
+        });
+        {
+            const mapping = vertexStagingBuffer.getMappedRange();
+            new Float32Array(mapping).set(normalizedVertexData);
+            vertexStagingBuffer.unmap();
+        }
+
+        // 创建最终 GPUVertexBuffer，仅包含真正需要的用途
         this.GPUVertexBuffer = this.ResourceManager.CreateResource(this._vertexBufferName, {
             Type: 'Buffer',
             desc: {
                 size: normalizedVertexData.byteLength,
                 usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-                data: normalizedVertexData
             }
         });
+
+        // 将 staging buffer 中的数据拷贝到最终的 Vertex Buffer 中
+        {
+            const commandEncoder = device.createCommandEncoder();
+            commandEncoder.copyBufferToBuffer(
+                vertexStagingBuffer, 0,
+                this.GPUVertexBuffer, 0,
+                normalizedVertexData.byteLength
+            );
+            const commandBuffer = commandEncoder.finish();
+            device.queue.submit([commandBuffer]);
+        }
+
+        // 创建 staging buffer 用于写入索引数据
+        const indexStagingBuffer = device.createBuffer({
+            size: indexDataFromGeometry.byteLength,
+            usage: GPUBufferUsage.MAP_WRITE | GPUBufferUsage.COPY_SRC,
+            mappedAtCreation: true,
+        });
+        {
+            const mapping = indexStagingBuffer.getMappedRange();
+            new Uint16Array(mapping).set(indexDataFromGeometry);
+            indexStagingBuffer.unmap();
+        }
+
+        // 创建最终 GPUIndexBuffer，仅用于 INDEX + COPY_DST（用于拷贝）
         this.GPUIndexBuffer = this.ResourceManager.CreateResource(this._indexBufferName, {
             Type: 'Buffer',
             desc: {
                 size: indexDataFromGeometry.byteLength,
                 usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-                data: indexDataFromGeometry
             }
         });
+
+        // 拷贝 staging buffer 数据到最终的 Index Buffer
+        {
+            const commandEncoder = device.createCommandEncoder();
+            commandEncoder.copyBufferToBuffer(
+                indexStagingBuffer, 0,
+                this.GPUIndexBuffer, 0,
+                indexDataFromGeometry.byteLength
+            );
+            const commandBuffer = commandEncoder.finish();
+            device.queue.submit([commandBuffer]);
+        }
     }
 
     /**
@@ -257,5 +318,6 @@ export default class StaticMesh extends THREE.Mesh {
         // 若 vertexData 不是对象或不包含 position，则直接返回传入的值
         return vertexData;
     }
+
 }
 

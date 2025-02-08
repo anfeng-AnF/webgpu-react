@@ -1,0 +1,57 @@
+/*
+ * SceneCommon.wgsh
+ *
+ * 合并了场景缓冲区（SceneBuffer）与网格信息（MeshInfo）的定义，
+ * 并统一放在同一个 BindGroup 中使用（group(0)）。
+ * 
+ * SceneBuffer 定义（用于存储摄像机视图、投影、摄像机信息等）：
+ *   - 包含 viewMatrix、projMatrix、camPos、camDir、camUp、camRight 以及 timeDelta
+ * 
+ * MeshInfo 定义（用于存储每个 Mesh 的模型矩阵及材质信息）：
+ *   - 每个 MeshInfo 规定为 256字节，要求动态偏移（dynamic offset）时必须256对齐。
+ */
+
+/* 常量定义 */
+const OPACITY_FLAG = 0x00000001;
+const MATERIAL_PBR = 0x00000002;
+const BASE_COLOR_USE_TEXTURE = 0x00000004;
+const METALLIC_USE_TEXTURE = 0x00000008;
+const SPECULAR_USE_TEXTURE = 0x00000010;
+const ROUGHNESS_USE_TEXTURE = 0x00000020;
+
+/* 场景缓冲区数据结构 */
+struct SceneBuffer {
+    viewMatrix : mat4x4<f32>,
+    projMatrix : mat4x4<f32>,
+    camPos     : vec4<f32>,
+    camDir     : vec4<f32>,
+    camUp      : vec4<f32>,
+    camRight   : vec4<f32>,
+    timeDelta  : vec4<f32>
+};
+
+/* 绑定 SceneBuffer 到 group(0) binding(0) */
+@group(0) @binding(0)
+var<uniform> scene: SceneBuffer;
+
+/* 网格信息数据结构 */
+/* 该结构总共 256字节，其中：
+   - modelMatrix 占 64字节
+   - flags 占 4字节
+   - reserved 为预留，数组大小为 44 (共 176 字节)
+   - materialInfo 为材质信息，数组大小为 60 (共240字节)  —— 此处示例值，请根据实际需要调整，使得总大小为256字节
+*/
+struct MeshInfo {
+    modelMatrix: mat4x4<f32>,
+    data: array<f32, 48>
+};
+
+/* 绑定 MeshInfo 数组到 group(0) binding(1)（采用动态偏移访问） */
+@group(0) @binding(1)
+var<storage, read> meshInfos: array<MeshInfo>;
+
+/* 辅助函数：返回默认从第0个 MeshInfo 中读取的模型矩阵 */
+fn GetModelMatrix() -> mat4x4<f32> {
+    return meshInfos[0].modelMatrix;
+}
+

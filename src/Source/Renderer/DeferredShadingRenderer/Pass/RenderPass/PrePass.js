@@ -1,8 +1,9 @@
 import FPass from '../Pass';
 import ShaderIncluder from '../../../../Core/Shader/ShaderIncluder';
 import FResourceManager from '../../../../Core/Resource/FResourceManager';
-import FStaticMesh from '../../../../Mesh/StaticMesh';
+import StaticMesh from '../../../../Mesh/StaticMesh';
 import FDeferredShadingSceneRenderer from '../../FDeferredShadingSceneRenderer';
+import GPUScene from '../../../../Scene/GPUScene';
 //执行预深度计算
 class PrePass extends FPass {
     /**
@@ -25,7 +26,7 @@ class PrePass extends FPass {
          * @type {string}
          */
         this.staticMeshesPipeLine = 'PrePassPipeline';
-        
+
         /**
          * 骨骼网格渲染管线
          * @type {string}
@@ -52,10 +53,7 @@ class PrePass extends FPass {
                 Dependence: {},
                 Managed: {
                     Texture: [this.RenderTargetTexture],
-                    Pipeline: [
-                        this.staticMeshesPipeLine,
-                        this.skeletalMeshPipeLine
-                    ],
+                    Pipeline: [this.staticMeshesPipeLine, this.skeletalMeshPipeLine],
                 },
                 Output: {
                     Texture: [this.RenderTargetTexture],
@@ -75,12 +73,6 @@ class PrePass extends FPass {
 
         const device = await this._ResourceManager.GetDevice();
 
-        // 确保场景的 SceneBuffer 已经创建
-        const sceneBufferLayout = this._ResourceManager.GetResource(renderer.Scene.SceneBufferLayoutName);
-        if (!sceneBufferLayout) {
-            throw new Error('Scene buffer layout not initialized');
-        }
-
         // 创建深度纹理
         await this._ResourceManager.CreateResource(this.RenderTargetTexture, {
             Type: 'Texture',
@@ -89,7 +81,7 @@ class PrePass extends FPass {
                 format: 'depth24plus',
                 usage: GPUTextureUsage.RENDER_ATTACHMENT,
                 sampleCount: 1,
-                viewFormats: ['depth24plus']
+                viewFormats: ['depth24plus'],
             },
         });
 
@@ -107,20 +99,19 @@ class PrePass extends FPass {
             }
         );
 
-        // 创建渲染管线
+        const bgLayoutRes = this._ResourceManager.GetResource(renderer.Scene.resourceName.sceneBindGroupLayout);
+
+        // 创建渲染管线，确保 pipelineLayout 中传入的是合法的 GPUBindGroupLayout 对象
         await this._ResourceManager.CreateResource(this.staticMeshesPipeLine, {
             Type: 'RenderPipeline',
             desc: {
                 layout: device.createPipelineLayout({
-                    bindGroupLayouts: [
-                        sceneBufferLayout, // group(0) - scene buffer
-                        this._ResourceManager.GetResource(renderer.Scene.MeshInfoBufferLayoutName) // group(1) - mesh info buffer
-                    ]
+                    bindGroupLayouts: [ bgLayoutRes ],
                 }),
                 vertex: {
                     module: shaderModule,
                     entryPoint: 'VSMain',
-                    buffers: [FStaticMesh.VertexBufferDesc],
+                    buffers: [StaticMesh.VertexBufferDesc],
                 },
                 primitive: {
                     topology: 'triangle-list',
@@ -135,7 +126,7 @@ class PrePass extends FPass {
                     module: shaderModule,
                     entryPoint: 'FSMain',
                     targets: [], // Early-Z pass 不需要颜色输出
-                }
+                },
             },
         });
 
@@ -152,34 +143,37 @@ class PrePass extends FPass {
             desc: {
                 size: [Width, Height, 1],
                 format: 'depth24plus',
-                usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING,
+                usage:
+                    GPUTextureUsage.RENDER_ATTACHMENT |
+                    GPUTextureUsage.COPY_SRC |
+                    GPUTextureUsage.TEXTURE_BINDING,
                 sampleCount: 1,
-                viewFormats: ['depth24plus']
+                viewFormats: ['depth24plus'],
             },
         });
     }
 
     /**
      * 重新生成该Pass的渲染网格体分组
-     * @param {FScene} scene
+     * @param {GPUScene} scene
      */
     #ReGenerateMeshGroup(scene) {
-        // 获取场景中所有的GPU网格资源
-        const gpuMeshes = scene.GetAllGpuMeshes();
+        // 获取场景中所有的 GPU 网格资源（返回数组）
+        const gpuMeshes = scene.GetAllMesh();
 
         // 创建新的映射来记录当前有效的网格
         const currentStaticMeshes = new Map();
         const currentSkeletalMeshes = new Map();
 
-        // 遍历所有GPU网格资源
-        for (const [id, gpuMesh] of gpuMeshes) {
-            // TODO: 根据网格类型分类存储
-            // 暂时都作为静态网格处理
-            currentStaticMeshes.set(id, gpuMesh);
-            
-            // 如果这个网格不在我们的StaticMeshes中，添加它
-            if (!this.StaticMeshes.has(id)) {
-                this.StaticMeshes.set(id, gpuMesh);
+        // 遍历所有 GPU 网格资源
+        for (const gpuMesh of gpuMeshes) {
+            const meshID = gpuMesh.meshID;
+            // TODO: 根据网格类型分类存储，目前统统作为静态网格处理
+            currentStaticMeshes.set(meshID, gpuMesh);
+
+            // 如果这个网格不在我们的 StaticMeshes 中，添加它
+            if (!this.StaticMeshes.has(meshID)) {
+                this.StaticMeshes.set(meshID, gpuMesh);
             }
         }
 
@@ -190,7 +184,7 @@ class PrePass extends FPass {
             }
         }
 
-        // TODO: 清理骨骼网格
+        // TODO: 清理骨骼网格（当前未实现分类，将来根据需要实现）
         for (const [id, mesh] of this.SkeletalMeshes) {
             if (!currentSkeletalMeshes.has(id)) {
                 this.SkeletalMeshes.delete(id);
@@ -198,20 +192,17 @@ class PrePass extends FPass {
         }
     }
 
-
-
     /**
      * 渲染
      * @param {number} DeltaTime 时间差
-     * @param {FScene} Scene 场景
+     * @param {GPUScene} Scene 场景
      * @param {GPUCommandEncoder} CommandEncoder 命令编码器
      * @param {FDeferredShadingSceneRenderer} renderer 渲染器
      */
     async Render(DeltaTime, Scene, CommandEncoder, renderer) {
-        if (this.SceneVerson !== Scene.verson) {
-            this.#ReGenerateMeshGroup(Scene);
-            this.SceneVerson = Scene.verson;
-        }
+        // 此处原先通过 Scene.verson 判断是否需要重新生成网格分组，
+        // 由于 GPUScene 已不再提供 verson 属性，故直接每帧重新生成网格组
+        this.#ReGenerateMeshGroup(Scene);
 
         const depthTexture = this._ResourceManager.GetResource(this.RenderTargetTexture);
         const device = await this._ResourceManager.GetDevice();
@@ -233,18 +224,20 @@ class PrePass extends FPass {
 
         // 开始渲染
         const passEncoder = CommandEncoder.beginRenderPass(renderPassDescriptor);
-        passEncoder.setBindGroup(0, Scene.SceneBufferBindGroup);
         passEncoder.setPipeline(this._ResourceManager.GetResource(this.staticMeshesPipeLine));
 
+        //await Scene.debugCheckSceneBuffer();
         // 对每个网格进行渲染
-        for(const [id, gpuMesh] of this.StaticMeshes) {
-            // 设置该网格的动态偏移
-            const dynamicOffsets = [Scene.GetMeshInfoOffset(gpuMesh.meshIndex)];
-            
-            passEncoder.setBindGroup(1, Scene.MeshInfoBufferBindGroup, dynamicOffsets);
-            passEncoder.setVertexBuffer(0, this._ResourceManager.GetResource(gpuMesh.VertexBufferName));
-            passEncoder.setIndexBuffer(this._ResourceManager.GetResource(gpuMesh.IndexBufferName), 'uint16');
-            passEncoder.drawIndexed(gpuMesh.IndexCount, 1, 0, 0, 0);
+        for (const [id, gpuMesh] of this.StaticMeshes) {
+            // 设置该网格对应的动态偏移（用于访问 MeshInfo storage buffer 中不同 mesh 信息）
+            const dynamicOffsets = [Scene.getMeshOffset(gpuMesh.meshID)];
+
+            //await Scene.debugCheckMeshInfo(gpuMesh.meshID);
+            // 使用 GPUScene 合并后的 bindGroup（sceneBindGroup）绑定资源，同时传入动态偏移数组
+            passEncoder.setBindGroup(0, Scene.sceneBindGroup, dynamicOffsets);
+            passEncoder.setVertexBuffer(0, gpuMesh.GPUVertexBuffer);
+            passEncoder.setIndexBuffer(gpuMesh.GPUIndexBuffer, 'uint16');
+            passEncoder.drawIndexed(gpuMesh.geometry.index.count, 1, 0, 0, 0);
         }
 
         passEncoder.end();

@@ -1,5 +1,5 @@
-#include "../Common/SceneBuffer.wgsh"
-#include "../Common/MeshInfo.wgsh"
+#include "../Common/SceneCommon.wgsh"
+
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -11,12 +11,15 @@ struct VertexInput {
     @location(6) uv3: vec2<f32>,
 }
 
+
 @vertex
 fn VSMain(input: VertexInput) -> @builtin(position) vec4<f32> {
-    // 直接使用网格的模型矩阵
+
+    let dynamicIndex: u32 = 0;
     let worldPos = GetModelMatrix() * vec4<f32>(input.position, 1.0);
     let viewPos = scene.viewMatrix * worldPos;
     return scene.projMatrix * viewPos;
+    //return vec4<f32>(1.0, 1.0, 1.0, 1.0);
 }
 
 @fragment

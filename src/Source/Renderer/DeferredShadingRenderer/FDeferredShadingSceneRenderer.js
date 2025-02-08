@@ -3,6 +3,7 @@ import FResourceManager, { EResourceType } from '../../Core/Resource/FResourceMa
 import * as THREE from 'three';
 import FCopyToCanvasPass from './Pass/PostProcess/FCopyToCanvasPass';
 import PrePass from './Pass/RenderPass/PrePass';
+import GPUScene from '../../Scene/GPUScene';
 
 class FDeferredShadingSceneRenderer extends FSceneRenderer {
     constructor() {
@@ -17,10 +18,10 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
 
         /**
          * 场景
-         * @type {FScene}
+         * @type {GPUScene}
          * @public
          */
-        //this.Scene = new FScene();
+        this.Scene = new GPUScene();
 
         /**
          * 设备
@@ -61,20 +62,23 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
      */
     async Initialize() {
         this._Device = await FResourceManager.GetInstance().GetDevice();
-        return;
+
         // 设置相机初始位置
         this._MainCamera.position.set(0, 2, 5);
         this._MainCamera.lookAt(0, 0, 0);
         this._MainCamera.updateMatrixWorld();
         
         // 设置场景的主相机
-        //this.Scene.SetMainCamera(this._MainCamera);
+        this.Scene.camera = this._MainCamera;
         
+        // 初始化场景
+        await this.Scene.initBuffers();
+
         // 创建测试场景
-        //await this.CreateTestScene();
+        await this.CreateTestScene();
         
         // 先初始化场景
-        //await this.Scene.Update(0);
+        await this.Scene.Update(0);
         
         // 然后初始化 PrePass
         await this._PrePass.InitResourceName();
@@ -95,7 +99,6 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
          * 比如 CopyPass 依赖 PrePass 的深度纹理，所以必须先更新 PrePass 的渲染目标大小，再更新 CopyPass 的渲染目标大小
          */
 
-        return;
         // 更新 PrePass 的渲染目标大小
         if (this._PrePass) {
             await this._PrePass.OnRenderTargetResize(Width, Height);
@@ -116,7 +119,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
      * @param {HTMLCanvasElement} Canvas 画布
      */
     async OnCanvasReady(Canvas) {
-        return;
+
         // 初始化复制Pass，使用PrePass的深度纹理
         this._CopyPass = new FCopyToCanvasPass(this._PrePass.RenderTargetTexture, Canvas);
         await this._CopyPass.Initialize();
@@ -130,7 +133,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
      */
     async Render(DeltaTime) {
         super.Render(DeltaTime);
-        return;
+
         if (!this._bInitialized) {
             return;
         }
@@ -172,7 +175,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         planeMesh.rotation.x = -Math.PI / 2; // 绕X轴旋转-90度使其水平
         planeMesh.position.y = -1;
 
-        planeMesh.updateMatrix(); // 确保矩阵更新
+        planeMesh.updateMatrixWorld(true); // 确保世界矩阵更新
         planeMesh.ID = 'plane';
         await this.Scene.add(planeMesh);
 
@@ -212,8 +215,8 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         SkySphereMesh.ID = 'SkySphere';
         await this.Scene.add(SkySphereMesh);
 
-        // 确保所有网格的矩阵都被更新
-        this.Scene.updateMatrixWorld(true);
+        this.Scene.upLoadMeshToGPU();
+        //this.Scene.updateAllMeshInfo();
     }
 }
 
