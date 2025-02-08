@@ -4,6 +4,7 @@ import FResourceManager from '../../../../Core/Resource/FResourceManager';
 import StaticMesh from '../../../../Mesh/StaticMesh';
 import FDeferredShadingSceneRenderer from '../../FDeferredShadingSceneRenderer';
 import GPUScene from '../../../../Scene/GPUScene';
+import { resourceName } from '../../ResourceNames';
 //执行预深度计算
 class PrePass extends FPass {
     /**
@@ -19,19 +20,19 @@ class PrePass extends FPass {
          * 渲染目标纹理名称
          * @type {string}
          */
-        this.RenderTargetTexture = 'Early-zDepthTexture';
+        this.RenderTargetTexture = resourceName.PrePass.depthTexture;
 
         /**
          * 静态网格渲染管线
          * @type {string}
          */
-        this.staticMeshesPipeLine = 'PrePassPipeline';
+        this.staticMeshesPipeLine = resourceName.PrePass.staticMeshPipeline;
 
         /**
          * 骨骼网格渲染管线
          * @type {string}
          */
-        this.skeletalMeshPipeLine = 'PrePassSkeletalPipeline';
+        this.skeletalMeshPipeLine = resourceName.PrePass.skeletalMeshPipeline;
 
         /**
          * 骨骼网格的存储
@@ -90,7 +91,7 @@ class PrePass extends FPass {
 
         // 创建着色器模块
         const shaderModule = await this._ResourceManager.CreateResource(
-            `${this._Name}ShaderModule`,
+            resourceName.PrePass.shaderModule,
             {
                 Type: 'ShaderModule',
                 desc: {
@@ -99,7 +100,7 @@ class PrePass extends FPass {
             }
         );
 
-        const bgLayoutRes = this._ResourceManager.GetResource(renderer.Scene.resourceName.sceneBindGroupLayout);
+        const bgLayoutRes = this._ResourceManager.GetResource(resourceName.Scene.sceneBindGroupLayout);
 
         // 创建渲染管线，确保 pipelineLayout 中传入的是合法的 GPUBindGroupLayout 对象
         await this._ResourceManager.CreateResource(this.staticMeshesPipeLine, {
@@ -248,8 +249,8 @@ class PrePass extends FPass {
      */
     async Destroy() {
         this._ResourceManager.DeleteResource(this.RenderTargetTexture);
-        this._ResourceManager.DeleteResource(`${this._Name}Pipeline`);
-        this._ResourceManager.DeleteResource(`${this._Name}ShaderModule`);
+        this._ResourceManager.DeleteResource(resourceName.PrePass.staticMeshPipeline);
+        this._ResourceManager.DeleteResource(resourceName.PrePass.shaderModule);
     }
 }
 

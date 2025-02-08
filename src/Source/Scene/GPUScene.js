@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import StaticMesh from '../Mesh/StaticMesh.js';
 import FResourceManager from '../Core/Resource/FResourceManager.js';
+import { createPBRMaterial } from '../Material/Mat_Instance/PBR.js';
+import { resourceName } from '../Renderer/DeferredShadingRenderer/ResourceNames.js';
+
 /**
  * GPUScene
  *
@@ -27,18 +30,6 @@ import FResourceManager from '../Core/Resource/FResourceManager.js';
  *   - removeMeshSlot 仅删除槽记录，不回收空间，实际应用中可考虑场景重新构建缓冲区
  */
 export default class GPUScene extends THREE.Scene {
-
-    /**
-     * GPUScene 资源名称映射，用于标识 GPU 资源名称，
-     * 以便 FResourceManager 统一管理和 IDE 辅助识别。
-     * @type {{ sceneBuffer: string, meshStorageBuffer: string, sceneBindGroup: string, sceneBindGroupLayout: string }}
-     */
-    resourceName = {
-        sceneBuffer: 'SceneBuffer',
-        meshStorageBuffer: 'MeshStorageBuffer',
-        sceneBindGroup: 'SceneBindGroup',
-        sceneBindGroupLayout: 'SceneBindGroupLayout'
-    }
 
     /**
      * 构造函数
@@ -120,30 +111,34 @@ export default class GPUScene extends THREE.Scene {
      * 如果添加对象是 THREE.Mesh 则用 StaticMesh 包裹后添加到内部 GPU Mesh 管理列表中，
      * 同时将包裹后的 StaticMesh 添加到 THREE.Scene 中。
      * @param {THREE.Object3D} object - 待添加对象
-     * @returns {this} 当前场景实例
+     * @returns {this,THREE.Object3D} 当前场景实例
      */
-    add(object) {
-        if (object instanceof THREE.Mesh) {
+    async add(object) {
+        if(object instanceof StaticMesh){
+            return this.#addStaticMesh(object);
+        }
+        else if (object instanceof THREE.Mesh) {
             // 使用 object.uuid 作为唯一标识
             const meshID = object.uuid;
+          
             // 创建 StaticMesh 包裹对象（确保内部 GPUMaterial 正确）
-            const staticMesh = new StaticMesh(object, null, this.resourceManager);
+            const staticMesh = new StaticMesh(object, this.resourceManager);
             // 将唯一标识保存到 staticMesh 对象中
             staticMesh.meshID = meshID;
 
-            // 先将 StaticMesh 添加到内部数组（使其可被 updateMeshInfo 查找到）
-            this.meshes.push(staticMesh);
-
-            // 自动分配存储槽（私有方法）
-            this._allocateMeshSlot(meshID);
-
-            // 异步更新该 Mesh 在 storage 中的信息
-            this.updateMeshInfo(meshID);
-
-            return super.add(staticMesh);
+            return this.#addStaticMesh(staticMesh);
         } else {
-            return super.add(object);
+            super.add(object);
+            return [this,object];
         }
+    }
+
+    async #addStaticMesh(staticMesh){
+        this.meshes.push(staticMesh);
+        this._allocateMeshSlot(staticMesh.meshID);
+        await this.updateMeshInfo(staticMesh.meshID);
+        super.add(staticMesh);
+        return [this,staticMesh];
     }
 
     /**
@@ -175,6 +170,7 @@ export default class GPUScene extends THREE.Scene {
      */
     async Update(DeltaTime) {
         await this.updateSceneBuffer(DeltaTime);
+        await this.updateAllMeshInfo();
     }
 
     /**
@@ -194,11 +190,8 @@ export default class GPUScene extends THREE.Scene {
         this.meshCapacity = initialCapacity;
 
         // 创建 SceneBuffer uniform buffer
-        // SceneBuffer 在 Shader 中定义：viewMatrix(16 floats) + projMatrix(16 floats) +
-        // camPos(4) + camDir(4) + camUp(4) + camRight(4) + timeDelta(4) 总计 52 floats，
-        // 为了对齐，我们申请 256 字节（或更多）缓冲区
         const sceneBufferSize = 256;
-        this.sceneBuffer = this.resourceManager.CreateResource(this.resourceName.sceneBuffer, {
+        this.sceneBuffer = this.resourceManager.CreateResource(resourceName.Scene.sceneBuffer, {
             Type: 'Buffer',
             desc: {
                 size: sceneBufferSize,
@@ -206,9 +199,9 @@ export default class GPUScene extends THREE.Scene {
             },
         });
 
-        // 创建 MeshInfo storage buffer：每个 MeshInfo 固定 256 字节，数组大小为 initialCapacity * 256
+        // 创建 MeshInfo storage buffer：每个 MeshInfo 固定 256 字节
         const meshStorageBufferSize = this.meshInfoByteSize * this.meshCapacity;
-        this.meshStorageBuffer = this.resourceManager.CreateResource(this.resourceName.meshStorageBuffer, {
+        this.meshStorageBuffer = this.resourceManager.CreateResource(resourceName.Scene.meshStorageBuffer, {
             Type: 'Buffer',
             desc: {
                 size: meshStorageBufferSize,
@@ -230,9 +223,8 @@ export default class GPUScene extends THREE.Scene {
             return;
         }
 
-        // 创建 BindGroupLayout，其中 SceneBuffer 为 uniform buffer，
-        // MeshInfo storage buffer 为 read-only-storage 类型，且启用动态偏移。
-        this.sceneBindGroupLayout = this.resourceManager.CreateResource(this.resourceName.sceneBindGroupLayout, {
+        // 创建 BindGroupLayout
+        this.sceneBindGroupLayout = this.resourceManager.CreateResource(resourceName.Scene.sceneBindGroupLayout, {
             Type: 'BindGroupLayout',
             desc: {
                 entries: [
@@ -256,8 +248,8 @@ export default class GPUScene extends THREE.Scene {
             },
         });
 
-        // 使用资源管理器创建 BindGroup（假定 FResourceManager.CreateResource 支持 "BindGroup" 类型）
-        this.sceneBindGroup = this.resourceManager.CreateResource(this.resourceName.sceneBindGroup, {
+        // 使用资源管理器创建 BindGroup
+        this.sceneBindGroup = this.resourceManager.CreateResource(resourceName.Scene.sceneBindGroup, {
             Type: 'BindGroup',
             desc: {
                 layout: this.sceneBindGroupLayout,
@@ -383,7 +375,7 @@ export default class GPUScene extends THREE.Scene {
         const newCapacity = this.meshCapacity + expansionCount;
         console.log(`Expanding mesh storage buffer from ${this.meshCapacity} to ${newCapacity}`);
         const meshStorageBufferSize = this.meshInfoByteSize * newCapacity;
-        this.meshStorageBuffer = this.resourceManager.CreateResource(this.resourceName.meshStorageBuffer, {
+        this.meshStorageBuffer = this.resourceManager.CreateResource(resourceName.Scene.meshStorageBuffer, {
             Type: 'Buffer',
             desc: {
                 size: meshStorageBufferSize,
@@ -415,9 +407,10 @@ export default class GPUScene extends THREE.Scene {
         }
         meshInfoData.set(modelMatrix.elements, 0);
 
-        let gpuMaterial = await mesh.GPUMaterial;
-        const materialInfo = gpuMaterial.getMaterialInfo();
-        meshInfoData.set(materialInfo, 16); // 写入 materialInfo（从偏移16 floats，即64 字节处）
+        const materialInfo = mesh.getMaterialInfo();
+        if(materialInfo.length > 0){
+            meshInfoData.set(materialInfo, 16); // 写入 materialInfo（从偏移16 floats，即64 字节处）
+        }
 
         const offset = slotIndex * this.meshInfoByteSize;
         const device = await this.resourceManager.GetDevice();
@@ -522,7 +515,7 @@ export default class GPUScene extends THREE.Scene {
 
     /**
      * 获取所有mesh
-     * @returns {Array<GPUMesh>}
+     * @returns {Array<StaticMesh>}
      */
     GetAllMesh(){
         return this.meshes;
@@ -555,7 +548,7 @@ export default class GPUScene extends THREE.Scene {
         const data = new Float32Array(arrayBuffer);
         // 取前 16 个 float 作为 ModelMatrix
         const modelMatrix = data.slice(0, 16);
-        console.log(`Debug ModelMatrix for mesh ${meshID} at offset ${offset}:`, modelMatrix);
+        console.log(`Debug ModelMatrix for mesh ${meshID} at offset ${offset}:`, modelMatrix,'\ndata',data.slice(16,64));
         stagingBuffer.unmap();
     }
 

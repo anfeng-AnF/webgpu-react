@@ -16,6 +16,11 @@ export default class GPUMaterial {
         this.bindGroupLayout = null;
         this.bindGroup = null;
         this.materialId = `material_${GPUMaterial.counter++}`;
+        /**
+         * 实例材质
+         * @type {Array<MaterialDesc.dynamicAttributes>}
+         */
+        this.InstanceMaterial = [];
     }
 
     // 静态计数器
@@ -85,7 +90,9 @@ export default class GPUMaterial {
             // 创建绑定组布局，由材质描述定义
             this.bindGroupLayout = this.resourceManager.CreateResource(`${this.materialId}_BindGroupLayout`, {
                 Type: 'BindGroupLayout',
-                desc: this.materialDesc.bindGroupLayoutDescriptor
+                desc: {
+                    entries: this.materialDesc.bindGroupLayoutDescriptor  // bindGroupLayoutDescriptor已经是entries数组
+                }
             });
 
             // 创建绑定组，由材质描述定义
@@ -129,4 +136,44 @@ export default class GPUMaterial {
     getMaterialInfo() {
         return this.materialDesc.getMaterialInfo();
     }
+
+    /**
+     * 获取基础材质信息
+     * @returns {Float32Array} 基础材质信息
+     */
+    getBaseMaterialInfo() {
+        return this.materialDesc.BaseMaterial.getMaterialInfo();
+    }
 } 
+
+export class GPUMaterialInstance {
+    /**
+     * 构造函数
+     * @param {GPUMaterial} GPUMaterial - 基础材质
+     */
+    constructor(GPUMaterial) {
+        this.GPUMaterial = GPUMaterial;
+        // 对 dynamicAttributes 做拆解，排除 getDynamicAttributes 函数
+        const { getDynamicAttributes, ...data } = GPUMaterial.materialDesc.dynamicAttributes;
+        // 使用 structuredClone 复制纯数据部分
+        const clonedData = structuredClone(data);
+        // 重新附回函数，并绑定到克隆后的对象上，确保 this 指向正确（指向自身数据）
+        clonedData.getDynamicAttributes = getDynamicAttributes.bind(clonedData);
+        this.dynamicAttributes = clonedData;
+    }
+
+    /**
+     * 获取材质信息
+     * @returns {Float32Array} 材质信息
+     */
+    getMaterialInfo() {
+        //f32 x 4
+        const baseMaterialInfo = this.GPUMaterial.getBaseMaterialInfo();
+
+        const dynamicAttributesInfo = this.dynamicAttributes.getDynamicAttributes();
+        const materialInfo = new Float32Array(baseMaterialInfo.length + dynamicAttributesInfo.length);
+        materialInfo.set(baseMaterialInfo, 0);
+        materialInfo.set(dynamicAttributesInfo, baseMaterialInfo.length);
+        return materialInfo;
+    }
+}

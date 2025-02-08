@@ -24,4 +24,16 @@ export class BaseMaterial {
         const clipMode = this.ClipMode === 'back' ? 0 : this.ClipMode === 'front' ? 1 : 2;
         return new Float32Array([this.MaterialDomain, this.BlendMode, this.ShaderModel, clipMode]);
     }
+
+    /**
+     * 判断两个材质是否相同
+     * @param {Object} materialDesc - 材质描述对象
+     * @returns {boolean} 是否相同
+     */
+    isSameMaterial(materialDesc) {
+        return this.MaterialDomain === materialDesc.MaterialDomain &&
+               this.BlendMode === materialDesc.BlendMode &&
+               this.ShaderModel === materialDesc.ShaderModel &&
+               this.ClipMode === materialDesc.ClipMode;
+    }
 }

@@ -1,9 +1,11 @@
 import FPass from '../Pass';
 import FResourceManager from '../../../../Core/Resource/FResourceManager';
-import FStaticMesh from '../../../../Mesh/StaticMesh';
 import PrePass from './PrePass';
 import { GPUTextureFormat } from 'three/src/renderers/webgpu/utils/WebGPUConstants.js';
 import ShaderIncluder from '../../../../Core/Shader/ShaderIncluder';
+import GPUScene from '../../../../Scene/GPUScene';
+import { resourceName } from '../../ResourceNames';
+import StaticMesh from '../../../../Mesh/StaticMesh';
 /**
  * BasePass,渲染GBuffer
  */
@@ -12,27 +14,22 @@ class BasePass extends FPass {
      * GbufferA worldNormal
      * @type {string}
      */
-    GBufferA = 'GBufferA';
+    GBufferA = resourceName.BasePass.gBufferA;
     /**
      * Specular,Roughness,Metallic
      * @type {string}
      */
-    GBufferB = 'GBufferB';
+    GBufferB = resourceName.BasePass.gBufferB;
     /**
      * GbufferC BaseColor
      * @type {string}
      */
-    GBufferC = 'GBufferC';
+    GBufferC = resourceName.BasePass.gBufferC;
     /**
      * GbufferD Additional
      * @type {string}
      */
-    GBufferD = 'GBufferD';
-    /**
-     * GbufferE Additional
-     * @type {string}
-     */
-    GBufferE = 'GBufferE';
+    GBufferD = resourceName.BasePass.gBufferD;
 
     /**
      * 储存StaticMesh的渲染资源
@@ -51,22 +48,22 @@ class BasePass extends FPass {
      * @type {number}
      */
     SceneVerson = -1;
-    
+
     constructor() {
         super();
         this._Name = 'BasePass';
-        
+
         /**
          * 静态网格渲染管线
          * @type {string}
          */
-        this.staticMeshesPipeLine = 'BasePassPipeline';
-        
+        this.staticMeshesPipeLine = resourceName.BasePass.staticMeshPipeline;
+
         /**
          * 骨骼网格渲染管线
          * @type {string}
          */
-        this.skeletalMeshPipeLine = 'BasePassSkeletalPipeline';
+        this.skeletalMeshPipeLine = resourceName.BasePass.skeletalMeshPipeline;
     }
 
     /**
@@ -78,9 +75,7 @@ class BasePass extends FPass {
             PassName: this._Name,
             Resources: {
                 Dependence: {
-                    Texture: [
-                        PrePass.Resources.Output
-                    ],
+                    Texture: [resourceName.PrePass.depthTexture],
                 },
                 Managed: {
                     Texture: [
@@ -88,12 +83,8 @@ class BasePass extends FPass {
                         this.GBufferB,
                         this.GBufferC,
                         this.GBufferD,
-                        this.GBufferE
                     ],
-                    Pipeline: [
-                        this.staticMeshesPipeLine,
-                        this.skeletalMeshPipeLine
-                    ],
+                    Pipeline: [this.staticMeshesPipeLine, this.skeletalMeshPipeLine],
                 },
                 Output: {
                     Texture: [
@@ -101,7 +92,6 @@ class BasePass extends FPass {
                         this.GBufferB,
                         this.GBufferC,
                         this.GBufferD,
-                        this.GBufferE
                     ],
                 },
             },
@@ -125,7 +115,7 @@ class BasePass extends FPass {
             // TODO: 根据网格类型分类存储
             // 暂时都作为静态网格处理
             currentStaticMeshes.set(id, gpuMesh);
-            
+
             if (!this.StaticMeshes.has(id)) {
                 this.StaticMeshes.set(id, gpuMesh);
             }
@@ -155,8 +145,157 @@ class BasePass extends FPass {
             this._ResourceManager = FResourceManager.GetInstance();
         }
 
+        const device = await this._ResourceManager.GetDevice();
+
         // 创建GBuffer纹理
-        await this.OnRenderTargetResize(renderer.Width, renderer.Height);
+        await this.OnRenderTargetResize(1920, 1080);
+
+        // 创建staticmesh的shader
+        const code = await ShaderIncluder.GetShaderCode('/Shader/BasePass/BasePassPBR.wgsl');
+        const staticMeshShader = await this._ResourceManager.CreateResource(
+            resourceName.BasePass.shaderModule,
+            {
+                Type: 'ShaderModule',
+                desc: {
+                    code: code,
+                },
+            }
+        );
+
+        // 创建采样器和纹理的BindGroupLayout
+        const samplerTextureBGLayout = await this._ResourceManager.CreateResource(
+            resourceName.BasePass.samplerTextureBGLayout,
+            {
+                Type: 'BindGroupLayout',
+                desc: {
+                    entries: [
+                        {
+                            binding: 0,
+                            visibility: GPUShaderStage.FRAGMENT,
+                            texture: {
+                                sampleType: 'float', // 浮动精度的 2D 纹理
+                                viewDimension: '2d',
+                            },
+                        },
+                        {
+                            binding: 1,
+                            visibility: GPUShaderStage.FRAGMENT,
+                            texture: {
+                                sampleType: 'float',
+                                viewDimension: '2d',
+                            },
+                        },
+                        {
+                            binding: 2,
+                            visibility: GPUShaderStage.FRAGMENT,
+                            texture: {
+                                sampleType: 'float',
+                                viewDimension: '2d',
+                            },
+                        },
+                        {
+                            binding: 3,
+                            visibility: GPUShaderStage.FRAGMENT,
+                            texture: {
+                                sampleType: 'float',
+                                viewDimension: '2d',
+                            },
+                        },
+                        {
+                            binding: 4,
+                            visibility: GPUShaderStage.FRAGMENT,
+                            texture: {
+                                sampleType: 'float',
+                                viewDimension: '2d',
+                            },
+                        },
+                        {
+                            binding: 5,
+                            visibility: GPUShaderStage.FRAGMENT,
+                            sampler: {}, // 默认的 sampler 设置
+                        },
+                        {
+                            binding: 6,
+                            visibility: GPUShaderStage.FRAGMENT,
+                            sampler: {},
+                        },
+                        {
+                            binding: 7,
+                            visibility: GPUShaderStage.FRAGMENT,
+                            sampler: {},
+                        },
+                        {
+                            binding: 8,
+                            visibility: GPUShaderStage.FRAGMENT,
+                            sampler: {},
+                        },
+                        {
+                            binding: 9,
+                            visibility: GPUShaderStage.FRAGMENT,
+                            sampler: {},
+                        },
+                    ],
+                },
+            }
+        );
+
+        // 创建PipelineLayout
+        const pipelineLayout = await this._ResourceManager.CreateResource(
+            resourceName.BasePass.basePassPipelineLayout,
+            {
+                Type: 'PipelineLayout',
+                desc: {
+                    bindGroupLayouts: [
+                        this._ResourceManager.GetResource(resourceName.Scene.sceneBindGroupLayout),
+                        samplerTextureBGLayout,
+                    ],
+                },
+            }
+        );
+
+        // 创建静态网格渲染管线
+        await this._ResourceManager.CreateResource(this.staticMeshesPipeLine, {
+            Type: 'RenderPipeline',
+            desc: {
+                layout: pipelineLayout,
+                vertex: {
+                    module: staticMeshShader,
+                    entryPoint: 'VSMain',
+                    buffers: [StaticMesh.VertexBufferDesc],
+                },
+                fragment: {
+                    module: staticMeshShader,
+                    entryPoint: 'PSMain',
+                    targets: [
+                        {
+                            format: 'rgb10a2unorm',
+                            sampleCount: 1, 
+                        },
+                        {
+                            format: 'rgba8unorm',
+                            sampleCount: 1,
+                        },
+                        {
+                            format: 'rgba8unorm',
+                            sampleCount: 1,
+                        },
+                        {
+                            format: 'rgba8unorm',
+                            sampleCount: 1,
+                        },
+                    ],
+                },
+                primitive: {
+                    topology: 'triangle-list',
+                    cullMode: 'back',
+                },
+                depthStencil: {
+                    depthWriteEnabled: false,
+                    depthCompare: 'less-equal',
+                    format: 'depth24plus',
+                },
+            },
+        });
 
         this._bInitialized = true;
     }
@@ -168,120 +307,126 @@ class BasePass extends FPass {
      */
     async OnRenderTargetResize(Width, Height) {
 
-        const GBufferUsage = GPUTextureUsage.RENDER_ATTACHMENT | 
-        GPUTextureUsage.TEXTURE_BINDING | 
-        GPUTextureUsage.COPY_SRC;
+        const GBufferUsage =
+            GPUTextureUsage.RENDER_ATTACHMENT |
+            GPUTextureUsage.COPY_SRC |
+            GPUTextureUsage.TEXTURE_BINDING;
 
         // GBufferA - 世界空间法线 (RGB)
-        this.GBufferA = await this._ResourceManager.CreateResource(this.GBufferA, {
+        await this._ResourceManager.CreateResource(this.GBufferA, {
             Type: 'Texture',
             desc: {
                 size: [Width, Height, 1],
-                format: GPUTextureFormat.RGB10A2UNORM,  // 高精度浮点格式用于法线
+                format: 'rgb10a2unorm',  // 使用小写格式名称
                 usage: GBufferUsage,
-                sampleCount: 1
-            }
+                sampleCount: 1,
+            },
         });
 
         // GBufferB - Specular(R),Roughness(G),Metallic(B)
-        this.GBufferB = await this._ResourceManager.CreateResource(this.GBufferB, {
+        await this._ResourceManager.CreateResource(this.GBufferB, {
             Type: 'Texture',
             desc: {
                 size: [Width, Height, 1],
-                format: GPUTextureFormat.RGBA8UNORM,   // 标准8位格式足够存储这些参数
+                format: GPUTextureFormat.RGBA8Unorm, // 标准8位格式足够存储这些参数
                 usage: GBufferUsage,
-                sampleCount: 1
-            }
+                sampleCount: 1,
+            },
         });
 
         // GBufferC - BaseColor (RGBA)
-        this.GBufferC = await this._ResourceManager.CreateResource(this.GBufferC, {
+        await this._ResourceManager.CreateResource(this.GBufferC, {
             Type: 'Texture',
             desc: {
                 size: [Width, Height, 1],
-                format: GPUTextureFormat.RGBA8UNORM,   // 标准8位格式用于基础颜色
+                format: GPUTextureFormat.RGBA8Unorm, // 标准8位格式用于基础颜色
                 usage: GBufferUsage,
-                sampleCount: 1
-            }
+                sampleCount: 1,
+            },
         });
 
         // GBufferD - 预留
-        this.GBufferD = await this._ResourceManager.CreateResource(this.GBufferD, {
+        await this._ResourceManager.CreateResource(this.GBufferD, {
             Type: 'Texture',
             desc: {
                 size: [Width, Height, 1],
-                format: GPUTextureFormat.RGBA8UNORM,
+                format: GPUTextureFormat.RGBA8Unorm,
                 usage: GBufferUsage,
-                sampleCount: 1
-            }
-        });
-
-        // GBufferE - 预留
-        this.GBufferE = await this._ResourceManager.CreateResource(this.GBufferE, {
-            Type: 'Texture',
-            desc: {
-                size: [Width, Height, 1],
-                format: GPUTextureFormat.RGBA8UNORM,
-                usage: GBufferUsage,
-                sampleCount: 1
-            }
+                sampleCount: 1,
+            },
         });
     }
 
     /**
      * 渲染
      * @param {number} DeltaTime 时间差
-     * @param {FScene} Scene 场景
+     * @param {GPUScene} Scene 场景
      * @param {GPUCommandEncoder} CommandEncoder 命令编码器
      * @param {FDeferredShadingSceneRenderer} renderer 渲染器
      */
     async Render(DeltaTime, Scene, CommandEncoder, renderer) {
-        if (this.SceneVerson !== Scene.verson) {
-            this.#ReGenerateMeshGroup(Scene);
-            this.SceneVerson = Scene.verson;
-        }
-
         // 获取场景的深度纹理
-        const depthTexture = await this._ResourceManager.GetResource(this.Resources.Dependence.Texture[0]);
+        const depthTexture = await this._ResourceManager.GetResource(
+            resourceName.PrePass.depthTexture
+        );
 
         const RenderPassDesc = {
             depthStencilAttachment: {
-                view: depthTexture.view,
+                view: depthTexture.createView(),
                 depthClearValue: 1.0,
-                depthLoadOp: 'load',
-                depthStoreOp: 'discard',
+                depthLoadOp: 'load',    // 加载PrePass生成的深度值
+                depthStoreOp: 'store',  // 修改这里：保存深度值而不是丢弃
             },
             colorAttachments: [
                 {
-                    view: this.GBufferA.view,
+                    view: this._ResourceManager.GetResource(this.GBufferA).createView(),
                     loadOp: 'clear',
                     storeOp: 'store',
+                    clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+                    sampleCount: 1,
                 },
                 {
-                    view: this.GBufferB.view,
+                    view: this._ResourceManager.GetResource(this.GBufferB).createView(),
                     loadOp: 'clear',
                     storeOp: 'store',
+                    clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+                    sampleCount: 1,
                 },
                 {
-                    view: this.GBufferC.view,
+                    view: this._ResourceManager.GetResource(this.GBufferC).createView(),
                     loadOp: 'clear',
                     storeOp: 'store',
+                    clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+                    sampleCount: 1,
                 },
                 {
-                    view: this.GBufferD.view,
+                    view: this._ResourceManager.GetResource(this.GBufferD).createView(),
                     loadOp: 'clear',
                     storeOp: 'store',
+                    clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+                    sampleCount: 1,
                 },
-                {
-                    view: this.GBufferE.view,
-                    loadOp: 'clear',
-                    storeOp: 'store',
-                },
-            ]
-        }
+            ],
+        };
 
         const passEncoder = CommandEncoder.beginRenderPass(RenderPassDesc);
-        // TODO: 实现GBuffer的渲染
+        // 简单渲染处理，当前Scene中所有mesh材质均相同
+        passEncoder.setPipeline(this._ResourceManager.GetResource(this.staticMeshesPipeLine));
+
+        const meshes = Scene.GetAllMesh();
+        for (const mesh of meshes) {
+            const dynamicOffset = Scene.getMeshOffset(mesh.meshID);
+            passEncoder.setBindGroup(0, Scene.sceneBindGroup, [dynamicOffset]);
+            passEncoder.setBindGroup(1, mesh.GPUMaterial.GPUMaterial.bindGroup);
+
+            //Scene.debugCheckMeshInfo(mesh.meshID);
+            passEncoder.setVertexBuffer(0, mesh.GPUVertexBuffer);
+            passEncoder.setIndexBuffer(mesh.GPUIndexBuffer, 'uint16');
+
+            passEncoder.drawIndexed(mesh.geometry.index.count, 1, 0, 0, 0);
+        }
+
+        passEncoder.end();
     }
 
     /**
@@ -293,4 +438,3 @@ class BasePass extends FPass {
 }
 
 export default BasePass;
-

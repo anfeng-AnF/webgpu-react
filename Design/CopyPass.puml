@@ -1,0 +1,77 @@
+@startuml CopyPass
+
+' 基类
+abstract class FPass {
+    #_Name: string
+    #_ResourceManager: FResourceManager
+    #_bInitialized: boolean
+    +{abstract} Initialize(): Promise<void>
+    +{abstract} Destroy(): Promise<void>
+    +{abstract} OnRenderTargetResize(width: number, height: number): Promise<void>
+}
+
+abstract class BaseTextureConverter {
+    #_ResourceManager: FResourceManager
+    #_PassName: string
+    +Initialize(sourceTextureName: string): Promise<void>
+    +Convert(commandEncoder: GPUCommandEncoder, sourceTexture: GPUTexture, targetTexture: GPUTexture): void
+    +OnResize(width: number, height: number): Promise<void>
+    +Destroy(): Promise<void>
+}
+
+' 具体实现类
+class FCopyToCanvasPass extends FPass {
+    -_SourceTexture: string
+    -_CanvasTexture: HTMLCanvasElement
+    -_Converter: BaseTextureConverter
+    +Initialize(): Promise<void>
+    +Destroy(): Promise<void>
+    +OnRenderTargetResize(width: number, height: number): Promise<void>
+    +Render(deltaTime: number, commandEncoder: GPUCommandEncoder): void
+}
+
+abstract class ShaderConverterBase extends BaseTextureConverter {
+    #_pipeline: GPURenderPipeline
+    #_bindGroup: GPUBindGroup
+    #_sampler: GPUSampler
+    #_sourceTextureName: string
+    #{abstract} _GetShaderCode(): Promise<string>
+    #{abstract} _GetPipelineDesc(shaderModule: GPUShaderModule): object
+    #{abstract} _GetBindGroupEntries(sourceTexture: GPUTexture): Array
+    #_CreateSampler(): Promise<void>
+    #_CreatePipeline(): Promise<void>
+    #_CreateBindGroup(sourceTextureName: string): Promise<void>
+}
+
+class DirectCopyConverter extends BaseTextureConverter {
+    +Initialize(sourceTextureName: string): Promise<void>
+    +Convert(commandEncoder: GPUCommandEncoder, sourceTexture: GPUTexture, targetTexture: GPUTexture): void
+}
+
+class ColorConverter extends ShaderConverterBase {
+    -_format: string
+    +constructor(resourceManager: FResourceManager, passName: string, format: string)
+    #_GetShaderCode(): Promise<string>
+    #_GetPipelineDesc(shaderModule: GPUShaderModule): object
+    #_GetBindGroupEntries(sourceTexture: GPUTexture): Array
+}
+
+class DepthConverter extends ShaderConverterBase {
+    #_GetSamplerDesc(): object
+    #_GetShaderCode(): Promise<string>
+    #_GetPipelineDesc(shaderModule: GPUShaderModule): object
+    #_GetBindGroupEntries(sourceTexture: GPUTexture): Array
+}
+
+class ConverterFactory {
+    +{static} CreateConverter(format: string, resourceManager: FResourceManager, passName: string): BaseTextureConverter
+}
+
+' 关系
+FCopyToCanvasPass o-- BaseTextureConverter : uses
+ConverterFactory ..> BaseTextureConverter : creates
+ConverterFactory ..> DirectCopyConverter : creates
+ConverterFactory ..> ColorConverter : creates
+ConverterFactory ..> DepthConverter : creates
+
+@enduml

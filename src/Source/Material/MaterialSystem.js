@@ -90,15 +90,18 @@ export default class MaterialSystem {
      * @returns {GPUMaterial} 创建或缓存的材质实例
      */
     static async createMaterial(materialDesc, resourceManager) {
-        const key = getMaterialCacheKey(materialDesc);
-        if (materialCache.has(key)) {
-            // 如果缓存中存在，则直接返回缓存的材质实例
-            return materialCache.get(key);
+        // 使用 isSameMaterial 检查缓存中是否已有匹配的材质实例
+        for (const cachedMaterial of materialCache.values()) {
+            if (cachedMaterial.materialDesc.isSameMaterial(materialDesc)) {
+                return cachedMaterial;
+            }
         }
-
+        // 没有匹配的材质，则新建
         const material = new GPUMaterial(materialDesc, resourceManager);
         await material.createRenderPipeline();
-        materialCache.set(key, material);
+        await material.createBindGroup();
+        // 使用材质实例自己的 materialId 作为缓存键
+        materialCache.set(material.materialId, material);
         return material;
     }
 
@@ -119,6 +122,7 @@ export default class MaterialSystem {
         material.destroy();
         material.materialDesc = materialDesc;
         await material.createRenderPipeline();
+        await material.createBindGroup();
         const key = getMaterialCacheKey(materialDesc);
         materialCache.set(key, material);
     }

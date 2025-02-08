@@ -58,10 +58,9 @@ export default class StaticMesh extends THREE.Mesh {
     /**
      *
      * @param {THREE.Mesh} mesh 已有的 THREE.Mesh 对象
-     * @param {GPUMaterial} GPUMaterial GPU 材质实例
      * @param {FResourceManager} resourceManager GPU 资源管理器实例
      */
-    constructor(mesh, GPUMaterial, resourceManager) {
+    constructor(mesh, resourceManager) {
         super(mesh.geometry);
 
         // 复制传入mesh的变换信息，确保StaticMesh具有正确的世界矩阵
@@ -74,25 +73,39 @@ export default class StaticMesh extends THREE.Mesh {
         mesh.updateMatrixWorld(true);
         this.matrixWorld.copy(mesh.matrixWorld);
 
-        // 如果未提供材质，则创建一个默认的 PBR 材质
-        this.GPUMaterial = GPUMaterial || createPBRMaterial(
-            resourceManager,
-            /* BaseColorTexture */ null,
-            /* NormalTexture */ null,
-            /* MetallicTexture */ null,
-            /* RoughnessTexture */ null,
-            /* SpecularTexture */ null,
-            /* BaseColorSampler */ null,
-            /* NormalSampler */ null,
-            /* MetallicSampler */ null,
-            /* RoughnessSampler */ null,
-            /* SpecularSampler */ null
-        );
+        /**
+         * @type {GPUMaterialInstance}
+         */
+        this.GPUMaterial = null;
         this.ResourceManager = resourceManager;
 
         // 使用 mesh 自身的 id 生成资源名称
         this._vertexBufferName = `${this.id}_Buffer_VERTEX`;
         this._indexBufferName = `${this.id}_Buffer_INDEX`;
+    }
+
+    /**
+     * 获取材质信息 （用于写入 MeshInfo 中）
+     * @returns {Float32Array} 材质信息
+     */
+    getMaterialInfo(){
+        if(this.GPUMaterial){
+            return this.GPUMaterial.getMaterialInfo();
+        }
+        return new Float32Array(0);
+    }
+
+    /**
+     * 设置材质
+     * @param {GPUMaterialInstance} GPUMaterialInstance 材质实例
+     */
+    setMaterial(GPUMaterialInstance){
+        if(GPUMaterialInstance instanceof GPUMaterialInstance){
+            this.GPUMaterial = GPUMaterialInstance;
+        }
+        else{
+            throw new Error('GPUMaterialInstance must be an instance of GPUMaterialInstance, current type is ' + typeof GPUMaterialInstance);
+        }
     }
 
     /**
