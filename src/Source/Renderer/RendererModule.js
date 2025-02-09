@@ -46,6 +46,8 @@ class RendererModule extends IModule {
     async Initialize() {
         this.adapter = await navigator.gpu.requestAdapter();
         this.device = await this.adapter.requestDevice();
+        console.log(this.adapter);
+        console.log(this.device);
 
         if (!this.device) {
             throw new Error('Failed to initialize WebGPU device');
@@ -133,11 +135,11 @@ class RendererModule extends IModule {
                 },
             },
             'Camera.Far': {
-                value: 100,
+                value: this.sceneRenderer._MainCamera.far,
                 label: '远裁面',
                 type: 'float',
                 min: 1,
-                max: 1000,
+                max: 1e10,
                 onChange: (path, value) => {
                     if (this.sceneRenderer?._MainCamera) {
                         this.sceneRenderer._MainCamera.far = value;

@@ -119,6 +119,11 @@ struct FragmentOutput {
 
 @fragment
 fn PSMain(input: vsOutput) -> FragmentOutput {
+    // 取反UV的Y轴
+    var uv: vec2<f32> = input.uv0;
+    uv.y = 1.0 - uv.y;
+
+    
     let PBRParam = GetPBRMaterialInfo();
     
     // 计算切线空间到世界空间的转换矩阵
@@ -143,7 +148,7 @@ fn PSMain(input: vsOutput) -> FragmentOutput {
     // 获取法线贴图值并转换到[-1,1]范围
     var normalTS = PBRParam.Normal;
     if ((PBRParam.flags & NORMAL_USE_TEXTURE) != 0u) {
-        let normalMap = textureSample(texture_normal, sampler_normal, input.uv0).rgb;
+        let normalMap = textureSample(texture_normal, sampler_normal, uv).rgb;
         normalTS = normalMap * 2.0 - 1.0;
     }
     
@@ -156,25 +161,25 @@ fn PSMain(input: vsOutput) -> FragmentOutput {
     // 计算基础颜色
     var baseColor = PBRParam.BaseColor;
     if ((PBRParam.flags & BASE_COLOR_USE_TEXTURE) != 0u) {
-        baseColor = textureSample(texture_baseColor, sampler_baseColor, input.uv0);
+        baseColor = textureSample(texture_baseColor, sampler_baseColor, uv);
     }
     
     // 计算金属度
     var metallic = PBRParam.Metallic;
     if ((PBRParam.flags & METALLIC_USE_TEXTURE) != 0u) {
-        metallic = textureSample(texture_metallic, sampler_metallic, input.uv0).r;
+        metallic = textureSample(texture_metallic, sampler_metallic, uv).r;
     }
     
     // 计算高光
     var specular = PBRParam.Specular;
     if ((PBRParam.flags & SPECULAR_USE_TEXTURE) != 0u) {
-        specular = textureSample(texture_specular, sampler_specular, input.uv0).r;
+        specular = textureSample(texture_specular, sampler_specular, uv).r;
     }
     
     // 计算粗糙度
     var roughness = PBRParam.Roughness;
     if ((PBRParam.flags & ROUGHNESS_USE_TEXTURE) != 0u) {
-        roughness = textureSample(texture_roughness, sampler_roughness, input.uv0).r;
+        roughness = textureSample(texture_roughness, sampler_roughness, uv).r;
     }
 
     return FragmentOutput(
