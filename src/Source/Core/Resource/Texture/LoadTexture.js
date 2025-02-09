@@ -18,7 +18,7 @@ export async function loadTexture(resourceManager, texturePath) {
     const bitmap = await createImageBitmap(blob);
 
     // 获取 GPUDevice（假设资源管理器提供 GetDevice() 方法）
-    const device = resourceManager.GetDevice();
+    const device = await resourceManager.GetDevice();
     if (!device) {
         throw new Error("GPU Device not available in resource manager");
     }

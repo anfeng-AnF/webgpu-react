@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import IGPUMesh from './IGPUMesh.js';
 import { createPBRMaterial } from '../Material/Mat_Instance/PBR.js';
 
+
+
+
 /**
  * StaticMesh
  * 实现 IGPUMesh 接口的具体类，同时继承自 THREE.Mesh 用于与 Three.js 整合，

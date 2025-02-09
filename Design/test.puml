@@ -1,0 +1,14 @@
+@startmindmap
+* 编程
+** 语言
+*** Python
+*** JavaScript
+*** Java
+** 框架
+*** Django
+*** React
+*** Spring Boot
+** 工具
+*** Git
+*** Docker
+@endmindmap
