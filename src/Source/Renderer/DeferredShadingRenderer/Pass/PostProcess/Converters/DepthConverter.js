@@ -6,6 +6,11 @@ import ShaderIncluder from '../../../../../Core/Shader/ShaderIncluder';
  * 用于将深度纹理转换为可视化的颜色纹理
  */
 class DepthConverter extends ShaderConverterBase {
+    constructor(resourceManager, passName, format) {
+        super(resourceManager, passName);
+        this._format = format;
+    }
+
     _GetSamplerDesc() {
         return {
             type: 'non-filtering',
@@ -16,8 +21,14 @@ class DepthConverter extends ShaderConverterBase {
     }
 
     async _GetShaderCode() {
-        return await ShaderIncluder.GetShaderCode('/Shader/PostProcess/Depth24ToColor.wgsl');
+        switch (this._format) {
+            case 'depth32float':
+                return await ShaderIncluder.GetShaderCode('/Shader/PostProcess/Depth32ToColor.wgsl');
+            default:
+                return await ShaderIncluder.GetShaderCode('/Shader/PostProcess/Depth24ToColor.wgsl');
+        }
     }
+
 
     _GetPipelineDesc(shaderModule) {
         return {
@@ -49,7 +60,7 @@ class DepthConverter extends ShaderConverterBase {
             {
                 binding: 1,
                 resource: sourceTexture.createView({
-                    format: 'depth24plus',
+                    format: this._format,
                     dimension: '2d',
                     aspect: 'depth-only'
                 })

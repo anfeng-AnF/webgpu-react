@@ -1,0 +1,47 @@
+// include 基本变量common后再 include 这个文件
+
+struct StaticMeshVertexInput {
+    @location(0) position: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) tangent: vec3<f32>,
+    @location(3) uv0: vec2<f32>,
+    @location(4) uv1: vec2<f32>,
+    @location(5) uv2: vec2<f32>,
+    @location(6) uv3: vec2<f32>,
+}
+
+
+
+// SceneDepth -> WorldPos  依赖SceneBuffer的摄像机信息
+fn SceneDepthToWorldPos(depth: f32, uv: vec2<f32>) -> vec3<f32> {
+    // 获取近远裁剪面信息
+    let far = scene.camPosFar.w;
+    let near = scene.camDirNear.w;
+    
+    // 获取逆投影矩阵和逆视图矩阵，预先在 SceneBuffer 中传入
+    let projMatrixInv = scene.projMatrixInv;
+    let viewMatrixInv = scene.viewMatrixInv;
+
+    // 将 uv 坐标从 [0,1] 转换到 NDC 坐标系 [-1,1]
+    let ndcX = uv.x * 2.0 - 1.0;
+    let ndcY = uv.y * 2.0 - 1.0;
+
+    // 将 depth 从 [0,1] 转换到 NDC 中的 z 值（[-1,1]）
+    let ndcZ = depth * 2.0 - 1.0;
+
+    // 构造裁剪空间坐标 (clipPos)，w 分量设为 1.0
+    let clipPos = vec4<f32>(ndcX, ndcY, ndcZ, 1.0);
+
+    // 使用逆投影矩阵将裁剪空间坐标转换到 view space
+    var viewPos4 = projMatrixInv * clipPos;
+    // 执行齐次除法
+    viewPos4 = viewPos4 / viewPos4.w;
+
+    // 使用逆视图矩阵将得到的 view space 坐标还原到 world space
+    var worldPos4 = viewMatrixInv * viewPos4;
+    worldPos4 = worldPos4 / worldPos4.w;
+
+    return worldPos4.xyz;
+}
+
+

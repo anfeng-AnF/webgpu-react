@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import FCopyToCanvasPass from './Pass/PostProcess/FCopyToCanvasPass';
 import PrePass from './Pass/RenderPass/PrePass';
 import GPUScene from '../../Scene/GPUScene';
-import StaticMesh from '../../Mesh/StaticMesh';
+import StaticMesh from '../../Object3D/Mesh/StaticMesh';
 import { createPBRMaterial } from '../../Material/Mat_Instance/PBR';
 import { GPUMaterialInstance } from '../../Material/GPUMaterial';
 import BasePass from './Pass/RenderPass/BasePass';
@@ -13,7 +13,7 @@ import { resourceName } from './ResourceNames';
 import { loadTexture } from '../../Core/Resource/Texture/LoadTexture';
 import { FBXLoader } from 'three/examples/jsm/Addons.js';
 import { BufferGeometryUtils } from 'three/examples/jsm/Addons.js';
-import { PI } from 'three/tsl';
+import ShadowMapPass from './Pass/RenderPass/ShadowMapPass';
 
 class FDeferredShadingSceneRenderer extends FSceneRenderer {
     constructor() {
@@ -72,6 +72,13 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
          * @protected
          */
         this._CopyPass = null;
+
+        /**
+         * 阴影Pass
+         * @type {ShadowMapPass}
+         * @protected
+         */
+        this._ShadowMapPass = new ShadowMapPass();
     }
 
     /**
@@ -102,6 +109,8 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         await this._PrePass.Initialize(this);
         await this._BasePass.InitResourceName();
         await this._BasePass.Initialize(this);
+        await this._ShadowMapPass.InitResourceName();
+        await this._ShadowMapPass.Initialize(this);
 
         await this.OnCanvasResize(window.innerWidth, window.innerHeight, this.canvas);
 
@@ -118,7 +127,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                     { value: resourceName.BasePass.gBufferB, label: 'Specular,Roughness,Metallic' },
                     { value: resourceName.BasePass.gBufferC, label: 'BaseColor' },
                     { value: resourceName.BasePass.gBufferD, label: 'Additional' },
-                    //{ value:'Content/Other/Mat/textures/seaworn_sandstone_brick_rough_4k.png', label: 'test' },
+                    { value:'DirectLightShadowMap', label: 'test' },
                 ],
                 onChange: async (path, value) => {
                     if (this._CopyPass) {
@@ -199,6 +208,9 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         // 执行BasePass
         await this._BasePass.Render(DeltaTime, this.Scene, commandEncoder, this);
 
+        // 执行ShadowMapPass
+        await this._ShadowMapPass.Render(DeltaTime, this.Scene, commandEncoder, this);
+
         // 执行CopyPass
         if (this._CopyPass) {
             this._CopyPass.Render(DeltaTime, commandEncoder);
@@ -219,6 +231,8 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         await this._PrePass.Destroy();
         // 销毁 BasePass
         await this._BasePass.Destroy();
+        // 销毁 ShadowMapPass
+        await this._ShadowMapPass.Destroy();
     }
 
     /**
@@ -351,6 +365,12 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         sSkySphereMesh.GPUMaterial.dynamicAttributes.Roughness = 0.0;  // 完全光滑
 
         this.Scene.upLoadMeshToGPU();
+
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(0, 0, 0);
+        light.target.position.set(0, 0, 0);
+        light.updateMatrixWorld(true);
+        console.log(light);
     }
 }
 

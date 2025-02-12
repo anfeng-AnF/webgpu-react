@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import IGPUMesh from './IGPUMesh.js';
-import { createPBRMaterial } from '../Material/Mat_Instance/PBR.js';
+import { createPBRMaterial } from '../../Material/Mat_Instance/PBR.js';
 
 
 

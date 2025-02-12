@@ -1,0 +1,43 @@
+
+/* 光照信息 */
+
+// 光照信息标志位
+const USE_AMBIENT_LIGHT = 0x00000001;
+const USE_DIRECTIONAL_LIGHT = 0x00000002;
+
+
+
+// 16字节
+struct SceneLightInfo {
+    flags: u32,
+    padding: vec3<f32>
+}
+
+// 环境光
+struct AmbientLightInfo {
+    ambientColor: vec4<f32>,
+    ambientIntensity: f32,
+    padding: vec3<f32>
+}
+
+// 平行光
+struct DirectionalLightInfo {
+    viewMatrix: mat4x4<f32>,
+    projectionMatrix: mat4x4<f32>,
+    lightPosition: vec4<f32>,
+    lightDirection: vec4<f32>,
+    lightColor: vec4<f32>,
+    lightIntensity: f32,
+    lightBias: f32,
+    padding: vec2<f32>,
+};
+
+
+@group(2) @binding(0)
+var<uniform> SceneLight: SceneLightInfo;
+
+@group(2) @binding(1)
+var<uniform> AmbientLight: AmbientLightInfo;
+
+@group(2) @binding(2)
+var<uniform> DirectionalLight: DirectionalLightInfo;

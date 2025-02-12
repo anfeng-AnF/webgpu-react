@@ -11,27 +11,33 @@
  *   - 每个 MeshInfo 规定为 256字节，要求动态偏移（dynamic offset）时必须256对齐。
  */
 
-/* 常量定义 */
-const BASE_COLOR_USE_TEXTURE = 0x00000001;
-const NORMAL_USE_TEXTURE = 0x00000002;
-const METALLIC_USE_TEXTURE = 0x00000004;
-const SPECULAR_USE_TEXTURE = 0x00000008;
-const ROUGHNESS_USE_TEXTURE = 0x00000010;
+
 
 /* 场景缓冲区数据结构 */
 struct SceneBuffer {
     viewMatrix : mat4x4<f32>,
     projMatrix : mat4x4<f32>,
-    camPos     : vec4<f32>,
-    camDir     : vec4<f32>,
-    camUp      : vec4<f32>,
-    camRight   : vec4<f32>,
-    timeDelta  : vec4<f32>
+    camPosFar  : vec4<f32>,     // xyz = camPos, w = far
+    camDirNear : vec4<f32>,     // xyz = camDir, w = near
+    camUp      : vec4<f32>,     // xyz = camUp, w = padding
+    camRight   : vec4<f32>,     // xyz = camRight, w = padding
+    timeDelta  : vec4<f32>,     // x = elapsedTime, y = DeltaTime, zw = padding
+    viewMatrixInv : mat4x4<f32>, // 视图矩阵的逆矩阵
+    projMatrixInv : mat4x4<f32>  // 投影矩阵的逆矩阵
 };
 
 /* 绑定 SceneBuffer 到 group(0) binding(0) */
 @group(0) @binding(0)
 var<uniform> scene: SceneBuffer;
+
+
+
+/* 网格材质相关常量定义 */
+const BASE_COLOR_USE_TEXTURE = 0x00000001;
+const NORMAL_USE_TEXTURE = 0x00000002;
+const METALLIC_USE_TEXTURE = 0x00000004;
+const SPECULAR_USE_TEXTURE = 0x00000008;
+const ROUGHNESS_USE_TEXTURE = 0x00000010;
 
 /* 网格信息数据结构 */
 /* 该结构总共 256字节，其中：
@@ -53,4 +59,6 @@ var<storage, read> meshInfos: array<MeshInfo>;
 fn GetModelMatrix() -> mat4x4<f32> {
     return meshInfos[0].modelMatrix;
 }
+
+
 
