@@ -7,7 +7,7 @@
  * @module PBR
  */
 
-import StaticMesh from '../../Mesh/StaticMesh.js';
+import StaticMesh from '../../Object3D/Mesh/StaticMesh.js';
 import MaterialSystem from '../MaterialSystem.js';
 import { BaseMaterial } from '../BaseMaterial.js';
 import { MaterialDomain, BlendMode, ShaderModel } from '../MaterialSystem.js';

@@ -1,8 +1,10 @@
 import * as THREE from 'three';
-import StaticMesh from '../Mesh/StaticMesh.js';
+import StaticMesh from '../Object3D/Mesh/StaticMesh.js';
 import FResourceManager from '../Core/Resource/FResourceManager.js';
 import { createPBRMaterial } from '../Material/Mat_Instance/PBR.js';
 import { resourceName } from '../Renderer/DeferredShadingRenderer/ResourceNames.js';
+import AmbientLight from '../Object3D/Light/AmbientLight.js';
+import DirectLight from '../Object3D/Light/DirectLight.js';
 
 /**
  * GPUScene
@@ -11,7 +13,7 @@ import { resourceName } from '../Renderer/DeferredShadingRenderer/ResourceNames.
  *   - SceneBuffer：用于摄像机视图、投影、摄像机位置等数据的 uniform buffer
  *   - MeshInfo storage buffer：用于存储每个 Mesh 的 MeshInfo 数据（结构定义见 Shader/Common/MeshInfo.wgsh），
  *     每个 MeshInfo 占用 256 字节，通过 dynamic offset 访问每个 Mesh 的数据。
- *
+ *   - SceneLightInfo：用于存储光照信息，包括环境光、平行光、点光源等
  * 使用示例：
  *   const gpuScene = new GPUScene(device);
  *   await gpuScene.initBuffers(maxMeshCount);
@@ -104,6 +106,36 @@ export default class GPUScene extends THREE.Scene {
          * @type {THREE.Camera}
          */
         this.camera = null;
+
+        /**
+         * 环境光
+         * @type {AmbientLight}
+         */
+        this.ambientLight = new AmbientLight(new THREE.Color(0xffffff), 1);
+
+        /**
+         * 平行光
+         * @type {DirectLight}
+         */
+        this.directLight = new DirectLight(new THREE.Color(0xffffff), 1);
+
+        /**
+         * 光照信息缓冲区
+         * @type {GPUBuffer}
+         */
+        this.lightInfoBuffer = null;
+
+        /**
+         * 场景光照BindGroup
+         * @type {GPUBindGroup}
+         */
+        this.sceneLightBindGroup = null;
+
+        /**
+         * 场景光照BindGroupLayout
+         * @type {GPUBindGroupLayout}
+         */
+        this.sceneLightBindGroupLayout = null;
     }
 
     /**
@@ -171,6 +203,7 @@ export default class GPUScene extends THREE.Scene {
     async Update(DeltaTime) {
         await this.updateSceneBuffer(DeltaTime);
         await this.updateAllMeshInfo();
+        await this.updateAllLightInfo();
     }
 
     /**
@@ -190,7 +223,9 @@ export default class GPUScene extends THREE.Scene {
         this.meshCapacity = initialCapacity;
 
         // 创建 SceneBuffer uniform buffer
-        const sceneBufferSize = 256;
+        // 装了matrix 64对齐
+        // total = 64 floats * 4 bytes * 2 = 512 bytes
+        const sceneBufferSize = 512;
         this.sceneBuffer = this.resourceManager.CreateResource(resourceName.Scene.sceneBuffer, {
             Type: 'Buffer',
             desc: {
@@ -210,6 +245,8 @@ export default class GPUScene extends THREE.Scene {
             },
         });
         await this.#reCreateSceneBindGroup();
+
+        await this.#createSceneLightBindGroup();
     }
 
     /**
@@ -275,9 +312,10 @@ export default class GPUScene extends THREE.Scene {
     /**
      * 更新 SceneBuffer 数据
      * 根据 Shader 中定义的 SceneBuffer 结构更新：
-     * viewMatrix(0-15), projMatrix(16-31), camPos(32-35),
-     * camDir(36-39), camUp(40-43), camRight(44-47),
+     * viewMatrix(0-15), projMatrix(16-31), camPos+far(32-35),
+     * camDir+near(36-39), camUp(40-43), camRight(44-47),
      * timeDelta(48-51)（x = elapsedTime, y = DeltaTime, zw = padding）
+     * viewMatrixInv(52-67), projMatrixInv(68-83)
      */
     async updateSceneBuffer(DeltaTime) {
         // 创建 sceneData 数组，大小为 sceneBuffer 的大小除以 f32 的字节数
@@ -306,7 +344,7 @@ export default class GPUScene extends THREE.Scene {
         sceneData[32] = this.camera.position.x;
         sceneData[33] = this.camera.position.y;
         sceneData[34] = this.camera.position.z;
-        sceneData[35] = 0.0; // padding
+        sceneData[35] = this.camera.far; // far
 
         // 填充 camDir (indices 36-39) using camera.getWorldDirection()
         const camDir = new THREE.Vector3();
@@ -314,7 +352,7 @@ export default class GPUScene extends THREE.Scene {
         sceneData[36] = camDir.x;
         sceneData[37] = camDir.y;
         sceneData[38] = camDir.z;
-        sceneData[39] = 0.0; // padding
+        sceneData[39] = this.camera.near; // near
 
         // 填充 camUp (indices 40-43) using camera.up
         sceneData[40] = this.camera.up.x;
@@ -337,7 +375,13 @@ export default class GPUScene extends THREE.Scene {
         sceneData[50] = 0.0;
         sceneData[51] = 0.0;
 
-        // 剩余的 indices (52-63) 保持为0（padding）
+        // 填充 viewMatrixInv (indices 52-67)
+        const viewMatrixInv = this.camera.matrixWorld.elements;
+        sceneData.set(viewMatrixInv, 52);
+
+        // 填充 projMatrixInv (indices 68-83)
+        const projMatrixInv = this.camera.projectionMatrixInverse.elements;
+        sceneData.set(projMatrixInv, 68);
 
         // 写入 sceneData 到 sceneBuffer
         const device = await this.resourceManager.GetDevice();
@@ -599,5 +643,89 @@ export default class GPUScene extends THREE.Scene {
         console.log("TimeDelta:", timeDelta);
 
         stagingBuffer.unmap();
+    }
+
+
+    // 更新光照信息
+    async updateAllLightInfo(){
+        // 环境光
+        if(this.ambientLight){
+            await this.ambientLight.update();
+        }
+        // 平行光
+        if(this.directLight){
+            await this.directLight.update(this);
+        }
+    }
+
+    /**
+     * 创建场景光照 BindGroup 和 BindGroupLayout
+     */
+    async #createSceneLightBindGroup(){
+
+        //检查必要资源是否存在
+        if(this.resourceManager.GetResource(AmbientLight.BufferName) === null){
+            await this.ambientLight.Init();
+        }
+        if(this.resourceManager.GetResource(DirectLight.BufferName) === null){
+            await this.directLight.Init();
+        }
+
+        // 创建光照信息缓冲区
+        this.lightInfoBuffer = this.resourceManager.CreateResource(resourceName.Scene.lightInfoBuffer, {
+            Type: 'Buffer',
+            desc: {
+                size: 16,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+                mappedAtCreation: false,
+            },
+        });
+
+        const sceneLightBindGroupLayoutDesc = {
+            Type: 'BindGroupLayout',
+            desc: {
+                entries: [
+                    {
+                        binding: 0,
+                        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                        buffer: { type: 'uniform' },
+                    },
+                    {
+                        binding: 1,
+                        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                        buffer: { type: 'uniform' },
+                    },
+                    {
+                        binding: 2,
+                        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                        buffer: { type: 'uniform' },
+                    },
+                ],
+            },
+        };
+        this.sceneLightBindGroupLayout = this.resourceManager.CreateResource(resourceName.Scene.sceneLightBindGroupLayout, sceneLightBindGroupLayoutDesc);
+
+        const sceneLightBindGroupDesc = {
+            Type: 'BindGroup',
+            desc: {
+                layout: this.sceneLightBindGroupLayout,
+                entries: [
+                    {
+                        binding: 0,
+                        resource: { buffer: this.lightInfoBuffer },
+                    },
+                    {
+                        binding: 1,
+                        resource: { buffer: this.ambientLight.buffer },
+                    },
+                    {
+                        binding: 2,
+                        resource: { buffer: this.directLight.buffer },
+                    },
+                ],
+            },
+        };
+        this.sceneLightBindGroup = this.resourceManager.CreateResource(resourceName.Scene.sceneLightBindGroup, sceneLightBindGroupDesc);
+    
     }
 }

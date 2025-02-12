@@ -1,3 +1,5 @@
+import Binding from "three/src/renderers/common/Binding.js";
+
 // 资源类型枚举
 const EResourceType = {
     Buffer: 'Buffer',
@@ -159,10 +161,42 @@ class FResourceManager {
                 addressModeW: 'clamp-to-edge',
             }
         };
+        const PlaceholderBindGroupLayoutDesc = {
+            Type:EResourceType.BindGroupLayout,
+            desc:{
+                entries:[
+                    {
+                        binding:0,
+                        visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE,
+                        buffer: { type: 'uniform' },
+                    }
+                ]
+            }
+        }
+        
         this.CreateResource('placeholder_Texture', PlaceholderTextureDesc);
         this.CreateResource('placeholder_UniformBuffer', PlaceholderUniformBufferDesc);
         this.CreateResource('placeholder_StorageBuffer', PlaceholderStorageBufferDesc);
         this.CreateResource('placeholder_Sampler', PlaceholderSamplerDesc);
+        this.CreateResource('placeholder_BindGroupLayout',PlaceholderBindGroupLayoutDesc);
+
+
+        const placeholderBindGroupDesc = {
+            Type:EResourceType.BindGroup,
+            desc:{
+                layout:this.CreateResource('placeholder_BindGroupLayout',PlaceholderBindGroupLayoutDesc),
+                entries:[
+                    {
+                        binding:0,
+                        resource:{
+                            buffer:this.GetResource('placeholder_UniformBuffer')
+                        }
+                    }
+                ]
+            }
+        }
+        
+        this.CreateResource('placeholder_BindGroup',placeholderBindGroupDesc);
     }
 
 

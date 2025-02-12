@@ -21,12 +21,14 @@ class ConverterFactory {
             case 'rgba8unorm':
             case 'rgb10a2unorm':
                 return new ColorConverter(resourceManager, passName, format);
+            case 'depth32float':
+                return new DepthConverter(resourceManager, passName, 'depth32float');
             case 'depth24plus':
-                return new DepthConverter(resourceManager, passName);
+                return new DepthConverter(resourceManager, passName, 'depth24plus');
             default:
                 throw new Error(`Unsupported texture format: ${format}`);
         }
     }
 }
 
-export default ConverterFactory; 
+export default ConverterFactory;

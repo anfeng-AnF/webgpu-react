@@ -6,7 +6,7 @@ import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { createPBRMaterial } from './Source/Material/Mat_Instance/PBR.js';
 import FResourceManager from './Source/Core/Resource/FResourceManager.js';
 import GPUScene from './Source/Scene/GPUScene.js';
-import StaticMesh from './Source/Mesh/StaticMesh.js';
+import StaticMesh from './Source/Object3D/Mesh/StaticMesh.js';
 
 class Main {
     static ModuleManager = null;

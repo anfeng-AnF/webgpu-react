@@ -5,7 +5,7 @@ import { GPUTextureFormat } from 'three/src/renderers/webgpu/utils/WebGPUConstan
 import ShaderIncluder from '../../../../Core/Shader/ShaderIncluder';
 import GPUScene from '../../../../Scene/GPUScene';
 import { resourceName } from '../../ResourceNames';
-import StaticMesh from '../../../../Mesh/StaticMesh';
+import StaticMesh from '../../../../Object3D/Mesh/StaticMesh';
 /**
  * BasePass,渲染GBuffer
  */

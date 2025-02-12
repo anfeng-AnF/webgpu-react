@@ -1,7 +1,7 @@
 import FPass from '../Pass';
 import ShaderIncluder from '../../../../Core/Shader/ShaderIncluder';
 import FResourceManager from '../../../../Core/Resource/FResourceManager';
-import StaticMesh from '../../../../Mesh/StaticMesh';
+import StaticMesh from '../../../../Object3D/Mesh/StaticMesh';
 import FDeferredShadingSceneRenderer from '../../FDeferredShadingSceneRenderer';
 import GPUScene from '../../../../Scene/GPUScene';
 import { resourceName } from '../../ResourceNames';
