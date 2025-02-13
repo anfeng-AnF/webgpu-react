@@ -1,0 +1,1 @@
+textureStore(outputTex, vec2<i32>(global_id.xy), vec4<f32>(f32(global_id.x) / 8.0, f32(global_id.y) / 8.0, 0.0, 1.0)); 

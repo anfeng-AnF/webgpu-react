@@ -13,7 +13,8 @@ class DepthConverter extends ShaderConverterBase {
 
     _GetSamplerDesc() {
         return {
-            type: 'non-filtering',
+            magFilter: 'nearest',
+            minFilter: 'nearest',
             addressModeU: 'clamp-to-edge',
             addressModeV: 'clamp-to-edge',
             addressModeW: 'clamp-to-edge',
