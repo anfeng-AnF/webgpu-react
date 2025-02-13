@@ -38,7 +38,7 @@ fn FSRGB10A2Main(@location(0) texCoord: vec2<f32>) -> @location(0) vec4<f32> {
     // RGB10A2 格式的颜色值需要特殊处理
     // 将 10 位颜色值转换为 8 位
     return vec4<f32>(
-        color.rgb , // 将 10 位值缩放到 8 位范围
+        color.rgb ,
         color.a                        // alpha 保持不变
     );
 } 

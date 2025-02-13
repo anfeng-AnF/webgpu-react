@@ -14,7 +14,7 @@ import { loadTexture } from '../../Core/Resource/Texture/LoadTexture';
 import { FBXLoader } from 'three/examples/jsm/Addons.js';
 import { BufferGeometryUtils } from 'three/examples/jsm/Addons.js';
 import ShadowMapPass from './Pass/RenderPass/ShadowMapPass';
-
+import TestShadowRender from './Pass/RenderPass/TestShadowRender';
 class FDeferredShadingSceneRenderer extends FSceneRenderer {
     constructor() {
         super();
@@ -79,12 +79,20 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
          * @protected
          */
         this._ShadowMapPass = new ShadowMapPass();
+
+        /**
+         * 测试阴影Pass
+         * @type {TestShadowRender}
+         * @protected
+         */
+        this._TestShadowRender = new TestShadowRender();
     }
 
     /**
      * 初始化渲染器
      */
     async Initialize() {
+        //打印执行时间
         this._Device = await FResourceManager.GetInstance().GetDevice();
 
         // 设置相机初始位置
@@ -110,9 +118,9 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         await this._BasePass.InitResourceName();
         await this._BasePass.Initialize(this);
         await this._ShadowMapPass.InitResourceName();
-        await this._ShadowMapPass.Initialize(this);
-
-        await this.OnCanvasResize(window.innerWidth, window.innerHeight, this.canvas);
+        await this._ShadowMapPass.Initialize(this); 
+        await this._TestShadowRender.InitResourceName();
+        await this._TestShadowRender.Initialize(this);
 
         const UIModule = FModuleManager.GetInstance().GetModule('UIModule');
         const DetailBuilder = UIModule.GetDetailBuilder();
@@ -128,6 +136,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                     { value: resourceName.BasePass.gBufferC, label: 'BaseColor' },
                     { value: resourceName.BasePass.gBufferD, label: 'Additional' },
                     { value:'DirectLightShadowMap', label: 'test' },
+                    { value:'TestShadowRenderRT', label: 'testshadow' },
                 ],
                 onChange: async (path, value) => {
                     if (this._CopyPass) {
@@ -155,6 +164,11 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
          * 比如 CopyPass 依赖 PrePass 的深度纹理，所以必须先更新 PrePass 的渲染目标大小，再更新 CopyPass 的渲染目标大小
          */
 
+        //确保资源管理器已经初始化
+        while (!this._bInitialized) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
         // 更新 PrePass 的渲染目标大小
         if (this._PrePass) {
             await this._PrePass.OnRenderTargetResize(Width, Height);
@@ -165,6 +179,10 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             await this._BasePass.OnRenderTargetResize(Width, Height);
         }
         
+        
+        if (this._TestShadowRender) {
+            await this._TestShadowRender.OnRenderTargetResize(Width, Height);
+        }
         if (this._CopyPass) {
             await this._CopyPass.OnRenderTargetResize(Width, Height);
         }
@@ -180,6 +198,11 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
      * @param {HTMLCanvasElement} Canvas 画布
      */
     async OnCanvasReady(Canvas) {
+        //确保资源管理器已经初始化
+        while (!this._bInitialized) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
         // 初始化复制Pass，使用PrePass的深度纹理作为初始源
         this._CopyPass = new FCopyToCanvasPass(resourceName.PrePass.depthTexture, Canvas);
         await this._CopyPass.Initialize();
@@ -210,6 +233,9 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
 
         // 执行ShadowMapPass
         await this._ShadowMapPass.Render(DeltaTime, this.Scene, commandEncoder, this);
+
+        // 执行TestShadowRender
+        await this._TestShadowRender.Render(DeltaTime, this.Scene, commandEncoder, this);
 
         // 执行CopyPass
         if (this._CopyPass) {

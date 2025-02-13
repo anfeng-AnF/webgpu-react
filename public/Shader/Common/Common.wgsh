@@ -1,5 +1,10 @@
 // include 基本变量common后再 include 这个文件
 
+
+const pi: f32 = 3.14159265358979323846264338327950288;
+
+
+
 struct StaticMeshVertexInput {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,

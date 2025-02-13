@@ -27,3 +27,10 @@ yarn-error.log*
 .vscode/
 *.swp
 *.swo
+*.vsidx
+/.vs/webgpu-react/FileContentIndex/f502cb74-7f56-4583-b832-a6a0c8621578.vsidx
+/.vs/webgpu-react/FileContentIndex/a613491d-9de8-473e-b100-dd8f42fd9525.vsidx
+/.vs/webgpu-react/FileContentIndex/4cad0028-0d16-4cca-91db-55db96e013e7.vsidx
+/.vs/webgpu-react/v17/.wsuo
+/.vs/webgpu-react/v17/DocumentLayout.json
+/.vs/slnx.sqlite
