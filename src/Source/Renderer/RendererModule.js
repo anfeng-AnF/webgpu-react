@@ -86,7 +86,7 @@ class RendererModule extends IModule {
      */
     async #InitializeCameraUI() {
         const UIModule = this.moduleManager.GetModule('UIModule');
-        const DetailBuilder = UIModule.GetDetailBuilder();
+        const DetailBuilder = UIModule.WorldSettingsBuilder;
 
         // 创建相机控制
         DetailBuilder.addProperties({
