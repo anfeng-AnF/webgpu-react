@@ -100,11 +100,16 @@ class RendererModule extends IModule {
                 },
             },
             'Camera.Rotation': {
-                value: [0, 0, 0], // 默认相机旋转
+                value: [0, 0, 0],
                 label: '相机旋转',
                 type: 'vector3',
                 onChange: (path, value) => {
-                    this._cameraRotation.set(value[0], value[1], value[2]);
+                    // 将角度转换为弧度
+                    this._cameraRotation.set(
+                        value[0] * Math.PI / 180,  // 度数转弧度
+                        value[1] * Math.PI / 180,
+                        value[2] * Math.PI / 180
+                    );
                     this.updateCamera();
                 },
             },
@@ -262,11 +267,20 @@ class RendererModule extends IModule {
             Number(this._cameraPosition.z.toFixed(3))
         ]);
 
-        // 旋转角度转换为度数并保留2位小数
+        // 旋转角度转换为度数并规范化到 -180 到 180 度范围
+        const normalizeAngle = (angle) => {
+            // 将弧度转换为度数
+            let degrees = angle * 180 / Math.PI;
+            // 规范化到 -180 到 180 度范围
+            while (degrees > 180) degrees -= 360;
+            while (degrees < -180) degrees += 360;
+            return Number(degrees.toFixed(2));
+        };
+
         this._detailBuilder.updateProperty('Camera.Rotation', [
-            Number((this._cameraRotation.x * 180 / Math.PI).toFixed(2)),
-            Number((this._cameraRotation.y * 180 / Math.PI).toFixed(2)),
-            Number((this._cameraRotation.z * 180 / Math.PI).toFixed(2))
+            normalizeAngle(this._cameraRotation.x),
+            normalizeAngle(this._cameraRotation.y),
+            normalizeAngle(this._cameraRotation.z)
         ]);
 
         // 移动速度保留3位小数
