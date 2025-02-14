@@ -1,0 +1,195 @@
+.tree-item {
+    user-select: none;
+}
+
+.tree-item-header {
+    display: grid;
+    grid-template-columns: 24px 1fr 180px;  /* 固定宽度的左右容器，中间自适应 */
+    align-items: center;
+    height: 20px;
+    cursor: pointer;
+    color: #888;
+    background-color: rgb(30, 30, 30);
+}
+
+.tree-item-header.odd-row {
+    background-color: rgb(19, 19, 19);
+}
+
+.tree-item-header:hover {
+    background-color: rgb(42, 42, 42);
+}
+
+.tree-item-header.selected {
+    background-color: rgb(0, 112, 224);
+}
+
+.tree-item-header.selected .item-label,
+.tree-item-header.selected .item-type {
+    color: #ffffff;
+}
+
+.tree-item-header.selected .visibility-icon::before,
+.tree-item-header.selected .expand-icon,
+.tree-item-header.selected .type-icon {
+    filter: brightness(2);  /* 使图标变白 */
+}
+
+.tree-item-header.selected .visibility-icon {
+    opacity: 1;
+}
+
+.tree-item-header.selected .visibility-icon::before {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="%23fff" fill-rule="evenodd" clip-rule="evenodd" d="M16.5 10c0 1.187-.594 2.269-1.73 3.103-1.153.846-2.83 1.397-4.77 1.397-1.94 0-3.617-.551-4.77-1.397C4.095 12.27 3.5 11.187 3.5 10c0-1.187.594-2.269 1.73-3.103C6.384 6.05 8.06 5.5 10 5.5c1.94 0 3.617.551 4.77 1.397C15.905 7.73 16.5 8.813 16.5 10zm1.5 0c0 3.5-3.582 6-8 6s-8-2.5-8-6 3.582-6 8-6 8 2.5 8 6zm-6.5 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm1.5 0a3 3 0 11-6 0 3 3 0 016 0z"/></svg>');
+}
+
+.tree-item-header.selected .visibility-icon:not(.visible)::before {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="%23fff" fill-rule="evenodd" clip-rule="evenodd" d="M4 5.25a.75.75 0 01.75.75c0 2.72 2.272 4.75 5.25 4.75S15.25 8.72 15.25 6a.75.75 0 011.5 0c0 1.205-.33 2.288-.9 3.2l1.6 1.2a.75.75 0 11-.9 1.2l-1.648-1.236a6.655 6.655 0 01-2.19 1.384l.959 1.917a.75.75 0 01-1.342.67l-1-2a.75.75 0 01-.065-.19 7.665 7.665 0 01-2.528 0 .753.753 0 01-.065.19l-1 2a.75.75 0 01-1.342-.67l.958-1.917a6.652 6.652 0 01-2.206-1.4l-1.897 1.275a.75.75 0 11-.836-1.246l1.787-1.2A5.984 5.984 0 013.25 6 .75.75 0 014 5.25z"/></svg>');
+}
+
+.expand-icon {
+    font-size: 8px;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(-90deg);
+    transition: transform 0.15s ease;
+    color: #888;
+}
+
+.expand-icon.expanded {
+    transform: rotate(0);
+}
+
+.type-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+    background-size: 16px;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.type-icon.文件夹 {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="%23888" d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 14.5 4H7.707L6 2.293A1 1 0 0 0 5.293 2H1.5z"/></svg>');
+}
+
+.type-icon.编辑器 {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="%23888" d="M14.5 2h-13A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2zm-13 1h13a.5.5 0 0 1 .5.5V5H1V3.5a.5.5 0 0 1 .5-.5z"/></svg>');
+}
+
+.type-icon.staticmeshactor {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="%23888" d="M8 1L1 5v6l7 4 7-4V5L8 1zM2 6l6-3.5L14 6v4l-6 3.5L2 10V6z"/></svg>');
+}
+
+/* 左侧眼睛图标容器 */
+.visibility-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+}
+
+/* 中间标签容器 */
+.label-container {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* 右侧类型容器 */
+.type-container {
+    padding: 0 8px;
+    overflow: hidden;
+}
+
+.item-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 4px;
+    color: #cccccc;
+}
+
+.item-type {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    color: #888888;
+}
+
+.tree-item-children {
+    position: relative;
+}
+
+.tree-item-children::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: rgba(136, 136, 136, 0.2);
+}
+
+.tree-item-header::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 50%;
+    width: 8px;
+    height: 1px;
+    background-color: rgba(136, 136, 136, 0.2);
+}
+
+/* 添加眼睛图标样式 */
+.visibility-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;  /* 默认完全透明 */
+    cursor: pointer;
+    transition: opacity 0.15s ease;  /* 添加过渡效果 */
+}
+
+/* 未显示状态下始终显示图标 */
+.visibility-icon:not(.visible) {
+    opacity: 0.5;
+}
+
+/* 鼠标悬停时显示图标 */
+.tree-item-header:hover .visibility-icon {
+    opacity: 0.5;
+}
+
+/* 鼠标悬停时的高亮效果 */
+.tree-item-header:hover .visibility-icon:hover {
+    opacity: 0.8;
+}
+
+/* 激活状态的不透明度 */
+.visibility-icon.visible:hover,
+.tree-item-header:hover .visibility-icon.visible {
+    opacity: 1;
+}
+
+/* 可以使用自定义SVG图标替代emoji */
+.visibility-icon::before {
+    content: '';
+    width: 14px;
+    height: 14px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="%23888" fill-rule="evenodd" clip-rule="evenodd" d="M16.5 10c0 1.187-.594 2.269-1.73 3.103-1.153.846-2.83 1.397-4.77 1.397-1.94 0-3.617-.551-4.77-1.397C4.095 12.27 3.5 11.187 3.5 10c0-1.187.594-2.269 1.73-3.103C6.384 6.05 8.06 5.5 10 5.5c1.94 0 3.617.551 4.77 1.397C15.905 7.73 16.5 8.813 16.5 10zm1.5 0c0 3.5-3.582 6-8 6s-8-2.5-8-6 3.582-6 8-6 8 2.5 8 6zm-6.5 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm1.5 0a3 3 0 11-6 0 3 3 0 016 0z"/></svg>');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.visibility-icon:not(.visible)::before {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="%23888" fill-rule="evenodd" clip-rule="evenodd" d="M4 5.25a.75.75 0 01.75.75c0 2.72 2.272 4.75 5.25 4.75S15.25 8.72 15.25 6a.75.75 0 011.5 0c0 1.205-.33 2.288-.9 3.2l1.6 1.2a.75.75 0 11-.9 1.2l-1.648-1.236a6.655 6.655 0 01-2.19 1.384l.959 1.917a.75.75 0 01-1.342.67l-1-2a.75.75 0 01-.065-.19 7.665 7.665 0 01-2.528 0 .753.753 0 01-.065.19l-1 2a.75.75 0 01-1.342-.67l.958-1.917a6.652 6.652 0 01-2.206-1.4l-1.897 1.275a.75.75 0 11-.836-1.246l1.787-1.2A5.984 5.984 0 013.25 6 .75.75 0 014 5.25z"/></svg>');
+} 

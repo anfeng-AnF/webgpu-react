@@ -1,0 +1,24 @@
+.scene-tree {
+    height: 100%;
+    overflow-y: auto;
+    background-color: rgb(30, 30, 30);
+    color: #cccccc;
+    font-size: 12px;
+}
+
+.scene-tree::-webkit-scrollbar {
+    width: 8px;
+}
+
+.scene-tree::-webkit-scrollbar-track {
+    background: rgb(30, 30, 30);
+}
+
+.scene-tree::-webkit-scrollbar-thumb {
+    background: #3d3d3d;
+    border-radius: 0;
+}
+
+.scene-tree::-webkit-scrollbar-thumb:hover {
+    background: #4d4d4d;
+} 
