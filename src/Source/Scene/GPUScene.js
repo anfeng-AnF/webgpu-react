@@ -111,13 +111,13 @@ export default class GPUScene extends THREE.Scene {
          * 环境光
          * @type {AmbientLight}
          */
-        this.ambientLight = new AmbientLight(new THREE.Color(0xffffff), 1);
+        this.ambientLight = new AmbientLight(new THREE.Color(0xffffff), 10);
 
         /**
          * 平行光
          * @type {DirectLight}
          */
-        this.directLight = new DirectLight(new THREE.Color(0xffffff), 1);
+        this.directLight = new DirectLight(new THREE.Color(0xffffff), 4);
 
         /**
          * 光照信息缓冲区

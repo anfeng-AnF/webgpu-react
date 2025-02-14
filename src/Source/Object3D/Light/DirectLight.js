@@ -121,11 +121,11 @@ class DirectLight extends THREE.DirectionalLight {
 
         // 设置固定的测试位置和方向
         this.lookAt(0, 0, 0); // 看向原点
-        this.position.set(0, 66,66);
+        this.position.set(20, 66,66);
         // 创建固定大小的正交相机用于测试
         const shadowCamera = new THREE.OrthographicCamera(
-            -5, 5,    // 左右
-            5, -5,    // 上下
+            -3, 3,    // 左右
+            3, -3,    // 上下
             0.1,      // near
             100       // far
         );

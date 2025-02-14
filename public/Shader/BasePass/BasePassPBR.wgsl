@@ -155,7 +155,7 @@ fn PSMain(input: vsOutput) -> FragmentOutput {
     // 将切线空间的法线转换到世界空间
     var finalNormal = worldNormal;
     if ((PBRParam.flags & NORMAL_USE_TEXTURE) != 0u) {
-        finalNormal = normalize(TBN * normalTS);
+        finalNormal =-1* normalize(TBN * normalTS);
     }
     
     // 计算基础颜色
