@@ -70,20 +70,47 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if all(shadowUV >= vec2(0.0)) && all(shadowUV <= vec2(1.0)) {
         // 计算阴影偏移
         let lightDir = normalize(DirectionalLight.lightDirection.xyz);
-        let normalBias = (1.0 - max(dot(worldNormal, lightDir), 0.0)) * 0.002;
+        let normalBias = (1.0 - max(dot(worldNormal, lightDir), 0.0)) * 0.0008;
         let currentDepth = lightNDC.z - DirectionalLight.lightBias - normalBias;
         
         // 转换阴影贴图坐标
         let shadowSize = textureDimensions(shadowMap);
-        let shadowCoord = vec2<i32>(shadowUV * vec2<f32>(shadowSize) + 0.5);
-        let shadowDepth = textureLoad(shadowMap, shadowCoord, 0);
-
-        let shadowColor = textureSampleLevel(shadowMap,shadowMapSampler,shadowUV,0u);
-        shadow = f32(currentDepth<=shadowColor);
-
-        textureStore(outputTex,coord,vec4<f32>(vec3<f32>(shadow),1.0));
-        //shadow = f32(currentDepth <= shadowDepth);
-        //textureStore(outputTex,coord,vec4<f32>(shadow,shadow,shadow,1.0));
+        let texelSize = 1.0 / vec2<f32>(shadowSize);
+        
+        // PCF 软阴影实现
+        const numSample = 7u;
+        const halfSample = (numSample - 1u) / 2u;
+        var shadowSum: f32 = 0.0;
+        var validSamples: f32 = 0.0;
+        
+        // 计算有效采样范围
+        let minUV = vec2<f32>(texelSize) * f32(halfSample);
+        let maxUV = vec2<f32>(1.0) - minUV;
+        
+        // 只在有效范围内进行采样
+        if all(shadowUV >= minUV) && all(shadowUV <= maxUV) {
+            for(var i: u32 = 0u; i < numSample; i++) {
+                for(var j: u32 = 0u; j < numSample; j++) {
+                    // 计算采样偏移
+                    let offset = vec2<f32>(
+                        f32(i) - f32(halfSample),
+                        f32(j) - f32(halfSample)
+                    ) * texelSize;
+                    
+                    // 采样阴影贴图
+                    let sampleUV = shadowUV + offset;
+                    let sampleCoord = vec2<i32>(sampleUV * vec2<f32>(shadowSize));
+                    let shadowDepth = textureLoad(shadowMap, sampleCoord, 0);
+                    shadowSum += f32(currentDepth <= shadowDepth);
+                    validSamples += 1.0;
+                }
+            }
+            
+            // 计算平均阴影值
+            shadow = shadowSum / validSamples;
+        }
+        
+        textureStore(outputTex, coord, vec4<f32>(shadow, shadow, shadow, 1.0));
         return;
     }
     
