@@ -5,6 +5,7 @@ import './UIModel.css';
 import DetailBuilder from './Components/Details/DetailBuilder';
 import IModule from '../Core/IModule';
 import MainContentBuilder from './Components/MainContent/MainContentBuilder';
+import WorldSettingsBuilder from './Components/WorldSettings/WorldSettingsBuilder';
 
 /**
  * UI模块类
@@ -16,6 +17,7 @@ class UIModel extends IModule {
         this.Root = null;
         this.Component = null;
         this.DetailBuilder = DetailBuilder.getInstance(this.HandleStateChange);
+        this.WorldSettingsBuilder = WorldSettingsBuilder.getInstance(this.HandleStateChange);
         this.MainContentBuilder = MainContentBuilder.getInstance(this.HandleStateChange);
         this.bInitialized = false;  // 添加初始化标志
     }
@@ -131,7 +133,8 @@ class MainPage extends React.Component {
         // 绑定 handleStateChange
         this.handleStateChange = this.handleStateChange.bind(this);
         this.detailBuilder = DetailBuilder.getInstance(this.handleStateChange);
-        this.mainContentBuilder = MainContentBuilder.getInstance(this.handleStateChange);
+        this.worldSettingsBuilder = WorldSettingsBuilder.getInstance(this.handleStateChange);
+        this.mainContentBuilder = MainContentBuilder.getInstance(this.handleCanvasEvent);
 
         // 绑定画布事件处理器
         this.handleCanvasEvent = this.handleCanvasEvent.bind(this);
@@ -278,7 +281,7 @@ class MainPage extends React.Component {
                                     </div>
                                 ) : (
                                     <div className="world-settings-content">
-
+                                        {this.worldSettingsBuilder.build()}
                                     </div>
                                 )}
                             </div>
