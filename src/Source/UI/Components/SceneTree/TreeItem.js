@@ -11,13 +11,21 @@ const TreeItem = ({
     onSelect,             // 选中回调
     onExpand,            // 展开回调
     indent = 12,        // 每级缩进宽度
-    typeWidth = 180,     // 类型列宽度
+    typeWidth,     // 使用传入的类型列宽度
     num = 0,          // 添加序号属性
     onVisibilityChange,  // 可视性变更回调
-    initialVisibility = true  // 初始可视性状态
+    initialVisibility = true,  // 初始可视性状态
+    index,              // 添加索引属性用于范围选择
+    onRangeSelect,      // 范围选择回调
+    onMultiSelect,      // 多选回调
+    onDragStart,        // 添加拖拽相关回调
+    onDragOver,
+    onDrop,
+    path,               // 添加路径属性用于拖拽判断
 }) => {
     const [bIsShow, setBIsShow] = useState(initialVisibility);
     const [isSelected, setIsSelected] = useState(selected);
+    const [isDragging, setIsDragging] = useState(false);
 
     // 处理选中状态变化
     useEffect(() => {
@@ -31,7 +39,17 @@ const TreeItem = ({
 
     const handleItemClick = (e) => {
         e.stopPropagation();
-        onSelect?.();
+        
+        if (e.shiftKey) {
+            // Shift + 点击：范围选择
+            onRangeSelect?.(index);
+        } else if (e.ctrlKey || e.metaKey) {
+            // Ctrl/Cmd + 点击：切换选中状态
+            onMultiSelect?.(index, !isSelected);
+        } else {
+            // 普通点击：单选
+            onSelect?.();
+        }
     };
 
     const handleVisibilityClick = (e) => {
@@ -41,10 +59,61 @@ const TreeItem = ({
         onVisibilityChange?.(newVisibility);
     };
 
+    const handleDragStart = (e) => {
+        if (!path) {
+            console.warn('No path available for drag start');
+            return;
+        }
+        e.stopPropagation();
+        setIsDragging(true);
+        onDragStart?.(path);
+        e.dataTransfer.setData('text/plain', path);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragOver = (e) => {
+        if (!path) {
+            console.warn('No path available for drag over');
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        onDragOver?.(path, index, e.clientY);
+    };
+
+    const handleDrop = (e) => {
+        if (!path) {
+            console.warn('No path available for drop');
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        const draggedPath = e.dataTransfer.getData('text/plain');
+        if (!draggedPath) {
+            console.warn('No dragged path available');
+            return;
+        }
+        onDrop?.(draggedPath, path);
+        setIsDragging(false);
+    };
+
+    const handleDragEnd = () => {
+        console.log('TreeItem drag end');
+        setIsDragging(false);
+    };
+
     return (
         <div 
-            className={`tree-item-header ${isSelected ? 'selected' : ''} ${num % 2 === 1 ? 'odd-row' : ''}`}
+            className={`tree-item-header ${isSelected ? 'selected' : ''} 
+                       ${num % 2 === 1 ? 'odd-row' : ''} 
+                       ${isDragging ? 'dragging' : ''}`}
             onClick={handleItemClick}
+            draggable={true}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onDragEnd={handleDragEnd}
+            style={{ gridTemplateColumns: `24px 1fr ${typeWidth}px` }}
         >
             {/* 左侧眼睛图标容器 */}
             <div className="visibility-container">
