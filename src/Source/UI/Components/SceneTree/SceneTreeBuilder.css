@@ -4,6 +4,7 @@
     background-color: rgb(30, 30, 30);
     color: #cccccc;
     font-size: 12px;
+    position: relative;
 }
 
 .scene-tree::-webkit-scrollbar {

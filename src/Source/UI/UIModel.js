@@ -139,6 +139,13 @@ class MainPage extends React.Component {
         this.mainContentBuilder = MainContentBuilder.getInstance(this.handleCanvasEvent);
         // 添加 SceneTreeBuilder
         this.sceneTreeBuilder = SceneTreeBuilder.getInstance();
+        // 设置结构变化回调
+        this.sceneTreeBuilder.setStructureChangeCallback(() => {
+            // 触发重新渲染
+            this.setState(prevState => ({
+                updateCounter: prevState.updateCounter + 1
+            }));
+        });
 
         // 绑定画布事件处理器
         this.handleCanvasEvent = this.handleCanvasEvent.bind(this);

@@ -1,0 +1,125 @@
+.tree-header {
+    display: grid;
+    grid-template-columns: 24px 1fr 180px;
+    align-items: center;
+    height: 24px;
+    background-color: rgb(37, 37, 37);
+    border-bottom: 1px solid rgb(64, 64, 64);
+    user-select: none;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    position: relative;
+}
+
+.tree-header .visibility-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+}
+
+/* 复用 TreeItem 的眼睛图标样式，但始终显示 */
+.tree-header .visibility-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.5;  /* 使用半透明效果 */
+}
+
+.tree-header .visibility-icon::before {
+    content: '';
+    width: 14px;
+    height: 14px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="%23888" fill-rule="evenodd" clip-rule="evenodd" d="M16.5 10c0 1.187-.594 2.269-1.73 3.103-1.153.846-2.83 1.397-4.77 1.397-1.94 0-3.617-.551-4.77-1.397C4.095 12.27 3.5 11.187 3.5 10c0-1.187.594-2.269 1.73-3.103C6.384 6.05 8.06 5.5 10 5.5c1.94 0 3.617.551 4.77 1.397C15.905 7.73 16.5 8.813 16.5 10zm1.5 0c0 3.5-3.582 6-8 6s-8-2.5-8-6 3.582-6 8-6 8 2.5 8 6zm-6.5 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm1.5 0a3 3 0 11-6 0 3 3 0 016 0z"/></svg>');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.tree-header .label-container {
+    display: flex;
+    align-items: center;
+    padding-left: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tree-header .type-container {
+    padding: 0;
+    padding-left: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.header-label,
+.header-type {
+    color: #888888;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.header-icon {
+    width: 16px;
+    height: 16px;
+}
+
+/* 修改分界线样式 */
+.resize-handle {
+    position: absolute;
+    /* 向左偏移更多，使触发区域更居中 */
+    transform: translateX(-8px);
+    top: 0;
+    bottom: 0;
+    width: 16px; /* 显著增加触发区域宽度 */
+    cursor: col-resize;
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: start;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2; /* 确保触发区域在最上层 */
+}
+
+/* 添加内部线条 */
+.resize-handle::after {
+    content: '';
+    width: 1px;
+    height: 100%;
+    background-color: rgb(64, 64, 64);
+    transition: background-color 0.2s, width 0.2s;
+    /* 向右偏移，使视觉线条保持在原位置 */
+    transform: translateX(6px);
+}
+
+/* 悬停状态 */
+.resize-handle:hover::after {
+    background-color: rgb(0, 120, 215);
+    width: 2px;
+}
+
+/* 激活状态（拖动时） */
+.resize-handle:active::after,
+.tree-header.resizing .resize-handle::after {
+    background-color: rgb(0, 120, 215);
+    width: 2px;
+}
+
+/* 防止拖动时选中文本 */
+.tree-header.resizing {
+    cursor: col-resize;
+    user-select: none;
+}
+
+.header-type {
+    color: #888888;
+    font-size: 11px;
+    text-transform: uppercase;
+    text-align: left;
+    display: block;
+} 

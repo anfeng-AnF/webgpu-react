@@ -26,6 +26,50 @@ class Main {
             // 测试 SceneTreeBuilder
             const sceneTreeBuilder = uiModel.SceneTreeBuilder;
 
+            // 添加结构变更回调
+            sceneTreeBuilder.setStructureChangeCallback((changeInfo) => {
+                console.log('Tree structure changed:', {
+                    type: changeInfo.type,
+                    node: changeInfo.node.name,
+                    fromPath: changeInfo.fromPath,
+                    toPath: changeInfo.toPath,
+                    position: changeInfo.position,
+                    oldParent: changeInfo.oldParent.name,
+                    newParent: changeInfo.newParent.name
+                });
+            });
+
+            // 添加列宽度变化回调
+            sceneTreeBuilder.setColumnWidthChangeCallback((width) => {
+                console.log('Column width changed:', width);
+            });
+
+            // 添加选中项变化回调
+            sceneTreeBuilder.setSelectionChangeCallback((selectedPaths) => {
+                console.log('Selection changed:', {
+                    count: selectedPaths.length,
+                    items: selectedPaths.map(path => {
+                        const node = sceneTreeBuilder.findNodeByPath(path);
+                        return {
+                            name: node.name,
+                            type: node.type,
+                            path: path
+                        };
+                    })
+                });
+            });
+
+            // 添加可见性变化回调
+            sceneTreeBuilder.setVisibilityChangeCallback((path, visible) => {
+                const node = sceneTreeBuilder.findNodeByPath(path);
+                console.log('Visibility changed:', {
+                    name: node.name,
+                    type: node.type,
+                    path: path,
+                    visible: visible
+                });
+            });
+
             // 设置测试数据
             sceneTreeBuilder.setTreeData({
                 name: 'DragonRuins',
