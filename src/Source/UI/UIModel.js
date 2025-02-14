@@ -6,6 +6,7 @@ import DetailBuilder from './Components/Details/DetailBuilder';
 import IModule from '../Core/IModule';
 import MainContentBuilder from './Components/MainContent/MainContentBuilder';
 import WorldSettingsBuilder from './Components/WorldSettings/WorldSettingsBuilder';
+import SceneTreeBuilder from './Components/SceneTree/SceneTreeBuilder';
 
 /**
  * UI模块类
@@ -19,6 +20,7 @@ class UIModel extends IModule {
         this.DetailBuilder = DetailBuilder.getInstance(this.HandleStateChange);
         this.WorldSettingsBuilder = WorldSettingsBuilder.getInstance(this.HandleStateChange);
         this.MainContentBuilder = MainContentBuilder.getInstance(this.HandleStateChange);
+        this.SceneTreeBuilder = SceneTreeBuilder.getInstance();
         this.bInitialized = false;  // 添加初始化标志
     }
 
@@ -135,10 +137,11 @@ class MainPage extends React.Component {
         this.detailBuilder = DetailBuilder.getInstance(this.handleStateChange);
         this.worldSettingsBuilder = WorldSettingsBuilder.getInstance(this.handleStateChange);
         this.mainContentBuilder = MainContentBuilder.getInstance(this.handleCanvasEvent);
+        // 添加 SceneTreeBuilder
+        this.sceneTreeBuilder = SceneTreeBuilder.getInstance();
 
         // 绑定画布事件处理器
         this.handleCanvasEvent = this.handleCanvasEvent.bind(this);
-        this.mainContentBuilder = MainContentBuilder.getInstance(this.handleCanvasEvent);
     }
 
     // 实现 handleStateChange 方法
@@ -254,9 +257,7 @@ class MainPage extends React.Component {
                                 </div>
                             </div>
                             <div className="outline-content">
-                                <div className="outline-tree">
-
-                                </div>
+                                {this.sceneTreeBuilder.build()}
                             </div>
                         </div>
                         <div className="right-panel-bottom">

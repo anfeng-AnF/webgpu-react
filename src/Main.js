@@ -17,6 +17,94 @@ class Main {
             Main.ModuleManager = FModuleManager.GetInstance();
             await Main.ModuleManager.Initialize();
 
+            // 获取 UIModel 模块
+            const uiModel = Main.ModuleManager.GetModule('UIModule');
+            if (!uiModel) {
+                throw new Error('UIModel module not found');
+            }
+
+            // 测试 SceneTreeBuilder
+            const sceneTreeBuilder = uiModel.SceneTreeBuilder;
+
+            // 设置测试数据
+            sceneTreeBuilder.setTreeData({
+                name: 'DragonRuins',
+                type: '编辑器',
+                expanded: true,
+                children: [
+                    {
+                        name: 'Actors',
+                        type: '文件夹',
+                        expanded: true,
+                        children: [
+                            {
+                                name: 'Scenes',
+                                type: '文件夹',
+                                expanded: true,
+                                children: [
+                                    {
+                                        name: 'BaseScene',
+                                        type: '文件夹',
+                                        expanded: true,
+                                        children: [
+                                            {
+                                                name: 'Grass01',
+                                                type: 'StaticMeshActor'
+                                            },
+                                            {
+                                                name: 'ruins01',
+                                                type: 'StaticMeshActor'
+                                            },
+                                            {
+                                                name: 'ruins03_竜遺者の旅跡_mesh_007',
+                                                type: 'StaticMeshActor'
+                                            },
+                                            {
+                                                name: 'ruins04',
+                                                type: 'StaticMeshActor'
+                                            },
+                                            {
+                                                name: 'terrainRef_竜遺者の旅跡_mesh_003',
+                                                type: 'StaticMeshActor'
+                                            },
+                                            {
+                                                name: 'VirtualHeightfieldMesh',
+                                                type: 'VirtualHeightfieldMesh'
+                                            },
+                                            {
+                                                name: 'Water',
+                                                type: 'StaticMeshActor'
+                                            },
+                                            {
+                                                name: '运行时虚拟纹理体积',
+                                                type: 'RuntimeVirtualTextureVolume'
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        name: 'Rocks',
+                        type: '文件夹'
+                    },
+                    {
+                        name: 'Terrain',
+                        type: '文件夹'
+                    },
+                    {
+                        name: 'Atmosphere',
+                        type: '文件夹'
+                    },
+                    {
+                        name: 'Lights',
+                        type: '文件夹'
+                    }
+                ]
+            });
+
+            console.log('Scene tree initialized');
 
         } catch (Error) {
             console.error('Initialization failed:', Error);
