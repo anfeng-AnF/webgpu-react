@@ -123,7 +123,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         await this._TestShadowRender.Initialize(this);
 
         const UIModule = FModuleManager.GetInstance().GetModule('UIModule');
-        const DetailBuilder = UIModule.GetDetailBuilder();
+        const DetailBuilder = UIModule.WorldSettingsBuilder;
         DetailBuilder.addProperties({
             '渲染.缓冲显示': {
                 value: resourceName.PrePass.depthTexture,  // 设置初始值为深度纹理
