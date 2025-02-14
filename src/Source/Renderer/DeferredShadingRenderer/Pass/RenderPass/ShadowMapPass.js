@@ -74,7 +74,7 @@ class ShadowMapPass extends FPass {
         await this._ResourceManager.CreateResource(this.shadowMapTarget, {
             Type: 'Texture',
             desc: {
-                size: [1024, 1024, 1],
+                size: [4096, 4096, 1],
                 format: 'depth32float',
                 usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST,
                 sampleCount: 1,

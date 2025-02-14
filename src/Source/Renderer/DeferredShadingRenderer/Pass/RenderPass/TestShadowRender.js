@@ -3,6 +3,7 @@ import FResourceManager from '../../../../Core/Resource/FResourceManager';
 import ShaderIncluder from '../../../../Core/Shader/ShaderIncluder';
 import { resourceName } from '../../ResourceNames';
 import FDeferredShadingSceneRenderer from '../../FDeferredShadingSceneRenderer';
+import { sampler } from 'three/tsl';
 /**
  * TestShadowRender Pass 用于调试阴影贴图效果，
  * 将 ShadowMapPass 生成的阴影贴图通过全屏绘制显示出来。
@@ -95,6 +96,11 @@ class TestShadowRender extends FPass {
                                 format: 'rgba8unorm',
                             },
                         },
+                        {
+                            binding: 7,
+                            visibility: GPUShaderStage.COMPUTE,
+                            sampler:{}
+                        }
                     ],
                 },
             }
@@ -132,6 +138,16 @@ class TestShadowRender extends FPass {
         });
 
         this._bInitialized = true;
+
+        this.depthSampler = this._ResourceManager.CreateResource(
+            'shadowDepthSampler',
+            {
+                Type: 'Sampler',
+                desc: {
+                    magFilter: 'linear',
+                    minFilter: 'linear',
+                }
+            });
     }
 
     /**
@@ -197,6 +213,10 @@ class TestShadowRender extends FPass {
                             binding: 6,
                             resource: this.renderTarget.createView(),
                         },
+                        {
+                            binding: 7,
+                            resource:this.depthSampler,
+                        }
                     ],
                 },
             }

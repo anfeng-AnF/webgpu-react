@@ -4,16 +4,16 @@
 
 // 在 group(1) 中绑定各个输入与输出纹理
 @group(1) @binding(0)
-var gBufferA: texture_2d<f32>; // 存储世界空间法线（经过编码）
+var gBufferA: texture_2d<f32>; // RGB10A2UNORM - worldNormal
 
 @group(1) @binding(1)
-var gBufferB: texture_2d<f32>; // 材质参数（例如 Specular,Roughness,Metallic）
+var gBufferB: texture_2d<f32>; // RGBA8UNORM - Specular,Roughness,Metallic
 
 @group(1) @binding(2)
-var gBufferC: texture_2d<f32>; // 存储 BaseColor
+var gBufferC: texture_2d<f32>; // RGBA8UNORM - BaseColor
 
 @group(1) @binding(3)
-var gBufferD: texture_2d<f32>; // 预留附加信息
+var gBufferD: texture_2d<f32>; // RGBA8UNORM - Additional
 
 @group(1) @binding(4)
 var sceneDepth: texture_depth_2d; // 场景的深度纹理
@@ -24,26 +24,93 @@ var shadowMap: texture_depth_2d; // 阴影贴图
 @group(1) @binding(6)
 var outputTex: texture_storage_2d<rgba8unorm, write>; // 最终输出的存储纹理
 
+@group(1) @binding(7)
+var shadowMapSampler: sampler;
+
+
 // 采用 8x8 的 workgroup 尺寸
 @compute @workgroup_size(8, 8, 1)
 fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    //转为UV
-    let dims: vec2<u32> = textureDimensions(outputTex);
+    let coord = vec2<i32>(global_id.xy);
+    
+    // 重建世界坐标
+    let depth = textureLoad(sceneDepth, coord, 0);
+    let texSize = textureDimensions(sceneDepth);
+    let uv = (vec2<f32>(coord) + 0.5) / vec2<f32>(texSize);
+    let worldPos = ReconstructWorldPositionFromDepth(depth, uv);
+    
+    //测试世界位置
+    //textureStore(outputTex, coord, vec4<f32>(saturate(worldPos.x),saturate(worldPos.y),saturate(worldPos.z),saturate(worldPos.x)));
+    //return;
 
-    var u: f32 = f32(global_id.x) / f32(dims.x);
-    var v: f32 = f32(global_id.y) / f32(dims.y);
-    var time:f32 = scene.timeDelta.x;
+    // 远距离物体直接返回BaseColor
+    if length(worldPos) > 1e2 {
+        textureStore(outputTex, coord, textureLoad(gBufferC, coord, 0));
+        return;
+    }
+    
+    // 读取G-Buffer数据
+    let normalData = textureLoad(gBufferA, coord, 0);
+    let materialData = textureLoad(gBufferB, coord, 0);
+    let baseColor = textureLoad(gBufferC, coord, 0).rgb;
+    
+    // 解码材质参数
+    let worldNormal = normalize(normalData.xyz * 2.0 - 1.0);
+    let specular = materialData.x;
+    let roughness = materialData.y;
+    let metallic = materialData.z;
+    
+    // 阴影计算
+    var shadow: f32 = 1.0;
+    let lightViewPos = DirectionalLight.viewMatrix * vec4(worldPos, 1.0);
+    let lightClipPos = DirectionalLight.projectionMatrix * lightViewPos;
+    let lightNDC = lightClipPos / lightClipPos.w;
+    let shadowUV = vec2<f32>(lightNDC.x * 0.5 + 0.5,1-(lightNDC.y * 0.5 + 0.5));
+    
+    if all(shadowUV >= vec2(0.0)) && all(shadowUV <= vec2(1.0)) {
+        // 计算阴影偏移
+        let lightDir = normalize(DirectionalLight.lightDirection.xyz);
+        let normalBias = (1.0 - max(dot(worldNormal, lightDir), 0.0)) * 0.002;
+        let currentDepth = lightNDC.z - DirectionalLight.lightBias - normalBias;
+        
+        // 转换阴影贴图坐标
+        let shadowSize = textureDimensions(shadowMap);
+        let shadowCoord = vec2<i32>(shadowUV * vec2<f32>(shadowSize) + 0.5);
+        let shadowDepth = textureLoad(shadowMap, shadowCoord, 0);
 
+        let shadowColor = textureSampleLevel(shadowMap,shadowMapSampler,shadowUV,0u);
+        shadow = f32(currentDepth<=shadowColor);
 
-    var time2: f32 = 3*time;
-
-    u =sin(8.0*u*pi+time);
-
-    v=sin(8.0*v*pi+time);
-
-    u+=v;
-
-    v=0.0;
-    textureStore(outputTex, vec2<i32>(global_id.xy), vec4<f32>(abs(saturate(u)), abs(fract(v)), 0.0, 1.0));
+        textureStore(outputTex,coord,vec4<f32>(vec3<f32>(shadow),1.0));
+        //shadow = f32(currentDepth <= shadowDepth);
+        //textureStore(outputTex,coord,vec4<f32>(shadow,shadow,shadow,1.0));
+        return;
+    }
+    
+    // PBR光照计算
+    let N = worldNormal;
+    let V = normalize(scene.camPosFar.xyz - worldPos);
+    let L = normalize(-DirectionalLight.lightDirection.xyz);
+    let H = normalize(V + L);
+    
+    let NdotL = max(dot(N, L), 0.0);
+    let NdotV = max(dot(N, V), 0.0);
+    let NdotH = max(dot(N, H), 0.0);
+    let HdotV = max(dot(H, V), 0.0);
+    
+    // 漫反射项
+    let diffuse = baseColor * DirectionalLight.lightColor.rgb * NdotL / pi;
+    
+    // 镜面反射项 (简化Cook-Torrance)
+    let F0 = mix(vec3(0.04), baseColor, metallic);
+    let F = F0 + (1.0 - F0) * pow(1.0 - HdotV, 5.0);
+    let kD = (1.0 - F) * (1.0 - metallic);
+    let D = roughness * roughness / (pi * pow(NdotH * NdotH * (roughness - 1.0) + 1.0, 2.0));
+    let G = min(1.0, min(2.0 * NdotH * NdotV / HdotV, 2.0 * NdotH * NdotL / HdotV));
+    let specularTerm = (D * F * G) / (4.0 * NdotL * NdotV + 0.001);
+    
+    // 组合结果
+    let finalColor = (diffuse + specularTerm) * DirectionalLight.lightIntensity * shadow;
+    textureStore(outputTex, coord, vec4(finalColor, 1.0));
 }
 
