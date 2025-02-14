@@ -48,28 +48,48 @@ const FloatEditor = ({ label = "", value = 0, onChange, precision = 3 }) => {
         }
     };
 
+    const handleInputChange = (e) => {
+        // 允许输入负号、数字和小数点
+        const value = e.target.value;
+        if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
+            setEditValue(value);
+        }
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            const numValue = parseFloat(editValue);
+            if (!isNaN(numValue)) {
+                onChange?.(numValue);
+            }
+            setIsEditing(false);
+        } else if (e.key === 'Escape') {
+            setIsEditing(false);
+            setEditValue(value.toString());
+        }
+    };
+
+    const handleBlur = () => {
+        const numValue = parseFloat(editValue);
+        if (!isNaN(numValue)) {
+            onChange?.(numValue);
+        }
+        setIsEditing(false);
+    };
+
     return (
         <div className="details-editor float-editor">
             <label className="editor-label">{label}</label>
             <div className="editor-input">
                 <input
                     ref={inputRef}
-                    type="number"
+                    type="text"
                     value={isEditing ? editValue : value}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onBlur={() => {
-                        setIsEditing(false);
-                        onChange?.(Number(editValue));
-                    }}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            setIsEditing(false);
-                            onChange?.(Number(editValue));
-                        }
-                    }}
+                    onChange={handleInputChange}
+                    onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
                     onMouseDown={handleMouseDown}
                     onClick={handleClick}
-                    step="any"
                 />
             </div>
         </div>

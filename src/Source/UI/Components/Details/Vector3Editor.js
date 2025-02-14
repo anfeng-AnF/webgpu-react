@@ -1,159 +1,110 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import './Vector3Editor.css';
 
 const Vector3Editor = ({ label = "位置", value = [0, 0, 0], onChange }) => {
-    const [isDragging, setIsDragging] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
     const [editingIndex, setEditingIndex] = useState(null);
     const [editValue, setEditValue] = useState('');
-    const dragStartX = useRef(0);
-    const currentValue = useRef(0);
-    const currentIndex = useRef(null);
-    const lastX = useRef(0);
     const inputRefs = useRef([]);
-
-    useEffect(() => {
-        const handleMouseMove = (e) => {
-            if (!isDragging) return;
-
-            const deltaX = e.clientX - lastX.current;
-            lastX.current = e.clientX;
-
-            
-            let sensitivity = 1;
-            if (Math.abs(currentValue.current) < 1) {
-                sensitivity = 0.01;
-            } else if (Math.abs(currentValue.current) < 10) {
-                sensitivity = 0.1;
-            }
-
-            const newValue = currentValue.current + (deltaX * sensitivity);
-            currentValue.current = Number(newValue.toPrecision(6));
-            
-            const newValues = [...value];
-            newValues[currentIndex.current] = currentValue.current;
-            
-            onChange(newValues);
-        };
-
-        const handleMouseUp = () => {
-            console.log('Mouse up');
-            setIsDragging(false);
-        };
-
-        if (isDragging) {
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
-        }
-
-        return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-        };
-    }, [isDragging, value, onChange]);
+    const isDragging = useRef(false);
+    const lastX = useRef(0);
+    const currentValue = useRef([...value]);
+    const currentIndex = useRef(null);
 
     const handleMouseDown = (e, index) => {
         e.preventDefault();
-        e.stopPropagation();
-        setIsDragging(true);
-        dragStartX.current = e.clientX;
+        isDragging.current = true;
         lastX.current = e.clientX;
-        currentValue.current = value[index];
+        currentValue.current = [...value];
         currentIndex.current = index;
-        console.log('Mouse down:', { index, startX: e.clientX, startValue: value[index] });
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
     };
 
-    const handleInputChange = (e, index) => {
-        const newValues = [...value];
-        newValues[index] = Number(Number(e.target.value).toPrecision(6));
+    const handleMouseMove = (e) => {
+        if (!isDragging.current) return;
+
+        const delta = e.clientX - lastX.current;
+        lastX.current = e.clientX;
+        
+        let sensitivity = 0.01;
+        const currentVal = currentValue.current[currentIndex.current];
+        if (Math.abs(currentVal) < 1) {
+            sensitivity = 0.001;
+        }
+
+        const newValues = [...currentValue.current];
+        newValues[currentIndex.current] += delta * sensitivity;
+        newValues[currentIndex.current] = Number(newValues[currentIndex.current].toFixed(6));
+        currentValue.current = newValues;
         onChange?.(newValues);
     };
 
-    const preventSelection = (e) => {
-        e.preventDefault();
+    const handleMouseUp = () => {
+        isDragging.current = false;
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
     };
 
-    // 处理单击编辑
     const handleClick = (e, index) => {
-        if (!isDragging) {
-            setIsEditing(true);
+        if (!isDragging.current) {
             setEditingIndex(index);
             setEditValue(value[index].toString());
-            // 确保下一个渲染周期后聚焦并选中文本
-            setTimeout(() => {
-                if (inputRefs.current[index]) {
-                    inputRefs.current[index].select();
-                }
-            }, 0);
+            setTimeout(() => inputRefs.current[index]?.select(), 0);
         }
     };
 
-    // 处理编辑完成
-    const handleBlur = () => {
-        if (isEditing) {
-            finishEditing();
+    const handleInputChange = (e) => {
+        // 允许输入负号、数字和小数点
+        const value = e.target.value;
+        if (value === '' || value === '-' || /^-?\d*\.?\d*$/.test(value)) {
+            setEditValue(value);
         }
     };
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e, index) => {
         if (e.key === 'Enter') {
-            finishEditing();
+            const numValue = parseFloat(editValue);
+            if (!isNaN(numValue)) {
+                const newValues = [...value];
+                newValues[index] = numValue;
+                onChange?.(newValues);
+            }
+            setEditingIndex(null);
         } else if (e.key === 'Escape') {
-            setIsEditing(false);
             setEditingIndex(null);
+            setEditValue(value[index].toString());
         }
     };
 
-    const finishEditing = () => {
-        if (editingIndex !== null) {
-            const newValue = Number(Number(editValue).toPrecision(6));
+    const handleBlur = (index) => {
+        const numValue = parseFloat(editValue);
+        if (!isNaN(numValue)) {
             const newValues = [...value];
-            newValues[editingIndex] = newValue;
-            onChange(newValues);
-            setIsEditing(false);
-            setEditingIndex(null);
+            newValues[index] = numValue;
+            onChange?.(newValues);
         }
-    };
-
-    // 修改input渲染逻辑
-    const renderInput = (index) => {
-        const isCurrentlyEditing = isEditing && editingIndex === index;
-        return (
-            <input
-                ref={el => inputRefs.current[index] = el}
-                type="number"
-                value={isCurrentlyEditing ? editValue : value[index]}
-                onChange={(e) => {
-                    if (isCurrentlyEditing) {
-                        setEditValue(e.target.value);
-                    } else {
-                        handleInputChange(e, index);
-                    }
-                }}
-                onMouseDown={(e) => handleMouseDown(e, index)}
-                onClick={(e) => handleClick(e, index)}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                onDragStart={(e) => e.preventDefault()}
-                step="any"
-            />
-        );
+        setEditingIndex(null);
     };
 
     return (
-        <div className="vector3-editor" onMouseDown={preventSelection}>
+        <div className="vector3-editor details-editor">
             <label className="vector3-label">{label}</label>
             <div className="vector3-inputs">
                 <div className="vector3-input-group">
-                    <div className="input-wrapper x">
-                        {renderInput(0)}
-                    </div>
-                    <div className="input-wrapper y">
-                        {renderInput(1)}
-                    </div>
-                    <div className="input-wrapper z">
-                        {renderInput(2)}
-                    </div>
+                    {['x', 'y', 'z'].map((axis, index) => (
+                        <div key={axis} className={`input-wrapper ${axis}`}>
+                            <input
+                                ref={el => inputRefs.current[index] = el}
+                                type="text"
+                                value={editingIndex === index ? editValue : value[index]}
+                                onChange={handleInputChange}
+                                onBlur={() => handleBlur(index)}
+                                onKeyDown={(e) => handleKeyDown(e, index)}
+                                onMouseDown={(e) => handleMouseDown(e, index)}
+                                onClick={(e) => handleClick(e, index)}
+                            />
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
