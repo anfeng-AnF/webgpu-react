@@ -7,7 +7,7 @@ import { createPBRMaterial } from './Source/Material/Mat_Instance/PBR.js';
 import FResourceManager from './Source/Core/Resource/FResourceManager.js';
 import GPUScene from './Source/Scene/GPUScene.js';
 import StaticMesh from './Source/Object3D/Mesh/StaticMesh.js';
-
+import BlenderSceneLoaderFbx from './Source/Scene/SceneLoader/BlenderSceneLoaderFbx.js';
 class Main {
     static ModuleManager = null;
 
@@ -149,6 +149,16 @@ class Main {
             });
 
             console.log('Scene tree initialized');
+
+
+            const loader = new BlenderSceneLoaderFbx();
+            const scene = await loader.load(
+                'Content/Module/Scene/liyue/海灯节广场.fbx', 
+                'Content/Module/Scene/liyue/scene_structure.json'
+            );
+
+            console.log('Scene loaded:', scene);
+
 
         } catch (Error) {
             console.error('Initialization failed:', Error);
