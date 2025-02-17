@@ -183,6 +183,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         if (this._TestShadowRender) {
             await this._TestShadowRender.OnRenderTargetResize(Width, Height);
         }
+
         if (this._CopyPass) {
             await this._CopyPass.OnRenderTargetResize(Width, Height);
         }
