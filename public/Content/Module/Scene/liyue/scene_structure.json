@@ -1,0 +1,261 @@
+{
+    "type": "COLLECTION",
+    "Camera": {
+        "type": "CAMERA"
+    },
+    "打光": {
+        "type": "COLLECTION"
+    },
+    "Collection 2": {
+        "type": "COLLECTION",
+        "磬弦奏华夜": {
+            "type": "EMPTY"
+        },
+        "磬弦奏华夜_arm": {
+            "type": "ARMATURE"
+        },
+        "中间1": {
+            "type": "MESH"
+        },
+        "海灯漂浮": {
+            "type": "MESH"
+        },
+        "植物": {
+            "type": "MESH"
+        },
+        "004_材質7": {
+            "type": "MESH"
+        },
+        "005_材質8": {
+            "type": "MESH"
+        },
+        "006_材質9": {
+            "type": "MESH"
+        },
+        "小物件7": {
+            "type": "MESH"
+        },
+        "小物件6": {
+            "type": "MESH"
+        },
+        "灯0001": {
+            "type": "MESH"
+        },
+        "灯笼1": {
+            "type": "MESH"
+        },
+        "小物件不知道是几号": {
+            "type": "MESH"
+        },
+        "墙壁不知道是几号": {
+            "type": "MESH"
+        },
+        "00D_材質16": {
+            "type": "MESH"
+        },
+        "楼梯": {
+            "type": "MESH"
+        },
+        "石头墙": {
+            "type": "MESH"
+        },
+        "嗷呜": {
+            "type": "MESH"
+        },
+        "地板1号": {
+            "type": "MESH"
+        },
+        "蓝色": {
+            "type": "MESH"
+        },
+        "窗户": {
+            "type": "MESH"
+        },
+        "00L_材質25": {
+            "type": "MESH"
+        },
+        "看板": {
+            "type": "MESH"
+        },
+        "木桶": {
+            "type": "MESH"
+        },
+        "杂七杂八？": {
+            "type": "MESH"
+        },
+        "杂七杂八": {
+            "type": "MESH"
+        },
+        "么么么": {
+            "type": "MESH"
+        },
+        "嗷呜嗷呜": {
+            "type": "MESH"
+        },
+        "摸鱼": {
+            "type": "MESH"
+        },
+        "石块墙壁": {
+            "type": "MESH"
+        },
+        "石地面": {
+            "type": "MESH"
+        },
+        "地面": {
+            "type": "MESH"
+        },
+        "诶嘿~": {
+            "type": "MESH"
+        },
+        "诶嘿": {
+            "type": "MESH"
+        },
+        "顶棚": {
+            "type": "MESH"
+        },
+        "00Z_材質41": {
+            "type": "MESH"
+        },
+        "小物件5": {
+            "type": "MESH"
+        },
+        "011_材質43": {
+            "type": "MESH"
+        },
+        "石墩": {
+            "type": "MESH"
+        },
+        "屋檐": {
+            "type": "MESH"
+        },
+        "瓦片": {
+            "type": "MESH"
+        },
+        "小物件4": {
+            "type": "MESH"
+        },
+        "小物件3": {
+            "type": "MESH"
+        },
+        "小物件1": {
+            "type": "MESH"
+        },
+        "墙壁1": {
+            "type": "MESH"
+        },
+        "小物件2": {
+            "type": "MESH"
+        },
+        "01A_材質52": {
+            "type": "MESH"
+        },
+        "喵喵喵": {
+            "type": "MESH"
+        },
+        "01C_材質54": {
+            "type": "MESH"
+        },
+        "01D_材質55": {
+            "type": "MESH"
+        },
+        "01E_材質56": {
+            "type": "MESH"
+        },
+        "01F_材質57": {
+            "type": "MESH"
+        },
+        "01G_材質58": {
+            "type": "MESH"
+        },
+        "中间的台子": {
+            "type": "MESH"
+        },
+        "01I_材質60": {
+            "type": "MESH"
+        },
+        "摸摸摸": {
+            "type": "MESH"
+        },
+        "01K_材質62": {
+            "type": "MESH"
+        },
+        "中间7": {
+            "type": "MESH"
+        },
+        "中间6": {
+            "type": "MESH"
+        },
+        "中间5": {
+            "type": "MESH"
+        },
+        "中间4": {
+            "type": "MESH"
+        },
+        "小灯": {
+            "type": "MESH"
+        },
+        "中间3": {
+            "type": "MESH"
+        },
+        "中间2": {
+            "type": "MESH"
+        }
+    },
+    "灯光组1（环境）": {
+        "type": "COLLECTION"
+    },
+    "水面": {
+        "type": "COLLECTION",
+        "water": {
+            "type": "MESH"
+        }
+    },
+    "海灯漂浮": {
+        "type": "COLLECTION",
+        "晶格": {
+            "type": "LATTICE"
+        },
+        "空物体": {
+            "type": "EMPTY"
+        },
+        "通用": {
+            "type": "COLLECTION",
+            "月亮": {
+                "type": "MESH"
+            },
+            "夜晚的辉光": {
+                "type": "MESH"
+            },
+            "太阳": {
+                "type": "MESH"
+            },
+            "白天的辉光": {
+                "type": "MESH"
+            },
+            "Camera.001": {
+                "type": "CAMERA"
+            },
+            "天空球": {
+                "type": "COLLECTION",
+                "天空球（防止干涉日光可隐藏": {
+                    "type": "MESH"
+                },
+                "底层云": {
+                    "type": "MESH"
+                },
+                "底层云2": {
+                    "type": "MESH"
+                },
+                "星星": {
+                    "type": "MESH"
+                },
+                "银河": {
+                    "type": "MESH"
+                },
+                "高层云": {
+                    "type": "MESH"
+                }
+            }
+        }
+    }
+}
