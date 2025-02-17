@@ -10,7 +10,7 @@ import { sampler } from 'three/tsl';
  */
 class TestShadowRender extends FPass {
     // 定义调试渲染结果的输出纹理名称（可在 resourceName 中配置）
-    renderTarget = 'TestShadowRenderRT';
+    renderTargetName = 'TestShadowRenderRT';
 
     constructor() {
         super();
@@ -156,7 +156,7 @@ class TestShadowRender extends FPass {
     async OnRenderTargetResize(Width, Height) {
         this.width = Number(Width);
         this.height = Number(Height);
-        this.renderTarget = this._ResourceManager.CreateResource(this.renderTarget, {
+        this.renderTarget = this._ResourceManager.CreateResource(this.renderTargetName, {
             Type: 'Texture',
             desc: {
                 size: { width: Width, height: Height },
