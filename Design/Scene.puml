@@ -1,0 +1,65 @@
+@startuml
+title GPU Resource Management and UI Module Design
+
+'----------------------------------------
+' GPU 资源管理模块
+'----------------------------------------
+package "GPU Resource Management" {
+  
+  class GPUViewFamily {
+    - sceneBuffer : GPUBuffer
+    - meshStorageBuffer : GPUBuffer
+    - lightInfoBuffer : GPUBuffer
+    - meshSlotMap : Map
+    - currentMeshCount : int
+    - meshCapacity : int
+    + initBuffers() : void
+    + updateSceneBuffer(camera, DeltaTime) : void
+    + updateMeshInfo(meshID, modelMatrix, materialInfo) : void
+  }
+
+  interface IGPUMesh {
+    + uploadToGPU() : void
+    + destroy() : void
+    + getUIParams() : UIParam[]
+    + setUIParam(name, value) : void
+  }
+
+  class StaticMesh {
+    + createBuffers() : void
+    + updateBuffers() : void
+    + destroyBuffers() : void
+    + uploadToGPU() : void
+    + getUIParams() : UIParam[]
+    + setUIParam(name, value) : void
+  }
+  StaticMesh ..|> IGPUMesh
+}
+
+'----------------------------------------
+' UI 控制模块
+'----------------------------------------
+package "UI Module" {
+
+  class GPUObjectUIController {
+    - gpuObject : IGPUMesh
+    - container : HTMLElement
+    + initUI() : void
+  }
+
+  class GPUSceneUIController {
+    - gpuScene : GPUViewFamily
+    - rootElement : HTMLElement
+    + initUI() : void
+  }
+}
+
+'----------------------------------------
+' 模块间关系
+'----------------------------------------
+GPUObjectUIController --> IGPUMesh : "读取UI参数并\n调用 setter 更新数据"
+GPUSceneUIController --> GPUViewFamily : "控制 GPU 资源管理器"
+GPUViewFamily --> IGPUMesh : "管理多个 GPU 对象"
+StaticMesh --> GPUViewFamily : "隶属于 GPUViewFamily"
+
+@enduml 
