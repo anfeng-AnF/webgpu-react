@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import IGPUMesh from './IGPUMesh.js';
 import { createPBRMaterial } from '../../Material/Mat_Instance/PBR.js';
-import IObject3D from '../IObject3D.js';
+
 
 
 
@@ -11,7 +11,6 @@ import IObject3D from '../IObject3D.js';
  * 用于管理静态 Mesh 的 GPU 资源，包括顶点和索引缓冲区的上传、更新和销毁。
  * @extends {THREE.Mesh}
  * @implements {IGPUMesh}
- * @implements {IObject3D}
  */
 export default class StaticMesh extends THREE.Mesh {
     /**
@@ -336,142 +335,5 @@ export default class StaticMesh extends THREE.Mesh {
         return vertexData;
     }
 
-
-    // 实现 IObject3D 接口方法
-    /**
-     * 将对象的属性添加到 DetailBuilder
-     * @param {DetailBuilder} detailBuilder DetailBuilder实例
-     * @returns {this} 返回对象本身，支持链式调用
-     */
-    addToDetailBuilder(detailBuilder) {
-        const objectPath = `StaticMesh.${this.name || this.id}`;
-        
-        // 添加 Transform 属性组
-        detailBuilder.addProperties({
-            [`${objectPath}.Transform.Position`]: {
-                value: [
-                    this.position.x,
-                    this.position.y,
-                    this.position.z
-                ],
-                label: '位置',
-                type: 'vector3',
-                onChange: (path, value) => {
-                    this.position.set(value[0], value[1], value[2]);
-                    this.updateMatrix();
-                    this.updateMatrixWorld(true);
-                }
-            },
-            [`${objectPath}.Transform.Rotation`]: {
-                value: [
-                    this.rotation.x * (180/Math.PI),
-                    this.rotation.y * (180/Math.PI),
-                    this.rotation.z * (180/Math.PI)
-                ],
-                label: '旋转',
-                type: 'vector3',
-                onChange: (path, value) => {
-                    this.rotation.set(
-                        value[0] * (Math.PI/180),
-                        value[1] * (Math.PI/180),
-                        value[2] * (Math.PI/180)
-                    );
-                    this.updateMatrix();
-                    this.updateMatrixWorld(true);
-                }
-            },
-            [`${objectPath}.Transform.Scale`]: {
-                value: [
-                    this.scale.x,
-                    this.scale.y,
-                    this.scale.z
-                ],
-                label: '缩放',
-                type: 'vector3',
-                onChange: (path, value) => {
-                    this.scale.set(value[0], value[1], value[2]);
-                    this.updateMatrix();
-                    this.updateMatrixWorld(true);
-                }
-            },
-            [`${objectPath}.Visible`]: {
-                value: this.visible,
-                label: '可见性',
-                type: 'boolean',
-                onChange: (path, value) => {
-                    this.visible = value;
-                }
-            }
-        });
-
-        return this;
-    }
-
-    /**
-     * 从 DetailBuilder 中移除对象的属性
-     * @param {DetailBuilder} detailBuilder DetailBuilder实例
-     * @returns {this} 返回对象本身，支持链式调用
-     */
-    removeFromDetailBuilder(detailBuilder) {
-        const objectPath = `StaticMesh.${this.name || this.id}`;
-        
-        // 移除所有相关属性
-        detailBuilder.removeProperties([
-            `${objectPath}.Transform.Position`,
-            `${objectPath}.Transform.Rotation`,
-            `${objectPath}.Transform.Scale`,
-            `${objectPath}.Visible`
-        ]);
-
-        return this;
-    }
-
-    /**
-     * 更新 DetailBuilder 中的属性值
-     * @param {DetailBuilder} detailBuilder DetailBuilder实例
-     * @returns {this} 返回对象本身，支持链式调用
-     */
-    updateDetailBuilder(detailBuilder) {
-        const objectPath = `StaticMesh.${this.name || this.id}`;
-        
-        // 更新所有属性值
-        detailBuilder.addProperties({
-            [`${objectPath}.Transform.Position`]: {
-                value: [
-                    this.position.x,
-                    this.position.y,
-                    this.position.z
-                ],
-                label: '位置',
-                type: 'vector3'
-            },
-            [`${objectPath}.Transform.Rotation`]: {
-                value: [
-                    this.rotation.x * (180/Math.PI),
-                    this.rotation.y * (180/Math.PI),
-                    this.rotation.z * (180/Math.PI)
-                ],
-                label: '旋转',
-                type: 'vector3'
-            },
-            [`${objectPath}.Transform.Scale`]: {
-                value: [
-                    this.scale.x,
-                    this.scale.y,
-                    this.scale.z
-                ],
-                label: '缩放',
-                type: 'vector3'
-            },
-            [`${objectPath}.Visible`]: {
-                value: this.visible,
-                label: '可见性',
-                type: 'boolean'
-            }
-        });
-
-        return this;
-    }
-    // 实现 IObject3D 接口方法 end
 }
 
