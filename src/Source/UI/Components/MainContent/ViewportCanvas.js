@@ -16,6 +16,9 @@ const ViewportCanvas = ({
     onContextMenu,
     onKeyDown,
     onKeyUp,
+    onTouchStart,
+    onTouchEnd,
+    onTouchMove,
     canvasId = 'ViewportCanvas',
     tabIndex = 0,  // 使 Canvas 可以接收键盘事件
     ...props 
@@ -24,6 +27,10 @@ const ViewportCanvas = ({
     const containerRef = useRef(null);
     const resizeObserverRef = useRef(null);
     const uniqueId = useRef(canvasId + '_' + Math.random().toString(36).substr(2, 9));
+    const [fps, setFps] = React.useState(0);
+    const lastTimeRef = useRef(performance.now());
+    const frameCountRef = useRef(0);
+    const intervalRef = useRef(null);
 
     // 鼠标事件处理
     const handleMouseEvent = useCallback((event, handler) => {
@@ -90,6 +97,91 @@ const ViewportCanvas = ({
             preventDefault: () => event.preventDefault(),
             stopPropagation: () => event.stopPropagation()
         });
+    }, []);
+
+    // 添加触摸事件处理
+    const handleTouchMove = useCallback((event) => {
+        if (!onTouchMove) return;
+        
+        const rect = event.currentTarget.getBoundingClientRect();
+        const touch = event.touches[0]; // 获取第一个触摸点
+        
+        if (!touch) return;
+
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        // 计算设备像素比下的坐标
+        const dpr = window.devicePixelRatio || 1;
+        const deviceX = x * dpr;
+        const deviceY = y * dpr;
+
+        onTouchMove({
+            ...event,
+            canvasX: x,
+            canvasY: y,
+            deviceX,
+            deviceY,
+            touches: event.touches,
+            preventDefault: () => event.preventDefault(),
+            stopPropagation: () => event.stopPropagation()
+        });
+    }, [onTouchMove]);
+
+    // 添加触摸开始事件处理
+    const handleTouchStart = useCallback((event) => {
+        if (!onTouchStart) return;
+        
+        const rect = event.currentTarget.getBoundingClientRect();
+        const touch = event.touches[0];
+        
+        if (!touch) return;
+
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        const dpr = window.devicePixelRatio || 1;
+        
+        onTouchStart({
+            ...event,
+            canvasX: x,
+            canvasY: y,
+            deviceX: x * dpr,
+            deviceY: y * dpr,
+            touches: event.touches,
+            preventDefault: () => event.preventDefault(),
+            stopPropagation: () => event.stopPropagation()
+        });
+    }, [onTouchStart]);
+
+    // 添加触摸结束事件处理
+    const handleTouchEnd = useCallback((event) => {
+        if (!onTouchEnd) return;
+        onTouchEnd(event);
+    }, [onTouchEnd]);
+
+    // 计算FPS
+    useEffect(() => {
+        const updateFPS = () => {
+            const currentTime = performance.now();
+            const deltaTime = currentTime - lastTimeRef.current;
+            
+            if (deltaTime >= 1000) { // 每秒更新一次
+                setFps(Math.round((frameCountRef.current * 1000) / deltaTime));
+                frameCountRef.current = 0;
+                lastTimeRef.current = currentTime;
+            }
+            frameCountRef.current++;
+            requestAnimationFrame(updateFPS);
+        };
+
+        intervalRef.current = requestAnimationFrame(updateFPS);
+
+        return () => {
+            if (intervalRef.current) {
+                cancelAnimationFrame(intervalRef.current);
+            }
+        };
     }, []);
 
     useEffect(() => {
@@ -174,6 +266,18 @@ const ViewportCanvas = ({
                 onMouseMove={e => handleMouseEvent(e, onMouseMove)}
                 onMouseEnter={e => handleMouseEvent(e, onMouseEnter)}
                 onMouseLeave={e => handleMouseEvent(e, onMouseLeave)}
+                onTouchStart={e => {
+                    e.preventDefault();
+                    handleTouchStart(e);
+                }}
+                onTouchEnd={e => {
+                    e.preventDefault();
+                    handleTouchEnd(e);
+                }}
+                onTouchMove={e => {
+                    e.preventDefault();
+                    handleTouchMove(e);
+                }}
                 onWheel={handleWheel}
                 onContextMenu={e => {
                     e.preventDefault();
@@ -181,11 +285,15 @@ const ViewportCanvas = ({
                 }}
                 onKeyDown={e => handleKeyEvent(e, onKeyDown)}
                 onKeyUp={e => handleKeyEvent(e, onKeyUp)}
-                style={{ outline: 'none' }}  // 移除焦点边框
+                style={{ 
+                    outline: 'none',
+                    touchAction: 'none'  // 禁用默认触摸行为
+                }}
                 {...props}
             />
-            <div className="canvas-id-label">
-                {canvasId}
+            <div className="canvas-info-label">
+                <div>{canvasId}</div>
+                <div>{fps} FPS</div>
             </div>
         </div>
     );

@@ -77,8 +77,8 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let shadowSize = textureDimensions(shadowMap);
         let texelSize = 1.0 / vec2<f32>(shadowSize);
         
-        // PCF 软阴影实现
-        const numSample = 51u;
+        // PCF
+        const numSample = 7u;
         const halfSample = (numSample - 1u) / 2u;
         var shadowSum: f32 = 0.0;
         var validSamples: f32 = 0.0;
