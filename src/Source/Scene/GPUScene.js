@@ -558,6 +558,26 @@ export default class GPUScene extends THREE.Scene {
     }
 
     /**
+     * 更新所有meshslot
+     * 
+     */
+    async updateAllMeshSlot(){
+        // 清空所有mesh
+        this.meshes.length = 0;
+        this.currentMeshCount = 0;
+        this.meshSlotMap.clear();
+        // 重新遍历所有mesh，并分配slot
+        this.traverse((child) => {
+            if(child instanceof StaticMesh){
+                this.meshes.push(child);
+                this._allocateMeshSlot(child.meshID);
+            }
+        });
+        this.updateAllMeshInfo();
+    }
+
+
+    /**
      * 获取所有mesh
      * @returns {Array<StaticMesh>}
      */

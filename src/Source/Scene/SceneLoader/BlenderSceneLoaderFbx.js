@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
-
+import StaticMesh from '../../Object3D/Mesh/StaticMesh';
+import GPUScene from '../GPUScene.js';
 class BlenderSceneLoaderFbx {
     constructor() {
         this.fbxLoader = new FBXLoader();
@@ -18,7 +19,7 @@ class BlenderSceneLoaderFbx {
             // Load FBX and JSON in parallel
             const [fbxScene, sceneStructure] = await Promise.all([
                 this.loadFbx(fbxPath),
-                this.loadJson(jsonPath)
+                this.loadJson(jsonPath),
             ]);
 
             console.log(fbxScene);
@@ -36,6 +37,32 @@ class BlenderSceneLoaderFbx {
             console.error('Failed to load scene:', error);
             throw error;
         }
+    }
+
+    async loadGPUScene(fbxPath, jsonPath) {
+        // Load FBX and JSON in parallel
+        const [fbxScene, sceneStructure] = await Promise.all([
+            this.loadFbx(fbxPath),
+            this.loadJson(jsonPath),
+        ]);
+
+        console.log(fbxScene);
+        // Map all objects from FBX by name
+        this.mapObjects(fbxScene);
+
+        // Create new scene
+        const scene = new THREE.Scene();
+
+        // Build scene hierarchy according to JSON structure
+        this.buildGPUSceneHierarchy(sceneStructure, scene);
+
+        // 现在完成对scene的初始化，然后将其转为GPUScene
+        const gpuScene = new GPUScene();
+        gpuScene.children = scene.children;
+
+        
+
+        return gpuScene;
     }
 
     /**
@@ -107,6 +134,64 @@ class BlenderSceneLoaderFbx {
                 parentObject.add(object);
             }
         }
+    }
+
+    buildGPUSceneHierarchy(structureNode, parentObject) {
+        for (const [name, node] of Object.entries(structureNode)) {
+            if (name === 'type') continue;
+
+            let object;
+            if (node.type === 'COLLECTION') {
+                // Create a new group for collections
+                object = new THREE.Group();
+                object.name = name;
+                this.buildSceneHierarchy(node, object);
+            } else {
+                // Get the object from our map
+                object = this.objectMap.get(name);
+                if (!object) {
+                    console.warn(`Object "${name}" not found in FBX scene`);
+                    continue;
+                }
+
+                // Clone the object if it's already been used
+                if (object.parent) {
+                    object = object.clone();
+                    object.name = name;
+                }
+
+                // 尝试转为GPU对象
+                object = this.tryConvertToGPUObject(object) || object;
+            }
+
+            if (object) {
+                parentObject.add(object);
+            }
+        }
+    }
+
+    /**
+     * 尝试将对象转为GPU对象
+     * @param {THREE.Object3D} object 
+     * @returns {StaticMesh|null}
+     */
+    tryConvertToGPUObject(object) {
+        let returnObject = null;
+        if (object instanceof THREE.Mesh) {
+            returnObject = new StaticMesh(object);
+        }
+
+
+
+        // clone属性
+        if (returnObject) {
+            returnObject.uuid = object.uuid;
+            returnObject.name = object.name;
+            returnObject.position = object.position;
+            returnObject.rotation = object.rotation;
+            returnObject.scale = object.scale;
+        }
+        return returnObject;
     }
 }
 

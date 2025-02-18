@@ -398,6 +398,8 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         light.target.position.set(0, 0, 0);
         light.updateMatrixWorld(true);
         console.log(light);
+
+        //this.Scene.updateAllMeshSlot();
     }
 }
 

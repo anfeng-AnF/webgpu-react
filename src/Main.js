@@ -8,6 +8,8 @@ import FResourceManager from './Source/Core/Resource/FResourceManager.js';
 import GPUScene from './Source/Scene/GPUScene.js';
 import StaticMesh from './Source/Object3D/Mesh/StaticMesh.js';
 import BlenderSceneLoaderFbx from './Source/Scene/SceneLoader/BlenderSceneLoaderFbx.js';
+
+
 class Main {
     static ModuleManager = null;
 
@@ -150,6 +152,68 @@ class Main {
 
             console.log('Scene tree initialized');
 
+            // 测试 DetailBuilder 的属性操作
+            const detailBuilder = uiModel.DetailBuilder;
+            
+            // 添加一些初始属性
+            detailBuilder.addProperties({
+                'Transform.Position': {
+                    value: [0, 0, 0],
+                    label: '位置',
+                    type: 'vector3'
+                },
+                'Transform.Rotation': {
+                    value: [0, 0, 0],
+                    label: '旋转',
+                    type: 'vector3'
+                },
+                'Material.Color': {
+                    value: 'Red',
+                    label: '颜色',
+                    type: 'enum',
+                    options: [
+                        { value: 'Red', label: '红色' },
+                        { value: 'Green', label: '绿色' },
+                        { value: 'Blue', label: '蓝色' }
+                    ]
+                }
+            });
+
+            console.log('Initial properties added');
+
+            // 测试移除不存在的属性
+            console.log('Testing removal of non-existent property...');
+            detailBuilder.removeProperty('Transform.Scale'); // 这个属性不存在
+
+            // 测试添加已存在的属性
+            console.log('Testing adding existing property...');
+            detailBuilder.addProperty('Transform.Position', [20, 20, 20], {
+                label: '位置',
+                type: 'vector3'
+            });
+
+            // 原有的测试代码
+            setTimeout(() => {
+                console.log('Removing Position property...');
+                detailBuilder.removeProperty('Transform.Position');
+            }, 3000);
+
+            setTimeout(() => {
+                console.log('Re-adding Position property...');
+                detailBuilder.addProperty('Transform.Position', [10, 10, 10], {
+                    label: '位置',
+                    type: 'vector3'
+                });
+            }, 6000);
+
+            // 再次测试添加已存在的属性
+            setTimeout(() => {
+                console.log('Testing adding existing property again...');
+                detailBuilder.addProperty('Transform.Position', [30, 30, 30], {
+                    label: '位置',
+                    type: 'vector3'
+                });
+            }, 9000);
 
             const loader = new BlenderSceneLoaderFbx();
             const scene = await loader.load(
@@ -158,7 +222,6 @@ class Main {
             );
 
             console.log('Scene loaded:', scene);
-
 
         } catch (Error) {
             console.error('Initialization failed:', Error);
