@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import './TreeItem.css';
 
+// 添加图标类型枚举
+// 添加时，需要同时修改TreeItem.css中的图标类型
+const ICON_TYPES = {
+    FOLDER: 'filter',
+    EDITOR: 'editor',
+    STATIC_MESH: 'staticMesh',
+    SCENE: 'scene',
+};
+
 const TreeItem = ({ 
     label, 
     type,
@@ -102,6 +111,21 @@ const TreeItem = ({
         setIsDragging(false);
     };
 
+    // 修改检查逻辑
+    const getIconClass = (type) => {
+        if (!type) return 'default';
+        
+        // 将输入类型转换为小写以进行匹配
+        const normalizedType = type.toLowerCase();
+        
+        // 检查是否存在于ICON_TYPES中的值
+        const matchedType = Object.values(ICON_TYPES).find(value => 
+            value.toLowerCase() === normalizedType
+        );
+        
+        return matchedType || 'default';
+    };
+
     return (
         <div 
             className={`tree-item-header ${isSelected ? 'selected' : ''} 
@@ -132,7 +156,7 @@ const TreeItem = ({
                 >
                     ▶
                 </span>
-                <span className={`type-icon ${type?.toLowerCase()}`} />
+                <span className={`type-icon ${getIconClass(type)}`} />
                 <span className="item-label">{label}</span>
             </div>
 
