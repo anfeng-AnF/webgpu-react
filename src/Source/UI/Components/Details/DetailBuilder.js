@@ -53,6 +53,14 @@ class DetailBuilder {
 
     // 添加属性
     addProperty(path, value, options = {}) {
+        // 检查属性是否已存在
+        if (this.properties.has(path)) {
+            console.warn(`Property "${path}" already exists. Updating value and options.`);
+            // 更新现有属性
+            this.updateProperty(path, value);
+            return;
+        }
+
         const pathParts = path.split('.');
         const sectionPath = pathParts.slice(0, -1).join('.');
         const propertyName = pathParts[pathParts.length - 1];
@@ -299,6 +307,49 @@ class DetailBuilder {
         } else {
             console.warn('setOnChange expects a function as argument');
         }
+    }
+
+    /**
+     * 删除指定路径的属性
+     * @param {string} path - 要删除的属性路径
+     */
+    removeProperty(path) {
+        // 检查属性是否存在
+        if (!this.properties.has(path)) {
+            console.warn(`Attempted to remove non-existent property "${path}"`);
+            return;
+        }
+
+        // 删除属性
+        this.properties.delete(path);
+        
+        // 从section中移除
+        const pathParts = path.split('.');
+        const sectionPath = pathParts.slice(0, -1).join('.');
+        
+        if (this.sections.has(sectionPath)) {
+            const section = this.sections.get(sectionPath);
+            section.delete(path);
+            
+            // 如果section为空，也删除该section
+            if (section.size === 0) {
+                this.sections.delete(sectionPath);
+            }
+        }
+
+        // 删除相关的回调
+        this.callbacks.delete(path);
+
+        // 通知状态变化
+        this.notifyStateChange(path, undefined);
+    }
+
+    /**
+     * 删除多个属性
+     * @param {string[]} paths - 要删除的属性路径数组
+     */
+    removeProperties(paths) {
+        paths.forEach(path => this.removeProperty(path));
     }
 }
 
