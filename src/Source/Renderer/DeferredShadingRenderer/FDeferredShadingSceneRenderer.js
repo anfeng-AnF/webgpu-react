@@ -16,8 +16,6 @@ import { BufferGeometryUtils } from 'three/examples/jsm/Addons.js';
 import ShadowMapPass from './Pass/RenderPass/ShadowMapPass';
 import TestShadowRender from './Pass/RenderPass/TestShadowRender';
 class FDeferredShadingSceneRenderer extends FSceneRenderer {
-    Time = 0;
-    frameCount = 0;
     constructor() {
         super();
 
@@ -219,13 +217,6 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
      */
     async Render(DeltaTime) {
         super.Render(DeltaTime);
-        this.Time += DeltaTime;
-        this.frameCount += 1;
-        if(this.Time > 1){
-            console.log(`FPS: ${this.frameCount/(this.Time)}`);
-            this.frameCount = 0;
-            this.Time -= 1;
-        }
 
         if (!this._bInitialized) {
             return;

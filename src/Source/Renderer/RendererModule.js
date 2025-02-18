@@ -41,6 +41,11 @@ class RendererModule extends IModule {
 
         // 添加UI更新标志
         this._needUpdateUI = false;
+
+        // 添加触摸状态跟踪
+        this._isTouching = false;
+        this._lastTouchX = 0;
+        this._lastTouchY = 0;
     }
 
     async Initialize() {
@@ -67,6 +72,9 @@ class RendererModule extends IModule {
                 onWheel={(e) => this.handleWheel(e)}
                 onKeyDown={(e) => this.handleKeyDown(e)}
                 onKeyUp={(e) => this.handleKeyUp(e)}
+                onTouchStart={(e) => this.handleTouchStart(e)}
+                onTouchEnd={(e) => this.handleTouchEnd(e)}
+                onTouchMove={(e) => this.handleTouchMove(e)}
                 canvasId="RendererModuleViewportCanvas"
             />
         );
@@ -329,6 +337,39 @@ class RendererModule extends IModule {
 
     async Shutdown() {
         await this.sceneRenderer?.Destroy();
+    }
+
+    // 添加触摸事件处理方法
+    handleTouchStart(e) {
+        this._isTouching = true;
+        this._lastTouchX = e.canvasX;
+        this._lastTouchY = e.canvasY;
+        e.preventDefault();
+    }
+
+    handleTouchEnd(e) {
+        this._isTouching = false;
+        e.preventDefault();
+    }
+
+    handleTouchMove(e) {
+        if (!this._isTouching) return;
+
+        const deltaX = e.canvasX - this._lastTouchX;
+        const deltaY = e.canvasY - this._lastTouchY;
+
+        // 更新相机旋转，使用与鼠标相同的逻辑但可能需要调整灵敏度
+        this._cameraRotation.y -= deltaX * this._rotateSpeed * 0.5; // 降低触摸灵敏度
+        this._cameraRotation.x = Math.max(
+            -Math.PI / 2,
+            Math.min(Math.PI / 2, this._cameraRotation.x - deltaY * this._rotateSpeed * 0.5)
+        );
+
+        this._lastTouchX = e.canvasX;
+        this._lastTouchY = e.canvasY;
+
+        this.updateCamera();
+        e.preventDefault();
     }
 }
 
