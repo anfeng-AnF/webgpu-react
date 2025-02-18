@@ -8,6 +8,10 @@ import FResourceManager from './Source/Core/Resource/FResourceManager.js';
 import GPUScene from './Source/Scene/GPUScene.js';
 import StaticMesh from './Source/Object3D/Mesh/StaticMesh.js';
 import BlenderSceneLoaderFbx from './Source/Scene/SceneLoader/BlenderSceneLoaderFbx.js';
+import Scene from './Source/Scene/UI/Scene';
+import Filter from './Source/Scene/UI/Object/Filter';
+import SceneStaticMesh from './Source/Scene/UI/Object/SceneStaticMesh';
+
 class Main {
     static ModuleManager = null;
 
@@ -16,6 +20,50 @@ class Main {
             // 获取模块管理器实例
             Main.ModuleManager = FModuleManager.GetInstance();
             await Main.ModuleManager.Initialize();
+
+            // 创建测试场景
+            const testScene = new Scene();
+            testScene.Name = "TestScene";
+
+            // 创建 Actors 过滤器
+            const actorsFilter = new Filter("Actors");
+            testScene.AddChild(actorsFilter.Name, actorsFilter);
+
+            // 创建 Scenes 过滤器作为 Actors 的子节点
+            const scenesFilter = new Filter("Scenes");
+            actorsFilter.AddChild(scenesFilter.Name, scenesFilter);
+
+            // 创建 BaseScene 过滤器作为 Scenes 的子节点
+            const baseSceneFilter = new Filter("BaseScene");
+            scenesFilter.AddChild(baseSceneFilter.Name, baseSceneFilter);
+
+            // 添加一些静态网格到 BaseScene
+            const staticMeshes = [
+                "Grass01",
+                "ruins01",
+                "ruins03_竜遺者の旅跡_mesh_007",
+                "ruins04",
+                "terrainRef_竜遺者の旅跡_mesh_003",
+                "Water"
+            ];
+
+            staticMeshes.forEach(meshName => {
+                const mesh = new SceneStaticMesh(meshName);
+                baseSceneFilter.AddChild(mesh.Name, mesh);
+            });
+
+            // 创建其他顶级过滤器
+            const topLevelFilters = [
+                "Rocks",
+                "Terrain",
+                "Atmosphere",
+                "Lights"
+            ];
+
+            topLevelFilters.forEach(filterName => {
+                const filter = new Filter(filterName);
+                testScene.AddChild(filter.Name, filter);
+            });
 
             // 获取 UIModel 模块
             const uiModel = Main.ModuleManager.GetModule('UIModule');
@@ -26,130 +74,10 @@ class Main {
             // 测试 SceneTreeBuilder
             const sceneTreeBuilder = uiModel.SceneTreeBuilder;
 
-            // 添加结构变更回调
-            sceneTreeBuilder.setStructureChangeCallback((changeInfo) => {
-                console.log('Tree structure changed:', {
-                    type: changeInfo.type,
-                    node: changeInfo.node.name,
-                    fromPath: changeInfo.fromPath,
-                    toPath: changeInfo.toPath,
-                    position: changeInfo.position,
-                    oldParent: changeInfo.oldParent.name,
-                    newParent: changeInfo.newParent.name
-                });
-            });
+            // 将测试场景数据转换为UI树并设置
+            sceneTreeBuilder.setTreeData(testScene.toUITree());
 
-            // 添加列宽度变化回调
-            sceneTreeBuilder.setColumnWidthChangeCallback((width) => {
-                console.log('Column width changed:', width);
-            });
-
-            // 添加选中项变化回调
-            sceneTreeBuilder.setSelectionChangeCallback((selectedPaths) => {
-                console.log('Selection changed:', {
-                    count: selectedPaths.length,
-                    items: selectedPaths.map(path => {
-                        const node = sceneTreeBuilder.findNodeByPath(path);
-                        return {
-                            name: node.name,
-                            type: node.type,
-                            path: path
-                        };
-                    })
-                });
-            });
-
-            // 添加可见性变化回调
-            sceneTreeBuilder.setVisibilityChangeCallback((path, visible) => {
-                const node = sceneTreeBuilder.findNodeByPath(path);
-                console.log('Visibility changed:', {
-                    name: node.name,
-                    type: node.type,
-                    path: path,
-                    visible: visible
-                });
-            });
-
-            // 设置测试数据
-            sceneTreeBuilder.setTreeData({
-                name: 'DragonRuins',
-                type: '编辑器',
-                expanded: true,
-                children: [
-                    {
-                        name: 'Actors',
-                        type: '文件夹',
-                        expanded: true,
-                        children: [
-                            {
-                                name: 'Scenes',
-                                type: '文件夹',
-                                expanded: true,
-                                children: [
-                                    {
-                                        name: 'BaseScene',
-                                        type: '文件夹',
-                                        expanded: true,
-                                        children: [
-                                            {
-                                                name: 'Grass01',
-                                                type: 'StaticMeshActor'
-                                            },
-                                            {
-                                                name: 'ruins01',
-                                                type: 'StaticMeshActor'
-                                            },
-                                            {
-                                                name: 'ruins03_竜遺者の旅跡_mesh_007',
-                                                type: 'StaticMeshActor'
-                                            },
-                                            {
-                                                name: 'ruins04',
-                                                type: 'StaticMeshActor'
-                                            },
-                                            {
-                                                name: 'terrainRef_竜遺者の旅跡_mesh_003',
-                                                type: 'StaticMeshActor'
-                                            },
-                                            {
-                                                name: 'VirtualHeightfieldMesh',
-                                                type: 'VirtualHeightfieldMesh'
-                                            },
-                                            {
-                                                name: 'Water',
-                                                type: 'StaticMeshActor'
-                                            },
-                                            {
-                                                name: '运行时虚拟纹理体积',
-                                                type: 'RuntimeVirtualTextureVolume'
-                                            }
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        name: 'Rocks',
-                        type: '文件夹'
-                    },
-                    {
-                        name: 'Terrain',
-                        type: '文件夹'
-                    },
-                    {
-                        name: 'Atmosphere',
-                        type: '文件夹'
-                    },
-                    {
-                        name: 'Lights',
-                        type: '文件夹'
-                    }
-                ]
-            });
-
-            console.log('Scene tree initialized');
-
+            console.log('Test scene initialized');
 
             const loader = new BlenderSceneLoaderFbx();
             const scene = await loader.load(
@@ -158,7 +86,6 @@ class Main {
             );
 
             console.log('Scene loaded:', scene);
-
 
         } catch (Error) {
             console.error('Initialization failed:', Error);
