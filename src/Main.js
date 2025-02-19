@@ -11,6 +11,8 @@ import BlenderSceneLoaderFbx from './Source/Scene/SceneLoader/BlenderSceneLoader
 import Scene from './Source/Scene/UI/Scene';
 import Filter from './Source/Scene/UI/Object/Filter';
 import SceneStaticMesh from './Source/Scene/UI/Object/SceneStaticMesh';
+import DirectionalLight from './Source/Scene/UI/Object/DirectionalLight';
+import PointLight from './Source/Scene/UI/Object/PointLight';
 
 class Main {
     static ModuleManager = null;
@@ -65,19 +67,70 @@ class Main {
                 testScene.AddChild(filter.Name, filter);
             });
 
-            // 获取 UIModel 模块
+            // 获取Lights过滤器并添加光源
+            const lightsFilter = testScene.Children.get('Lights');
+
+            // 添加方向光
+            const mainDirectionalLight = new DirectionalLight('MainDirectionalLight');
+            mainDirectionalLight.SetLightData({
+                color: new THREE.Color(1, 0.95, 0.8),
+                intensity: 1.5,
+                castShadow: true,
+                rotation: new THREE.Euler(-Math.PI / 4, Math.PI / 4, 0)
+            }, 'main_directional_light');
+            lightsFilter.AddChild(mainDirectionalLight.Name, mainDirectionalLight);
+
+            // 添加环境补光
+            const fillDirectionalLight = new DirectionalLight('FillDirectionalLight');
+            fillDirectionalLight.SetLightData({
+                color: new THREE.Color(0.6, 0.7, 1),
+                intensity: 0.5,
+                castShadow: false,
+                rotation: new THREE.Euler(-Math.PI / 6, -Math.PI / 4, 0)
+            }, 'fill_directional_light');
+            lightsFilter.AddChild(fillDirectionalLight.Name, fillDirectionalLight);
+
+            // 添加一些点光源
+            const pointLights = [
+                {
+                    name: 'PointLight_1',
+                    data: {
+                        color: new THREE.Color(1, 0.8, 0.5),
+                        intensity: 2,
+                        distance: 10,
+                        decay: 2,
+                        castShadow: true
+                    }
+                },
+                {
+                    name: 'PointLight_2',
+                    data: {
+                        color: new THREE.Color(0.5, 0.8, 1),
+                        intensity: 1.5,
+                        distance: 15,
+                        decay: 2,
+                        castShadow: true
+                    }
+                }
+            ];
+
+            pointLights.forEach((lightInfo, index) => {
+                const pointLight = new PointLight(lightInfo.name);
+                pointLight.SetLightData(
+                    lightInfo.data,
+                    `point_light_${index}`
+                );
+                lightsFilter.AddChild(pointLight.Name, pointLight);
+            });
+
+            // 获取 UIModel 模块并更新场景树
             const uiModel = Main.ModuleManager.GetModule('UIModule');
             if (!uiModel) {
                 throw new Error('UIModel module not found');
             }
 
-            // 测试 SceneTreeBuilder
-            const sceneTreeBuilder = uiModel.SceneTreeBuilder;
-
-            // 将测试场景数据转换为UI树并设置
-            sceneTreeBuilder.setTreeData(testScene.toUITree());
-
-            console.log('Test scene initialized');
+            testScene.Update();
+            console.log('Test scene initialized with lights');
 
             const loader = new BlenderSceneLoaderFbx();
             const scene = await loader.load(

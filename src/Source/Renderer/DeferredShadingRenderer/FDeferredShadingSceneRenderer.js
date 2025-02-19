@@ -308,7 +308,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         planeMesh.updateMatrixWorld(true);
         planeMesh.ID = 'plane';
         const staticPlaneMesh = new StaticMesh(planeMesh, this._ResourceManager);
-        staticPlaneMesh.meshID = planeMesh.ID+'_static';
+        staticPlaneMesh.meshID = planeMesh.ID;
         staticPlaneMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         await this.Scene.addStaticMesh(staticPlaneMesh);
 

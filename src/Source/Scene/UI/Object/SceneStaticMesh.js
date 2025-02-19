@@ -1,7 +1,7 @@
-import IObjectBase from './ObjectBase';
+import Object3D from './Object3D';
 import * as THREE from 'three';
 
-class SceneStaticMesh extends IObjectBase {
+class SceneStaticMesh extends Object3D {
     constructor(name = '') {
         super();
         this.Name = name;
@@ -9,25 +9,26 @@ class SceneStaticMesh extends IObjectBase {
         this.bIsObject3D = true;   // 标记为 3D 对象
 
         // StaticMesh 特有的属性
-        this.Mesh = null;          // THREE.Mesh 实例
-        this.Material = null;      // 材质
         this.Position = new THREE.Vector3();
         this.Rotation = new THREE.Euler();
         this.Scale = new THREE.Vector3(1, 1, 1);
+
+        // 用于标识对应的GPU端网格数据
+        this.uuid = '';
     }
 
     /**
-     * 设置网格对象
-     * @param {THREE.Mesh} mesh 
+     * 设置网格对象的初始数据
+     * @param {Object} meshData 包含position, rotation, scale的对象
+     * @param {string} uuid GPU端对应的标识符
      */
-    SetMesh(mesh) {
-        this.Mesh = mesh;
-        if (mesh) {
-            this.Position.copy(mesh.position);
-            this.Rotation.copy(mesh.rotation);
-            this.Scale.copy(mesh.scale);
-            this.Material = mesh.material;
+    SetMeshData(meshData, uuid) {
+        if (meshData) {
+            this.Position.copy(meshData.position);
+            this.Rotation.copy(meshData.rotation);
+            this.Scale.copy(meshData.scale);
         }
+        this.uuid = uuid;
     }
 
     /**
@@ -65,6 +66,64 @@ class SceneStaticMesh extends IObjectBase {
             visible: this.Visible,
             // 可以添加更多 UI 需要显示的信息
         };
+    }
+
+    GetDetailProperties() {
+        const baseProperties = super.GetDetailProperties();
+        
+        return {
+            ...baseProperties,
+            'Transform.Position': {
+                value: [
+                    this.Position.x,
+                    this.Position.y,
+                    this.Position.z
+                ],
+                label: '位置',
+                onChange: (path, value) => {
+                    this.Position.set(value[0], value[1], value[2]);
+                    this.UpdateTransform();
+                }
+            },
+            'Transform.Rotation': {
+                value: [
+                    this.Rotation.x * THREE.MathUtils.RAD2DEG,
+                    this.Rotation.y * THREE.MathUtils.RAD2DEG,
+                    this.Rotation.z * THREE.MathUtils.RAD2DEG
+                ],
+                label: '旋转',
+                onChange: (path, value) => {
+                    this.Rotation.set(
+                        value[0] * THREE.MathUtils.DEG2RAD,
+                        value[1] * THREE.MathUtils.DEG2RAD,
+                        value[2] * THREE.MathUtils.DEG2RAD
+                    );
+                    this.UpdateTransform();
+                }
+            },
+            'Transform.Scale': {
+                value: [
+                    this.Scale.x,
+                    this.Scale.y,
+                    this.Scale.z
+                ],
+                label: '缩放',
+                onChange: (path, value) => {
+                    this.Scale.set(value[0], value[1], value[2]);
+                    this.UpdateTransform();
+                }
+            }
+        };
+    }
+
+    /**
+     * 获取变换矩阵
+     * @returns {THREE.Matrix4}
+     */
+    GetTransformMatrix() {
+        const matrix = new THREE.Matrix4();
+        matrix.compose(this.Position, this.Rotation, this.Scale);
+        return matrix;
     }
 }
 

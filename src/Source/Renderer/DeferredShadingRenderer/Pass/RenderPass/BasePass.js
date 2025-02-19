@@ -415,11 +415,11 @@ class BasePass extends FPass {
 
         const meshes = Scene.GetAllMesh();
         for (const mesh of meshes) {
-            const dynamicOffset = Scene.getMeshOffset(mesh.meshID);
+            const dynamicOffset = Scene.getMeshOffset(mesh.uuid);
             passEncoder.setBindGroup(0, Scene.sceneBindGroup, [dynamicOffset]);
             passEncoder.setBindGroup(1, mesh.GPUMaterial.GPUMaterial.bindGroup);
 
-            //Scene.debugCheckMeshInfo(mesh.meshID);
+            //Scene.debugCheckMeshInfo(mesh.uuid);
             passEncoder.setVertexBuffer(0, mesh.GPUVertexBuffer);
             passEncoder.setIndexBuffer(mesh.GPUIndexBuffer, 'uint16');
 

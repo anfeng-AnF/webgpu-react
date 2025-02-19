@@ -1,5 +1,6 @@
 import IObjectBase from './Object/ObjectBase';
-
+import FModuleManager from '../../Core/FModuleManager';
+import SceneTreeBuilder from '../../UI/Components/SceneTree/SceneTreeBuilder';
 class Scene extends IObjectBase {
     constructor() {
         super();  // 调用父类构造函数
@@ -10,6 +11,91 @@ class Scene extends IObjectBase {
         this.Children = new Map();
         this.Name = 'Scene';  // 添加场景名称
         this.Type = 'scene';  // 添加场景类型
+        /**
+         * 
+         * @type {SceneTreeBuilder}
+         */
+        this.SceneTreeBuilder = FModuleManager.GetInstance().GetModule('UIModule').SceneTreeBuilder;
+
+        this.Update();
+        // 初始化SceneTreeBuilder的回调
+        this.initializeSceneTreeCallbacks();
+    }
+
+    /**
+     * 初始化场景树的回调函数
+     */
+    initializeSceneTreeCallbacks() {
+        // 处理结构变化（如拖拽移动）
+        this.SceneTreeBuilder.setStructureChangeCallback((changeInfo) => {
+            console.log('结构变化', changeInfo);
+            let { fromPath, toPath, position, node } = changeInfo;
+            // 移除path中的第一个.前的内容
+            fromPath = fromPath.substring(fromPath.indexOf('.') + 1);
+            toPath = toPath.substring(toPath.indexOf('.') + 1);
+
+            // 从原位置移除对象
+            const sourceObject = this.getChildByPath(fromPath);
+            if (!sourceObject) return;
+
+            const sourceParentPath = fromPath.substring(0, fromPath.lastIndexOf('.'));
+            const sourceParent = sourceParentPath ? this.getChildByPath(sourceParentPath) : this;
+            sourceParent.Children.delete(node.name);
+
+            // 添加到新位置
+            let targetParent;
+            if (position === 'inside') {
+                targetParent = this.getChildByPath(toPath);
+            } else {
+                const targetParentPath = toPath.substring(0, toPath.lastIndexOf('.'));
+                targetParent = targetParentPath ? this.getChildByPath(targetParentPath) : this;
+            }
+
+            if (targetParent && targetParent.Children) {
+                targetParent.Children.set(node.name, sourceObject);
+            }
+
+            // 更新UI树
+            this.Update();
+        });
+
+        // 处理选择变化
+        this.SceneTreeBuilder.setSelectionChangeCallback((selectedPaths) => {
+            // 先处理所有已选中对象的取消选中
+            for (const [_, obj] of this.Children) {
+                if (obj.Selected) {
+                    obj.OnDeselected();
+                }
+            }
+
+            // 处理新选中的对象
+            if (selectedPaths.length > 0) {
+                const path = selectedPaths[0].substring(selectedPaths[0].indexOf('.') + 1);
+                const selectedObject = this.getChildByPath(path);
+                if (selectedObject) {
+                    selectedObject.OnSelected();
+                }
+            }
+        });
+
+        // 处理可见性变化
+        this.SceneTreeBuilder.setVisibilityChangeCallback((path, visible) => {
+            console.log('可见性变化', path, visible);
+            const object = this.getChildByPath(path);
+            if (object) {
+                object.Visible = visible;
+                // 如果对象有更新可见性的方法，调用它
+                if (typeof object.updateVisibility === 'function') {
+                    object.updateVisibility(visible);
+                }
+            }
+        });
+
+        // 处理列宽度变化
+        this.SceneTreeBuilder.setColumnWidthChangeCallback((width) => {
+            // 这里可以处理类型列宽度变化的逻辑
+            console.log('Type column width changed to:', width);
+        });
     }
 
     /**
@@ -74,6 +160,14 @@ class Scene extends IObjectBase {
         }
 
         return current;
+    }
+
+    /**
+     * 更新UI树
+     */
+    Update(){
+        this.SceneTreeBuilder.setTreeData(this.toUITree());
+        console.log('更新UI树', this.toUITree());
     }
 }
 

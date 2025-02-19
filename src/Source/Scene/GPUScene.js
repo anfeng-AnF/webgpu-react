@@ -146,13 +146,7 @@ export default class GPUScene {
      */
     async add(mesh) {
         if (mesh instanceof THREE.Mesh) {
-            // 使用 object.uuid 作为唯一标识
-            const meshID = mesh.uuid;
-          
-            // 创建 StaticMesh 包裹对象（确保内部 GPUMaterial 正确）
             const staticMesh = new StaticMesh(mesh, this.resourceManager);
-            // 将唯一标识保存到 staticMesh 对象中
-            staticMesh.meshID = meshID;
 
             return this.addStaticMesh(staticMesh);
         } else {
@@ -163,8 +157,8 @@ export default class GPUScene {
 
     async addStaticMesh(staticMesh){
         this.meshes.push(staticMesh);
-        this._allocateMeshSlot(staticMesh.meshID);
-        await this.updateMeshInfo(staticMesh.meshID);
+        this._allocateMeshSlot(staticMesh.uuid);
+        await this.updateMeshInfo(staticMesh.uuid);
         return staticMesh;
     }
 
@@ -176,10 +170,7 @@ export default class GPUScene {
      */
     remove(object) {
         if (object instanceof StaticMesh) {
-            // 获取 Mesh 的唯一标识（由 add 时设置）
-            const meshID = object.meshID || object.uuid;
-            // 自动移除存储槽（私有方法，内部会调整槽顺序并更新被交换 Mesh 的 storage 信息）
-            this._removeMeshSlot(meshID);
+            this._removeMeshSlot(object.uuid);
 
             const index = this.meshes.indexOf(object);
             if (index !== -1) {
@@ -426,12 +417,12 @@ export default class GPUScene {
 
     /**
      * 更新指定 Mesh 的 MeshInfo 数据到 storage buffer 中
-     * @param {string} meshID - Mesh 的唯一标识符
+     * @param {string} uuid - Mesh 的唯一标识符
      */
-    async updateMeshInfo(meshID) {
-        const slotIndex = this.meshSlotMap.get(meshID);
+    async updateMeshInfo(uuid) {
+        const slotIndex = this.meshSlotMap.get(uuid);
         if (slotIndex === undefined) {
-            console.error('MeshID not allocated in GPUScene:', meshID);
+            console.error('MeshID not allocated in GPUScene:', uuid);
             return;
         }
 
@@ -462,12 +453,12 @@ export default class GPUScene {
      * @private
      * 移除 Mesh 的存储槽并更新后续 Mesh 的 slot 排序，
      * 同时在交换后自动更新被交换 Mesh 在 storage 中的 MeshInfo 信息。
-     * @param {string} meshID - Mesh 的唯一标识符
+     * @param {string} uuid - Mesh 的唯一标识符
      */
-    _removeMeshSlot(meshID) {
-        const slotIndex = this.meshSlotMap.get(meshID);
+    _removeMeshSlot(uuid) {
+        const slotIndex = this.meshSlotMap.get(uuid);
         if (slotIndex === undefined) {
-            console.error('MeshID not found in GPUScene:', meshID);
+            console.error('MeshID not found in GPUScene:', uuid);
             return;
         }
 
@@ -495,7 +486,7 @@ export default class GPUScene {
 
         // 移除最后一个元素和被删除的映射
         this.meshes.pop();
-        this.meshSlotMap.delete(meshID);
+        this.meshSlotMap.delete(uuid);
         this.currentMeshCount--;
     }
 
@@ -539,13 +530,13 @@ export default class GPUScene {
 
     /**
      * 获取Mesh的Offset
-     * @param {string} meshID - Mesh 的唯一标识符
+     * @param {string} uuid - Mesh 的唯一标识符
      * @returns {number} 返回 Mesh 的 offset
      */
-    getMeshOffset(meshID) {
-        const slotIndex = this.meshSlotMap.get(meshID);
+    getMeshOffset(uuid) {
+        const slotIndex = this.meshSlotMap.get(uuid);
         if (slotIndex === undefined) {
-            console.error('MeshID not allocated in GPUScene:', meshID);
+            console.error('MeshID not allocated in GPUScene:', uuid);
             return -1;
         }
         return slotIndex * this.meshInfoByteSize;

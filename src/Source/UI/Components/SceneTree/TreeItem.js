@@ -8,6 +8,8 @@ const ICON_TYPES = {
     EDITOR: 'editor',
     STATIC_MESH: 'staticMesh',
     SCENE: 'scene',
+    POINT_LIGHT: 'pointLight',
+    DIRECTIONAL_LIGHT: 'directionalLight',
 };
 
 const TreeItem = ({ 
@@ -122,7 +124,6 @@ const TreeItem = ({
         const matchedType = Object.values(ICON_TYPES).find(value => 
             value.toLowerCase() === normalizedType
         );
-        
         return matchedType || 'default';
     };
 
