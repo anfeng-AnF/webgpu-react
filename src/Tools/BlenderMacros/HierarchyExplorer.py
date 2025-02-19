@@ -1,19 +1,15 @@
-# run this script in blender
-
 import json
 import bpy
 import os
 
 # 递归函数：导出集合层级结构、对象和灯光
 def export_collection_structure(collection):
-    collection_data = {}
+    collection_data = {"type": "COLLECTION"}
     
     # 遍历集合中的所有对象
     for obj in collection.objects:
-        if obj.type == 'MESH':  # 只导出网格对象
-            collection_data[obj.name] = {"type": "MESH"}
-        elif obj.type == 'LIGHT':  # 只导出灯光对象
-            collection_data[obj.name] = {"type": "LIGHT"}
+        collection_data[obj.name.replace('.','')] = {"type": obj.type}
+
     
     # 遍历子集合（子文件夹）
     for sub_collection in collection.children:

@@ -4,7 +4,196 @@
         "type": "CAMERA"
     },
     "打光": {
-        "type": "COLLECTION"
+        "type": "COLLECTION",
+        "点光": {
+            "type": "LIGHT"
+        },
+        "点光001": {
+            "type": "LIGHT"
+        },
+        "点光002": {
+            "type": "LIGHT"
+        },
+        "点光010": {
+            "type": "LIGHT"
+        },
+        "点光011": {
+            "type": "LIGHT"
+        },
+        "点光012": {
+            "type": "LIGHT"
+        },
+        "点光013": {
+            "type": "LIGHT"
+        },
+        "点光004": {
+            "type": "LIGHT"
+        },
+        "点光005": {
+            "type": "LIGHT"
+        },
+        "点光003": {
+            "type": "LIGHT"
+        },
+        "点光006": {
+            "type": "LIGHT"
+        },
+        "点光007": {
+            "type": "LIGHT"
+        },
+        "点光008": {
+            "type": "LIGHT"
+        },
+        "点光009": {
+            "type": "LIGHT"
+        },
+        "点光014": {
+            "type": "LIGHT"
+        },
+        "点光015": {
+            "type": "LIGHT"
+        },
+        "点光016": {
+            "type": "LIGHT"
+        },
+        "点光017": {
+            "type": "LIGHT"
+        },
+        "点光018": {
+            "type": "LIGHT"
+        },
+        "点光019": {
+            "type": "LIGHT"
+        },
+        "点光020": {
+            "type": "LIGHT"
+        },
+        "点光021": {
+            "type": "LIGHT"
+        },
+        "点光022": {
+            "type": "LIGHT"
+        },
+        "点光023": {
+            "type": "LIGHT"
+        },
+        "点光024": {
+            "type": "LIGHT"
+        },
+        "点光025": {
+            "type": "LIGHT"
+        },
+        "点光026": {
+            "type": "LIGHT"
+        },
+        "暖光1001": {
+            "type": "LIGHT"
+        },
+        "暖光1002": {
+            "type": "LIGHT"
+        },
+        "暖光1003": {
+            "type": "LIGHT"
+        },
+        "暖光1004": {
+            "type": "LIGHT"
+        },
+        "点光027": {
+            "type": "LIGHT"
+        },
+        "点光028": {
+            "type": "LIGHT"
+        },
+        "点光029": {
+            "type": "LIGHT"
+        },
+        "点光030": {
+            "type": "LIGHT"
+        },
+        "点光031": {
+            "type": "LIGHT"
+        },
+        "点光032": {
+            "type": "LIGHT"
+        },
+        "点光033": {
+            "type": "LIGHT"
+        },
+        "点光034": {
+            "type": "LIGHT"
+        },
+        "点光035": {
+            "type": "LIGHT"
+        },
+        "点光036": {
+            "type": "LIGHT"
+        },
+        "点光037": {
+            "type": "LIGHT"
+        },
+        "点光038": {
+            "type": "LIGHT"
+        },
+        "点光039": {
+            "type": "LIGHT"
+        },
+        "点光040": {
+            "type": "LIGHT"
+        },
+        "暖光1005": {
+            "type": "LIGHT"
+        },
+        "暖光1006": {
+            "type": "LIGHT"
+        },
+        "暖光1007": {
+            "type": "LIGHT"
+        },
+        "暖光1008": {
+            "type": "LIGHT"
+        },
+        "暖光1009": {
+            "type": "LIGHT"
+        },
+        "暖光1010": {
+            "type": "LIGHT"
+        },
+        "暖光1011": {
+            "type": "LIGHT"
+        },
+        "暖光1012": {
+            "type": "LIGHT"
+        },
+        "暖光1013": {
+            "type": "LIGHT"
+        },
+        "暖光1014": {
+            "type": "LIGHT"
+        },
+        "暖光1015": {
+            "type": "LIGHT"
+        },
+        "暖光1016": {
+            "type": "LIGHT"
+        },
+        "暖光1017": {
+            "type": "LIGHT"
+        },
+        "暖光1018": {
+            "type": "LIGHT"
+        },
+        "暖光1019": {
+            "type": "LIGHT"
+        },
+        "暖光1020": {
+            "type": "LIGHT"
+        },
+        "暖光1021": {
+            "type": "LIGHT"
+        },
+        "暖光1022": {
+            "type": "LIGHT"
+        }
     },
     "Collection 2": {
         "type": "COLLECTION",
@@ -77,7 +266,7 @@
         "看板": {
             "type": "MESH"
         },
-        "木桶": {
+        "木桶1": {
             "type": "MESH"
         },
         "杂七杂八？": {
@@ -202,7 +391,34 @@
         }
     },
     "灯光组1（环境）": {
-        "type": "COLLECTION"
+        "type": "COLLECTION",
+        "月光": {
+            "type": "LIGHT"
+        },
+        "暖光1": {
+            "type": "LIGHT"
+        },
+        "暖光2": {
+            "type": "LIGHT"
+        },
+        "冷光1": {
+            "type": "LIGHT"
+        },
+        "冷光2": {
+            "type": "LIGHT"
+        },
+        "冷光3": {
+            "type": "LIGHT"
+        },
+        "冷光4": {
+            "type": "LIGHT"
+        },
+        "冷光5": {
+            "type": "LIGHT"
+        },
+        "冷色补光": {
+            "type": "LIGHT"
+        }
     },
     "水面": {
         "type": "COLLECTION",
@@ -226,13 +442,19 @@
             "夜晚的辉光": {
                 "type": "MESH"
             },
+            "时间控制": {
+                "type": "LIGHT"
+            },
+            "天体控制": {
+                "type": "LIGHT"
+            },
             "太阳": {
                 "type": "MESH"
             },
             "白天的辉光": {
                 "type": "MESH"
             },
-            "Camera.001": {
+            "Camera001": {
                 "type": "CAMERA"
             },
             "天空球": {

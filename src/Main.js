@@ -22,7 +22,7 @@ class Main {
             // 获取模块管理器实例
             Main.ModuleManager = FModuleManager.GetInstance();
             await Main.ModuleManager.Initialize();
-
+/*
             // 创建测试场景
             const testScene = new Scene();
             testScene.Name = "TestScene";
@@ -131,12 +131,13 @@ class Main {
 
             testScene.Update();
             console.log('Test scene initialized with lights');
-
+*/
             const loader = new BlenderSceneLoaderFbx();
             const scene = await loader.load(
                 'Content/Module/Scene/liyue/海灯节广场.fbx', 
                 'Content/Module/Scene/liyue/scene_structure.json'
             );
+            scene.Update();
 
             console.log('Scene loaded:', scene);
 
