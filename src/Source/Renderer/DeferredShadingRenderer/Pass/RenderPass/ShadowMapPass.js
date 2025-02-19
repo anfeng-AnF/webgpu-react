@@ -104,7 +104,7 @@ class ShadowMapPass extends FPass {
                         // 这里假设场景中已经设置了 sceneBindGroupLayout
                         this._ResourceManager.GetResource(resourceName.Scene.sceneBindGroupLayout),
                         this._ResourceManager.GetResource('placeholder_BindGroupLayout'),
-                        renderer.Scene.sceneLightBindGroupLayout,
+                        renderer.GPUScene.sceneLightBindGroupLayout,
                     ],
                 },
             }

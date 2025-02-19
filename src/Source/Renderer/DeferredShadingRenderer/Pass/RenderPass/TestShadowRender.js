@@ -117,9 +117,9 @@ class TestShadowRender extends FPass {
                 Type: 'PipelineLayout',
                 desc: {
                     bindGroupLayouts: [
-                        renderer.Scene.sceneBindGroupLayout,
+                        renderer.GPUScene.sceneBindGroupLayout,
                         this.testBindGroupLayout,
-                        renderer.Scene.sceneLightBindGroupLayout,
+                        renderer.GPUScene.sceneLightBindGroupLayout,
                     ],
                 },
             }
@@ -247,9 +247,9 @@ class TestShadowRender extends FPass {
         //  0 - sceneBuffer（由 renderer.Scene.sceneBindGroup 提供）
         //  1 - 本 Pass 的 BindGroup（已经在 OnRenderTargetResize 中创建）
         //  2 - sceneLight（由 renderer.Scene.sceneLightBindGroup 提供）
-        computePass.setBindGroup(0, renderer.Scene.sceneBindGroup, [0]);
+        computePass.setBindGroup(0, renderer.GPUScene.sceneBindGroup, [0]);
         computePass.setBindGroup(1, this.testBindGroup);
-        computePass.setBindGroup(2, renderer.Scene.sceneLightBindGroup);
+        computePass.setBindGroup(2, renderer.GPUScene.sceneLightBindGroup);
 
         // 使用 OnRenderTargetResize 中保存的宽高来计算工作组数量
         const workgroupsX = Math.ceil(this.width / 8);
