@@ -236,6 +236,8 @@ export default class StaticMesh extends THREE.Mesh {
         this.position.copy(mesh.Position);
         this.rotation.copy(mesh.Rotation);
         this.scale.copy(mesh.Scale);
+        this.updateMatrix();
+        this.updateMatrixWorld(true);
     }
 
     /**
