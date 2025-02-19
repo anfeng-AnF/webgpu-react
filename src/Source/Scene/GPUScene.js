@@ -203,7 +203,7 @@ export default class GPUScene {
     async UpdateObject(scene){
         scene.transver((object)=>{
             if(object instanceof SceneStaticMesh){
-                const mesh = this.meshes[object.uuid];
+                const mesh = this.meshes[this.meshSlotMap.get(object.uuid)];
                 if(mesh){
                     mesh.update(object);
                 }
