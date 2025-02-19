@@ -1,0 +1,148 @@
+@startuml SceneObject
+
+' 使用现代风格主题
+!theme plain
+
+' 定义类之间的关系样式
+skinparam ClassAttributeIconSize 0
+skinparam ClassBackgroundColor White
+skinparam ClassBorderColor #666666
+
+' 基类
+abstract class IObjectBase {
+  + Name: string
+  + Type: string
+  + Parent: IObjectBase
+  + Children: Map<string, IObjectBase>
+  + Visible: boolean
+  + bIsObject3D: boolean
+  + DynamicVariables: Object
+  + AddChild(name: string, child: IObjectBase): void
+  + RemoveChild(name: string): void
+  + SetVisible(visible: boolean): void
+  + GetDetailProperties(): Object
+  + GetTransformMatrix(): Matrix4
+  + UpdateWorldMatrix(): void
+  + OnSelected(): void
+  + OnDeselected(): void
+}
+
+' Object3D中间层
+abstract class Object3D {
+  + bIsObject3D: boolean = true
+  + worldMatrix: Matrix4
+  + DynamicVariables: 
+    DynamicVariables.WorldPosition: THREE.Vector3,
+    DynamicVariables.WorldRotation: THREE.Euler,
+    DynamicVariables.WorldScale: THREE.Vector3,
+  + GetTransformMatrix(): Matrix4
+}
+
+' Scene类
+class Scene {
+  + Name: string = "Scene"
+  + Type: string = "scene"
+  + toUITree(): Object
+  - buildChildrenTree(children: Map): Array
+  + getChildByPath(path: string): IObjectBase
+  - HandleStructureChange(changeInfo: Object): void // 根据结构改变修改对应SceneObject的父子关系
+  - HandleColumnWidthChange(width: number): void
+  - HandleVisibilityChange(path: string, visible: boolean): void
+  - HandleSelectionChange(selectedPaths: Array): void
+  + GetAllObject3D(): Array
+}
+
+' Filter类
+class Filter {
+  + Name: string
+  + Type: string = "filter"
+  + GetUIInfo(): Object
+}
+
+' SceneStaticMesh类
+class SceneStaticMesh {
+  + Name: string
+  + Type: string = "staticMesh"
+  + Mesh: GPUStaticMeshID
+    
+  + SetMesh(mesh: THREE.Mesh): void
+  + UpdateTransform(): void
+  + SetVisible(visible: boolean): void
+  + GetUIInfo(): Object
+  + GetTransformMatrix(): Matrix4
+}
+
+' DirectionalLight类
+class DirectionalLight {
+  + Name: string
+  + Type: string = "directionalLight"
+  + Light: GPUDirectionalLightID
+  + DynamicVariables:
+    DynamicVariables.Color: THREE.Color,
+    DynamicVariables.Intensity: number,
+    DynamicVariables.CastShadow: boolean
+  + SetLight(light: THREE.DirectionalLight): void
+  + UpdateLight(): void
+  + GetUIInfo(): Object
+}
+
+' PointLight类
+class PointLight {
+  + Name: string
+  + Type: string = "pointLight"
+  + Light: GPUPointLightID
+  + DynamicVariables:
+    DynamicVariables.Color: THREE.Color,
+    DynamicVariables.Intensity: number,
+    DynamicVariables.Distance: number,
+    DynamicVariables.Decay: number,
+    DynamicVariables.CastShadow: boolean
+  + SetLight(light: THREE.PointLight): void
+  + UpdateLight(): void
+  + GetUIInfo(): Object
+}
+
+' 定义类之间的关系
+IObjectBase <|-- Scene
+IObjectBase <|-- Filter
+IObjectBase <|-- Object3D
+Object3D <|-- SceneStaticMesh
+Object3D <|-- DirectionalLight
+Object3D <|-- PointLight
+
+' 组合关系
+IObjectBase o-- "0..*" IObjectBase : children
+
+' 添加注释
+note right of IObjectBase
+  基础对象类，定义了场景对象的
+  通用属性和方法。
+  GetTransformMatrix()默认返回单位矩阵
+end note
+
+note right of Object3D
+  3D对象基类，重写GetTransformMatrix()
+  返回实际的变换矩阵
+end note
+
+note right of SceneStaticMesh
+  3D网格对象，所有变换属性
+  都存储在DynamicVariables中
+end note
+
+note right of Filter
+  过滤器对象，用于组织和
+  管理场景层级结构
+end note
+
+note right of DirectionalLight
+  方向光源，提供平行光照
+  可投射阴影
+end note
+
+note right of PointLight
+  点光源，从一个点向四周发射光线
+  支持距离衰减
+end note
+
+@enduml

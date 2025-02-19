@@ -7,7 +7,7 @@ import AmbientLight from '../Object3D/Light/AmbientLight.js';
 import DirectLight from '../Object3D/Light/DirectLight.js';
 
 /**
- * GPUScene
+ * GPUScene  管理Mesh，Light，Camera等GPU资源
  *
  * 管理场景相关的 GPU 资源：
  *   - SceneBuffer：用于摄像机视图、投影、摄像机位置等数据的 uniform buffer
@@ -31,13 +31,12 @@ import DirectLight from '../Object3D/Light/DirectLight.js';
  *   - 每个 MeshInfo 固定 256 字节（由 Shader 约定）
  *   - removeMeshSlot 仅删除槽记录，不回收空间，实际应用中可考虑场景重新构建缓冲区
  */
-export default class GPUScene extends THREE.Scene {
+export default class GPUScene {
 
     /**
      * 构造函数
      */
     constructor() {
-        super();
         /**
          * GPU资源管理器实例，用于管理创建和销毁GPU资源
          * @type {FResourceManager}
@@ -142,35 +141,31 @@ export default class GPUScene extends THREE.Scene {
      * 重写 THREE.Scene.add 方法
      * 如果添加对象是 THREE.Mesh 则用 StaticMesh 包裹后添加到内部 GPU Mesh 管理列表中，
      * 同时将包裹后的 StaticMesh 添加到 THREE.Scene 中。
-     * @param {THREE.Object3D} object - 待添加对象
-     * @returns {this,THREE.Object3D} 当前场景实例
+     * @param {THREE.Mesh} mesh - 待添加对象
+     * @returns {StaticMesh} 当前场景实例
      */
-    async add(object) {
-        if(object instanceof StaticMesh){
-            return this.#addStaticMesh(object);
-        }
-        else if (object instanceof THREE.Mesh) {
+    async add(mesh) {
+        if (mesh instanceof THREE.Mesh) {
             // 使用 object.uuid 作为唯一标识
-            const meshID = object.uuid;
+            const meshID = mesh.uuid;
           
             // 创建 StaticMesh 包裹对象（确保内部 GPUMaterial 正确）
-            const staticMesh = new StaticMesh(object, this.resourceManager);
+            const staticMesh = new StaticMesh(mesh, this.resourceManager);
             // 将唯一标识保存到 staticMesh 对象中
             staticMesh.meshID = meshID;
 
-            return this.#addStaticMesh(staticMesh);
+            return this.addStaticMesh(staticMesh);
         } else {
-            super.add(object);
-            return [this,object];
+            console.log('GPUScene: add object is not a THREE.Mesh');
+            return null;
         }
     }
 
-    async #addStaticMesh(staticMesh){
+    async addStaticMesh(staticMesh){
         this.meshes.push(staticMesh);
         this._allocateMeshSlot(staticMesh.meshID);
         await this.updateMeshInfo(staticMesh.meshID);
-        super.add(staticMesh);
-        return [this,staticMesh];
+        return staticMesh;
     }
 
     /**
@@ -190,9 +185,7 @@ export default class GPUScene extends THREE.Scene {
             if (index !== -1) {
                 this.meshes.splice(index, 1);
             }
-            return super.remove(object);
         } else {
-            return super.remove(object);
         }
     }
 
@@ -527,6 +520,7 @@ export default class GPUScene extends THREE.Scene {
             // 写入 modelMatrix (前 16 floats)
             allMeshInfo.set(modelMatrix.elements, infoOffset);
 
+            
             // 获取材质信息（假定 getMaterialInfo 返回的数组长度适合放到剩余位置）
             let gpuMaterial = await mesh.GPUMaterial;
             const materialInfo = gpuMaterial.getMaterialInfo();
