@@ -1,0 +1,56 @@
+.color-editor .editor-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.color-preview {
+    width: 16px;
+    height: 16px;
+    border: 1px solid rgb(45, 45, 45);
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.color-text-display {
+    flex: 1;
+    color: #ffffff;
+    font-size: 11px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.color-text-display:hover {
+    color: #0078d4;
+}
+
+.color-input-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    height: 20px;
+    background-color: rgb(30, 30, 30);
+    border: 1px solid rgb(45, 45, 45);
+}
+
+.color-hash {
+    color: #888;
+    font-size: 11px;
+    padding: 0 4px;
+    user-select: none;
+}
+
+.color-input-container input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #ffffff;
+    font-size: 11px;
+    padding: 0 4px;
+    outline: none;
+}
+
+.color-input-container:focus-within {
+    border-color: #0078d4;
+    background-color: #252525;
+} 

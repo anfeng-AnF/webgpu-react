@@ -4,6 +4,7 @@ import BooleanEditor from './BooleanEditor';
 import EnumEditor from './EnumEditor';
 import FloatEditor from './FloatEditor';
 import Section from './Section';
+import ColorEditor from './ColorEditor';
 
 class DetailBuilder {
     static instance = null;
@@ -85,7 +86,11 @@ class DetailBuilder {
         if (typeof value === 'boolean') return 'boolean';
         if (typeof value === 'number') return 'number';
         if (Array.isArray(value) && value.length === 3) return 'vector3';
-        if (typeof value === 'string') return 'enum';
+        if (typeof value === 'string') {
+            // 检查是否是颜色值（6位十六进制）
+            if (/^[0-9A-Fa-f]{6}$/.test(value)) return 'color';
+            return 'enum';
+        }
         return null;
     }
 
@@ -143,6 +148,8 @@ class DetailBuilder {
                         options={options.options || [{ value, label: value }]}
                     />
                 );
+            case 'color':
+                return <ColorEditor key={key} {...componentProps} />;
             default:
                 return null;
         }
