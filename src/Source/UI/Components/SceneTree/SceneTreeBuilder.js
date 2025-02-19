@@ -306,7 +306,7 @@ class SceneTreeBuilder {
         if (targetPath === draggedPath.substring(0, draggedPath.lastIndexOf('.'))) return;
 
         // 如果目标不是文件夹，强制设置为 before
-        if (this.dropPosition === 'inside' && targetNode.type !== '文件夹') {
+        if (this.dropPosition === 'inside' && targetNode.type !== 'filter') {
             this.dropPosition = 'before';
         }
 

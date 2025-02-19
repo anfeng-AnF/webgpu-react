@@ -17,6 +17,7 @@ abstract class IObjectBase {
   + Visible: boolean
   + bIsObject3D: boolean
   + DynamicVariables: Object
+  + uuid: string // 因为UI界面不需要记录实际数据如VertexBuffer，因此使用uuid标识GPU端的对应数据
   + AddChild(name: string, child: IObjectBase): void
   + RemoveChild(name: string): void
   + SetVisible(visible: boolean): void

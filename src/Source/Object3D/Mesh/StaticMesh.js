@@ -83,8 +83,8 @@ export default class StaticMesh extends THREE.Mesh {
         this.ResourceManager = resourceManager;
 
         // 使用 mesh 自身的 id 生成资源名称
-        this._vertexBufferName = `${this.id}_Buffer_VERTEX`;
-        this._indexBufferName = `${this.id}_Buffer_INDEX`;
+        this._vertexBufferName = `${this.uuid}_Buffer_VERTEX`;
+        this._indexBufferName = `${this.uuid}_Buffer_INDEX`;
     }
 
     /**

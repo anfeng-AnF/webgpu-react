@@ -96,6 +96,14 @@
     opacity: 1;
 }
 
+.type-icon.pointLight {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="none" stroke="%23888" d="M11 19h2v3h-2zm-9-8h3v2H2zm17 0h3v2h-3zm-3.106 6.801l1.407-1.407l2.122 2.122l-1.408 1.407zm-11.31.708l2.121-2.122l1.408 1.407l-2.122 2.122zM15 8.02V3H9v5.02c-1.21.92-2 2.35-2 3.98c0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.06-2-3.98M11 5h2v2.1c-.32-.06-.66-.1-1-.1s-.68.04-1 .1z"/></svg>')
+}
+
+.type-icon.directionalLight {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 14 14"><g fill="none" stroke="%23888" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.5"/><path d="M7 .5v2m-4.6-.1l1.42 1.42M.5 7h2m-.1 4.6l1.42-1.42M7 13.5v-2m4.6.1l-1.42-1.42M13.5 7h-2m.1-4.6l-1.42 1.42"/></g></svg>')
+}
+
 /* 默认图标样式 */
 .type-icon.default {
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 32 32"><path fill="currentColor" stroke="%23888" d="M30 3.414L28.586 2L2 28.586L3.414 30l2-2H26a2.003 2.003 0 0 0 2-2V5.414zM26 26H7.414l7.793-7.793l2.379 2.379a2 2 0 0 0 2.828 0L22 19l4 3.997zm0-5.832l-2.586-2.586a2 2 0 0 0-2.828 0L19 19.168l-2.377-2.377L26 7.414zM6 22v-3l5-4.997l1.373 1.374l1.416-1.416l-1.375-1.375a2 2 0 0 0-2.828 0L6 16.172V6h16V4H6a2 2 0 0 0-2 2v16z"/></svg>');

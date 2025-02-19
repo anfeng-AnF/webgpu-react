@@ -173,7 +173,7 @@ class ShadowMapPass extends FPass {
         // 遍历所有需要渲染阴影的网格，这里假设 GPUScene 提供 GetAllMesh() 和 getMeshOffset() 接口
         const meshes = Scene.GetAllMesh();
         for (const mesh of meshes) {
-            const dynamicOffset = Scene.getMeshOffset(mesh.meshID);
+            const dynamicOffset = Scene.getMeshOffset(mesh.uuid);
             // 绑定场景数据，例如光源摄像机矩阵（传入动态偏移数组）
             passEncoder.setBindGroup(0, Scene.sceneBindGroup, [dynamicOffset]);
             passEncoder.setVertexBuffer(0, mesh.GPUVertexBuffer);

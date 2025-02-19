@@ -168,13 +168,13 @@ class PrePass extends FPass {
 
         // 遍历所有 GPU 网格资源
         for (const gpuMesh of gpuMeshes) {
-            const meshID = gpuMesh.meshID;
+            const uuid = gpuMesh.uuid;
             // TODO: 根据网格类型分类存储，目前统统作为静态网格处理
-            currentStaticMeshes.set(meshID, gpuMesh);
+            currentStaticMeshes.set(uuid, gpuMesh);
 
             // 如果这个网格不在我们的 StaticMeshes 中，添加它
-            if (!this.StaticMeshes.has(meshID)) {
-                this.StaticMeshes.set(meshID, gpuMesh);
+            if (!this.StaticMeshes.has(uuid)) {
+                this.StaticMeshes.set(uuid, gpuMesh);
             }
         }
 
@@ -231,9 +231,9 @@ class PrePass extends FPass {
         // 对每个网格进行渲染
         for (const [id, gpuMesh] of this.StaticMeshes) {
             // 设置该网格对应的动态偏移（用于访问 MeshInfo storage buffer 中不同 mesh 信息）
-            const dynamicOffsets = [Scene.getMeshOffset(gpuMesh.meshID)];
+            const dynamicOffsets = [Scene.getMeshOffset(gpuMesh.uuid)];
 
-            //await Scene.debugCheckMeshInfo(gpuMesh.meshID);
+            //await Scene.debugCheckMeshInfo(gpuMesh.uuid);
             // 使用 GPUScene 合并后的 bindGroup（sceneBindGroup）绑定资源，同时传入动态偏移数组
             passEncoder.setBindGroup(0, Scene.sceneBindGroup, dynamicOffsets);
             passEncoder.setVertexBuffer(0, gpuMesh.GPUVertexBuffer);
