@@ -167,7 +167,22 @@ class Scene extends IObjectBase {
      */
     Update(){
         this.SceneTreeBuilder.setTreeData(this.toUITree());
-        console.log('更新UI树', this.toUITree());
+    }
+
+    /**
+     * 遍历所有子对象
+     * @param {Function} callback 回调函数
+     */
+    transver(callback){
+
+        function dfs(node){
+            callback(node);
+            for(const [_, child] of node.Children){
+                dfs(child);
+            }
+        }
+
+        dfs(this);
     }
 }
 

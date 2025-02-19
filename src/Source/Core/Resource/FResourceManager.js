@@ -78,30 +78,39 @@ class FResourceManager {
         try {
             switch (InDesc.Type) {
                 case EResourceType.Buffer:
+                    console.log('创建缓冲区',InDesc);
                     Resource = this.#Device.createBuffer(InDesc.desc);
                     break;
                 case EResourceType.ShaderModule:
+                    console.log('创建着色器模块',InDesc);
                     Resource = this.#Device.createShaderModule(InDesc.desc);
                     break;
                 case EResourceType.RenderPipeline:
+                    console.log('创建渲染管线',InDesc);
                     Resource = this.#Device.createRenderPipeline(InDesc.desc);
                     break;
                 case EResourceType.Texture:
+                    console.log('创建纹理',InDesc);
                     Resource = this.#Device.createTexture(InDesc.desc);
                     break;
                 case EResourceType.BindGroup:
+                    console.log('创建绑定组',InDesc);
                     Resource = this.#Device.createBindGroup(InDesc.desc);
                     break;
                 case EResourceType.BindGroupLayout:
+                    console.log('创建绑定组布局',InDesc);
                     Resource = this.#Device.createBindGroupLayout(InDesc.desc);
                     break;
                 case EResourceType.PipelineLayout:
+                    console.log('创建管道布局',InDesc);
                     Resource = this.#Device.createPipelineLayout(InDesc.desc);
                     break;
                 case EResourceType.ComputePipeline:
+                    console.log('创建计算管道',InDesc);
                     Resource = this.#Device.createComputePipeline(InDesc.desc);
                     break;
                 case EResourceType.Sampler:
+                    console.log('创建采样器',InDesc);
                     Resource = this.#Device.createSampler(InDesc.desc);
                     break;
                 default:

@@ -15,6 +15,8 @@ import { FBXLoader } from 'three/examples/jsm/Addons.js';
 import { BufferGeometryUtils } from 'three/examples/jsm/Addons.js';
 import ShadowMapPass from './Pass/RenderPass/ShadowMapPass';
 import TestShadowRender from './Pass/RenderPass/TestShadowRender';
+import Scene from '../../Scene/UI/Scene';
+import SceneStaticMesh from '../../Scene/UI/Object/SceneStaticMesh';
 class FDeferredShadingSceneRenderer extends FSceneRenderer {
     constructor() {
         super();
@@ -27,11 +29,18 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         this._ResourceManager = FResourceManager.GetInstance();
 
         /**
-         * 场景
+         * UI场景
+         * @type {Scene}
+         * @public
+         */
+        this.Scene = new Scene();
+        /**
+         * GPU场景
          * @type {GPUScene}
          * @public
          */
-        this.Scene = new GPUScene();
+        this.GPUScene = new GPUScene(this.Scene);
+
 
         /**
          * 设备
@@ -101,16 +110,16 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         this._MainCamera.updateMatrixWorld();
 
         // 设置场景的主相机
-        this.Scene.camera = this._MainCamera;
+        this.GPUScene.camera = this._MainCamera;
 
         // 初始化场景
-        await this.Scene.initBuffers();
+        await this.GPUScene.initBuffers();
 
         // 创建测试场景
         await this.CreateTestScene();
 
         // 先初始化场景
-        await this.Scene.Update(0);
+        await this.GPUScene.Update(0);
 
         // 然后初始化 PrePass
         await this._PrePass.InitResourceName();
@@ -222,21 +231,21 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             return;
         }
 
-        await this.Scene.Update(DeltaTime);
+        await this.GPUScene.Update(DeltaTime);
 
         const commandEncoder = this._Device.createCommandEncoder();
 
         // 执行PrePass
-        await this._PrePass.Render(DeltaTime, this.Scene, commandEncoder, this);
+        await this._PrePass.Render(DeltaTime, this.GPUScene, commandEncoder, this);
 
         // 执行BasePass
-        await this._BasePass.Render(DeltaTime, this.Scene, commandEncoder, this);
+        await this._BasePass.Render(DeltaTime, this.GPUScene, commandEncoder, this);
 
         // 执行ShadowMapPass
-        await this._ShadowMapPass.Render(DeltaTime, this.Scene, commandEncoder, this);
+        await this._ShadowMapPass.Render(DeltaTime, this.GPUScene, commandEncoder, this);
 
         // 执行TestShadowRender
-        await this._TestShadowRender.Render(DeltaTime, this.Scene, commandEncoder, this);
+        await this._TestShadowRender.Render(DeltaTime, this.GPUScene, commandEncoder, this);
 
         // 执行CopyPass
         if (this._CopyPass) {
@@ -310,8 +319,13 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const staticPlaneMesh = new StaticMesh(planeMesh, this._ResourceManager);
         staticPlaneMesh.meshID = planeMesh.ID;
         staticPlaneMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
-        await this.Scene.addStaticMesh(staticPlaneMesh);
-
+        await this.GPUScene.addStaticMesh(staticPlaneMesh);
+        const scenePlaneMesh = new SceneStaticMesh();
+        scenePlaneMesh.uuid = staticPlaneMesh.uuid;
+        scenePlaneMesh.Position.copy(planeMesh.position);
+        scenePlaneMesh.Rotation.copy(planeMesh.rotation);
+        scenePlaneMesh.Scale.copy(planeMesh.scale);
+        this.Scene.AddChild('plane', scenePlaneMesh);
 
         // 立方体：金属质感
         let boxGeometry = new THREE.BoxGeometry(1, 1, 1);
@@ -320,13 +334,18 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const boxMesh = new THREE.Mesh(boxGeometry);
         boxMesh.position.set(-1.5, 0, 0);
         boxMesh.ID = 'box';
-        const sBoxMesh = await this.Scene.add(boxMesh);
+        const sBoxMesh = await this.GPUScene.add(boxMesh);
         sBoxMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         sBoxMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.25, 0.25, 1, 1];
         sBoxMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;   
         sBoxMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;   
         sBoxMesh.GPUMaterial.dynamicAttributes.Roughness = 0.0;  
-
+        const sceneBoxMesh = new SceneStaticMesh();
+        sceneBoxMesh.uuid = sBoxMesh.uuid;
+        sceneBoxMesh.Position.copy(boxMesh.position);
+        sceneBoxMesh.Rotation.copy(boxMesh.rotation);
+        sceneBoxMesh.Scale.copy(boxMesh.scale);
+        this.Scene.AddChild('box', sceneBoxMesh);
         // 球体：光滑塑料质感
         let sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
         sphereGeometry = BufferGeometryUtils.mergeVertices(sphereGeometry);
@@ -334,13 +353,18 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const sphereMesh = new THREE.Mesh(sphereGeometry);
         sphereMesh.position.set(1.5, 0, 0);
         sphereMesh.ID = 'sphere';
-        const sSphereMesh = await this.Scene.add(sphereMesh);
+        const sSphereMesh = await this.GPUScene.add(sphereMesh);
         sSphereMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         sSphereMesh.GPUMaterial.dynamicAttributes.BaseColor = [0, 0, 1, 1];
         sSphereMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;   
         sSphereMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;   
         sSphereMesh.GPUMaterial.dynamicAttributes.Roughness = 0.0;  
-
+        const sceneSphereMesh = new SceneStaticMesh();
+        sceneSphereMesh.uuid = sSphereMesh.uuid;
+        sceneSphereMesh.Position.copy(sphereMesh.position);
+        sceneSphereMesh.Rotation.copy(sphereMesh.rotation);
+        sceneSphereMesh.Scale.copy(sphereMesh.scale);
+        this.Scene.AddChild('sphere', sceneSphereMesh);
         // 圆柱体：粗糙金属质感
         let cylinderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 32);
         cylinderGeometry = BufferGeometryUtils.mergeVertices(cylinderGeometry);
@@ -348,12 +372,18 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const cylinderMesh = new THREE.Mesh(cylinderGeometry);
         cylinderMesh.position.set(0, 0, -1.5);
         cylinderMesh.ID = 'cylinder';
-        const sCylinderMesh = await this.Scene.add(cylinderMesh);
+        const sCylinderMesh = await this.GPUScene.add(cylinderMesh);
         sCylinderMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         sCylinderMesh.GPUMaterial.dynamicAttributes.BaseColor = [1, 0.5, 0.25, 1];
         sCylinderMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;   
         sCylinderMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;   
         sCylinderMesh.GPUMaterial.dynamicAttributes.Roughness = 0.0;  
+        const sceneCylinderMesh = new SceneStaticMesh();
+        sceneCylinderMesh.uuid = sCylinderMesh.uuid;
+        sceneCylinderMesh.Position.copy(cylinderMesh.position);
+        sceneCylinderMesh.Rotation.copy(cylinderMesh.rotation);
+        sceneCylinderMesh.Scale.copy(cylinderMesh.scale);
+        this.Scene.AddChild('cylinder', sceneCylinderMesh);
 
         // 天空球材质
         const skyboxBaseColorTexture = await loadTexture(this._ResourceManager, 'Content/Texture/0000000352D27C38.png');
@@ -382,20 +412,29 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         SkySphereMesh.ID = 'SkySphere';
         SkySphereMesh.position.set(0, -5555, 0);
         SkySphereMesh.scale.set(1,1,1);
-        const sSkySphereMesh = await this.Scene.add(SkySphereMesh);
+        const sSkySphereMesh = await this.GPUScene.add(SkySphereMesh);
         sSkySphereMesh.GPUMaterial = new GPUMaterialInstance(skyboxMaterial);
         sSkySphereMesh.GPUMaterial.dynamicAttributes.BaseColor = [1, 0, 0, 1];
         sSkySphereMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;   // 完全镜面反射
         sSkySphereMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;   // 非金属
         sSkySphereMesh.GPUMaterial.dynamicAttributes.Roughness = 0.0;  // 完全光滑
 
-        this.Scene.upLoadMeshToGPU();
+        this.GPUScene.upLoadMeshToGPU();
 
+        const sceneSkySphereMesh = new SceneStaticMesh();
+        sceneSkySphereMesh.uuid = sSkySphereMesh.uuid;
+        sceneSkySphereMesh.Position.copy(SkySphereMesh.position);
+        sceneSkySphereMesh.Rotation.copy(SkySphereMesh.rotation);
+        sceneSkySphereMesh.Scale.copy(SkySphereMesh.scale);
+        this.Scene.AddChild('SkySphere', sceneSkySphereMesh);
         const light = new THREE.DirectionalLight(0xffffff, 1);
         light.position.set(0, 0, 0);
         light.target.position.set(0, 0, 0);
         light.updateMatrixWorld(true);
         console.log(light);
+        
+        this.Scene.Name = '测试场景';
+        this.Scene.Update();
     }
 }
 

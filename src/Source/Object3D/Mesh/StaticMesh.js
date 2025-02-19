@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import IGPUMesh from './IGPUMesh.js';
 import { createPBRMaterial } from '../../Material/Mat_Instance/PBR.js';
-
-
+import SceneStaticMesh from '../../Scene/UI/Object/SceneStaticMesh.js';
 
 
 /**
@@ -223,6 +222,20 @@ export default class StaticMesh extends THREE.Mesh {
     uploadToGPU() {
         this.createBuffers();
         // 如有需要，可扩展更多上传逻辑，例如材质等数据上传
+    }
+
+    /**
+     * 更新Mesh数据
+     * @param {SceneStaticMesh} Mesh
+     */
+    update(mesh){
+        if(!(mesh instanceof SceneStaticMesh)){
+            console.log('type mismatch: param:',mesh.name,'type:',typeof mesh,'expect:',typeof SceneStaticMesh);
+            return;
+        }
+        this.position.copy(mesh.Position);
+        this.rotation.copy(mesh.Rotation);
+        this.scale.copy(mesh.Scale);
     }
 
     /**

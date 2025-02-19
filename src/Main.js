@@ -131,15 +131,15 @@ class Main {
 
             testScene.Update();
             console.log('Test scene initialized with lights');
-*/
             const loader = new BlenderSceneLoaderFbx();
             const scene = await loader.load(
                 'Content/Module/Scene/liyue/海灯节广场.fbx', 
                 'Content/Module/Scene/liyue/scene_structure.json'
             );
             scene.Update();
-
+            
             console.log('Scene loaded:', scene);
+            */
 
         } catch (Error) {
             console.error('Initialization failed:', Error);

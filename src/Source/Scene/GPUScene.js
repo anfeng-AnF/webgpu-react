@@ -5,6 +5,9 @@ import { createPBRMaterial } from '../Material/Mat_Instance/PBR.js';
 import { resourceName } from '../Renderer/DeferredShadingRenderer/ResourceNames.js';
 import AmbientLight from '../Object3D/Light/AmbientLight.js';
 import DirectLight from '../Object3D/Light/DirectLight.js';
+import SceneStaticMesh from './UI/Object/SceneStaticMesh.js';
+import Scene from './UI/Scene.js';
+import DirectionalLight from './UI/Object/DirectionalLight.js';
 
 /**
  * GPUScene  管理Mesh，Light，Camera等GPU资源
@@ -35,8 +38,10 @@ export default class GPUScene {
 
     /**
      * 构造函数
+     * @param {Scene} scene
      */
-    constructor() {
+    constructor(scene) {
+        this.scene = scene;
         /**
          * GPU资源管理器实例，用于管理创建和销毁GPU资源
          * @type {FResourceManager}
@@ -185,10 +190,35 @@ export default class GPUScene {
      * @param {number} DeltaTime
      */
     async Update(DeltaTime) {
+        await this.UpdateObject(this.scene);
         await this.updateSceneBuffer(DeltaTime);
         await this.updateAllMeshInfo();
         await this.updateAllLightInfo();
     }
+
+    /**
+     * 从Scene中更新Object数据
+     * @param {Scene} scene
+     */
+    async UpdateObject(scene){
+        scene.transver((object)=>{
+            if(object instanceof SceneStaticMesh){
+                const mesh = this.meshes[object.uuid];
+                if(mesh){
+                    mesh.update(object);
+                }
+            }
+            else if(object instanceof AmbientLight){
+                this.ambientLight.update(object);
+            }
+            else if(object instanceof DirectionalLight&&object.uuid === this.directLight.uuid){
+                this.directLight.update(object);
+            }
+
+            
+        });
+    }
+
 
     /**
      * 将全部网格信息上传到GPU
