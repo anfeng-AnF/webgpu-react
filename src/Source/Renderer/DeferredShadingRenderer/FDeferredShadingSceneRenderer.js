@@ -307,13 +307,11 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         planeMesh.position.y = -1;
         planeMesh.updateMatrixWorld(true);
         planeMesh.ID = 'plane';
-        const [sScene1, sPlaneMesh] = await this.Scene.add(planeMesh);
-        sPlaneMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
-        sPlaneMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.25, 1, 0, 1];
-        // 地面：低金属度，中等粗糙度
-        sPlaneMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;  
-        sPlaneMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;  
-        sPlaneMesh.GPUMaterial.dynamicAttributes.Roughness = 0.0; 
+        const staticPlaneMesh = new StaticMesh(planeMesh, this._ResourceManager);
+        staticPlaneMesh.meshID = planeMesh.ID+'_static';
+        staticPlaneMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
+        await this.Scene.addStaticMesh(staticPlaneMesh);
+
 
         // 立方体：金属质感
         let boxGeometry = new THREE.BoxGeometry(1, 1, 1);
@@ -322,7 +320,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const boxMesh = new THREE.Mesh(boxGeometry);
         boxMesh.position.set(-1.5, 0, 0);
         boxMesh.ID = 'box';
-        const [sScene2, sBoxMesh] = await this.Scene.add(boxMesh);
+        const sBoxMesh = await this.Scene.add(boxMesh);
         sBoxMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         sBoxMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.25, 0.25, 1, 1];
         sBoxMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;   
@@ -336,7 +334,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const sphereMesh = new THREE.Mesh(sphereGeometry);
         sphereMesh.position.set(1.5, 0, 0);
         sphereMesh.ID = 'sphere';
-        const [sScene3, sSphereMesh] = await this.Scene.add(sphereMesh);
+        const sSphereMesh = await this.Scene.add(sphereMesh);
         sSphereMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         sSphereMesh.GPUMaterial.dynamicAttributes.BaseColor = [0, 0, 1, 1];
         sSphereMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;   
@@ -350,7 +348,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const cylinderMesh = new THREE.Mesh(cylinderGeometry);
         cylinderMesh.position.set(0, 0, -1.5);
         cylinderMesh.ID = 'cylinder';
-        const [sScene4, sCylinderMesh] = await this.Scene.add(cylinderMesh);
+        const sCylinderMesh = await this.Scene.add(cylinderMesh);
         sCylinderMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         sCylinderMesh.GPUMaterial.dynamicAttributes.BaseColor = [1, 0.5, 0.25, 1];
         sCylinderMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;   
@@ -384,7 +382,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         SkySphereMesh.ID = 'SkySphere';
         SkySphereMesh.position.set(0, -5555, 0);
         SkySphereMesh.scale.set(1,1,1);
-        const [sScene5, sSkySphereMesh] = await this.Scene.add(SkySphereMesh);
+        const sSkySphereMesh = await this.Scene.add(SkySphereMesh);
         sSkySphereMesh.GPUMaterial = new GPUMaterialInstance(skyboxMaterial);
         sSkySphereMesh.GPUMaterial.dynamicAttributes.BaseColor = [1, 0, 0, 1];
         sSkySphereMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;   // 完全镜面反射
