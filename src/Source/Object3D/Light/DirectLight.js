@@ -139,7 +139,7 @@ class DirectLight extends THREE.DirectionalLight {
         // 视图矩阵
         const viewMatrix = new THREE.Matrix4();
         viewMatrix.copy(shadowCamera.matrixWorldInverse);
-        
+
         // 获取投影矩阵
         const projectionMatrix = shadowCamera.projectionMatrix;
         /*
@@ -166,10 +166,11 @@ class DirectLight extends THREE.DirectionalLight {
 
         // 写入 lightDirection (vec4, 16 bytes)
         const lightDir = new THREE.Vector3();
-        this.getWorldDirection(lightDir);
+        // 从世界矩阵中提取方向向量
+        lightDir.setFromMatrixColumn(shadowCamera.matrixWorld, 2);
+        lightDir.negate();
         data.set([lightDir.x, lightDir.y, lightDir.z, 0.0], offset);
         offset += 4;
-
         // 写入 lightColor (vec4, 16 bytes)
         data.set([this.color.r, this.color.g, this.color.b, 1.0], offset);
         offset += 4;

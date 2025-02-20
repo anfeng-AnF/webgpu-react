@@ -84,7 +84,7 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if all(shadowUV >= vec2(0.0)) && all(shadowUV <= vec2(1.0)) {
         // 计算阴影偏移
         let lightDir = normalize(DirectionalLight.lightDirection.xyz);
-        let normalBias = (1.0 - max(dot(worldNormal, lightDir), 0.0)) * 0.001;
+        let normalBias = (1.0 - max(dot(worldNormal, lightDir), 0.0)) * 0.0001;
         let currentDepth = lightNDC.z - DirectionalLight.lightBias - normalBias;
         
         // 转换阴影贴图坐标
@@ -124,8 +124,8 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
             shadow = shadowSum / validSamples;
         }
         
-        textureStore(outputTex, coord, vec4<f32>(shadow, shadow, shadow, 1.0));
-        return;
+        //textureStore(outputTex, coord, vec4<f32>(shadow, shadow, shadow, 1.0));
+        //return;
     }
     
     // PBR光照计算
@@ -150,8 +150,12 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let G = min(1.0, min(2.0 * NdotH * NdotV / HdotV, 2.0 * NdotH * NdotL / HdotV));
     let specularTerm = (D * F * G) / (4.0 * NdotL * NdotV + 0.001);
     
-    // 组合结果
-    let finalColor = (diffuse + specularTerm) * DirectionalLight.lightIntensity * shadow;
+    // 添加环境光
+    let ambientStrength = 0.4;  // 环境光强度
+    let ambient = ambientStrength * baseColor;
+    
+    // 组合结果（加入环境光）
+    let finalColor = ambient + (diffuse + specularTerm) * DirectionalLight.lightIntensity * shadow;
     textureStore(outputTex, coord, vec4(finalColor, 1.0));
 }
 

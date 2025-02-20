@@ -8,7 +8,7 @@
  * @param {string} texturePath - 纹理图片的路径（URL 或相对路径）
  * @returns {Promise<GPUTexture>} 返回创建好的 GPU 纹理
  */
-export async function loadTexture(resourceManager, texturePath) {
+export async function loadTexture(resourceManager, texturePath, needFlipy = false) {
     // 从指定路径获取图片数据
     const response = await fetch(texturePath);
     if (!response.ok) {
@@ -40,7 +40,7 @@ export async function loadTexture(resourceManager, texturePath) {
 
     // 将图片数据复制到纹理
     device.queue.copyExternalImageToTexture(
-        { source: bitmap },
+        { source: bitmap, flipY: needFlipy },
         { texture: texture },
         [bitmap.width, bitmap.height, 1]
     );

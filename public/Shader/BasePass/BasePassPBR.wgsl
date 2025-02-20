@@ -148,7 +148,8 @@ fn PSMain(input: vsOutput) -> FragmentOutput {
     // 获取法线贴图值并转换到[-1,1]范围
     var normalTS = PBRParam.Normal;
     if ((PBRParam.flags & NORMAL_USE_TEXTURE) != 0u) {
-        let normalMap = textureSample(texture_normal, sampler_normal, uv).rgb;
+        var normalMap = textureSample(texture_normal, sampler_normal, uv).rgb;
+
         normalTS = normalMap * 2.0 - 1.0;
     }
     

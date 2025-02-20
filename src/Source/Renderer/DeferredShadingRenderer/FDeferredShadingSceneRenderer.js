@@ -277,7 +277,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
      */
     async CreateTestScene() {
         const BaseColorTexture = await loadTexture(this._ResourceManager, 'Content/Other/Mat/textures/seaworn_sandstone_brick_diff_4k.jpg');
-        const NormalTexture = await loadTexture(this._ResourceManager, 'Content/Other/Mat/textures/seaworn_sandstone_brick_nor_gl_4k.png');
+        const NormalTexture = await loadTexture(this._ResourceManager, 'Content/Other/Mat/textures/seaworn_sandstone_brick_nor_gl_4k.png', true);
         //const MetallicTexture = await loadTexture(this._ResourceManager, 'public/Texture/Metallic.png');
         const RoughnessTexture = await loadTexture(this._ResourceManager, 'Content/Other/Mat/textures/seaworn_sandstone_brick_rough_4k.png');
         //const SpecularTexture = await loadTexture(this._ResourceManager, 'public/Texture/Specular.png');
@@ -296,13 +296,13 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const PBRMaterial = await createPBRMaterial(
             this._ResourceManager,
             BaseColorTexture,
-            NormalTexture,
+            null,//NormalTexture,
             null,
             RoughnessTexture,
             null,
 
             BaseColorTextureSampler,
-            BaseColorTextureSampler,
+            null,//BaseColorTextureSampler,
             null,
             BaseColorTextureSampler,
             null
@@ -337,9 +337,9 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const sBoxMesh = await this.GPUScene.add(boxMesh);
         sBoxMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         sBoxMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.25, 0.25, 1, 1];
-        sBoxMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;   
-        sBoxMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;   
-        sBoxMesh.GPUMaterial.dynamicAttributes.Roughness = 0.0;  
+        sBoxMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;   
+        sBoxMesh.GPUMaterial.dynamicAttributes.Metallic = 0.2;   
+        sBoxMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8;  
         const sceneBoxMesh = new SceneStaticMesh();
         sceneBoxMesh.uuid = sBoxMesh.uuid;
         sceneBoxMesh.Position.copy(boxMesh.position);
@@ -356,9 +356,9 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const sSphereMesh = await this.GPUScene.add(sphereMesh);
         sSphereMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         sSphereMesh.GPUMaterial.dynamicAttributes.BaseColor = [0, 0, 1, 1];
-        sSphereMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;   
-        sSphereMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;   
-        sSphereMesh.GPUMaterial.dynamicAttributes.Roughness = 0.0;  
+        sSphereMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;   
+        sSphereMesh.GPUMaterial.dynamicAttributes.Metallic = 0.2;   
+        sSphereMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8;  
         const sceneSphereMesh = new SceneStaticMesh();
         sceneSphereMesh.uuid = sSphereMesh.uuid;
         sceneSphereMesh.Position.copy(sphereMesh.position);
@@ -375,9 +375,9 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const sCylinderMesh = await this.GPUScene.add(cylinderMesh);
         sCylinderMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         sCylinderMesh.GPUMaterial.dynamicAttributes.BaseColor = [1, 0.5, 0.25, 1];
-        sCylinderMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;   
-        sCylinderMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;   
-        sCylinderMesh.GPUMaterial.dynamicAttributes.Roughness = 0.0;  
+        sCylinderMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;  
+        sCylinderMesh.GPUMaterial.dynamicAttributes.Metallic = 0.2;  
+        sCylinderMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8; 
         const sceneCylinderMesh = new SceneStaticMesh();
         sceneCylinderMesh.uuid = sCylinderMesh.uuid;
         sceneCylinderMesh.Position.copy(cylinderMesh.position);
