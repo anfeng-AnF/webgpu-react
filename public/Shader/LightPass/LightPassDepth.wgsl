@@ -10,7 +10,10 @@ fn VSMain(
 ) -> @builtin(position) vec4<f32> {
     let worldPos = GetModelMatrix() * vec4<f32>(input.position, 1.0);
     let viewPos = DirectionalLight.viewMatrix * worldPos;
-    return DirectionalLight.projectionMatrix * viewPos;
+    let clipPos = DirectionalLight.projectionMatrix * viewPos;
+    let ndcPos = clipPos / clipPos.w;
+    let outPos = vec4<f32>(ndcPos.x, ndcPos.y, ndcPos.z*0.5+0.5, 1.0);
+    return outPos;
 }
 
 @fragment

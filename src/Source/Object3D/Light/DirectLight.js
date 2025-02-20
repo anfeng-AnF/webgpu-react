@@ -121,28 +121,33 @@ class DirectLight extends THREE.DirectionalLight {
 
         // 设置固定的测试位置和方向
         this.lookAt(0, 0, 0); // 看向原点
-        this.position.set(20, 66,66);
+        this.position.set(100,200,200);
         // 创建固定大小的正交相机用于测试
         const shadowCamera = new THREE.OrthographicCamera(
             -10, 10,    // 左右
             10, -10,    // 上下
-            0.1,      // near
-            100       // far
+            0,      // near
+            600       // far
         );
 
         // 设置阴影相机位置和方向
-        shadowCamera.position.copy(this.position);
+        shadowCamera.position.set(100,200,200);
         shadowCamera.lookAt(0, 0, 0);
         shadowCamera.updateMatrixWorld();
         shadowCamera.updateProjectionMatrix();
 
-        // 计算视图矩阵
+        // 视图矩阵
         const viewMatrix = new THREE.Matrix4();
-        viewMatrix.copy(shadowCamera.matrixWorld).invert();
-
+        viewMatrix.copy(shadowCamera.matrixWorldInverse);
+        
         // 获取投影矩阵
         const projectionMatrix = shadowCamera.projectionMatrix;
-
+        /*
+        const viewPos = new THREE.Vector4(0,0,0,1).applyMatrix4(viewMatrix);
+        const projectionPos = viewPos.applyMatrix4(projectionMatrix);
+        console.log(viewPos);
+        console.log(projectionPos.divideScalar(projectionPos.w).multiplyScalar(0.5).addScalar(0.5));
+*/
         // 打包数据到 Float32Array (48 floats = 192 bytes)
         const data = new Float32Array(48);
         let offset = 0;
