@@ -44,7 +44,7 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     //return;
 
     // 远距离物体直接返回BaseColor
-    if length(worldPos) > 1e2 {
+    if length(worldPos) > 1e4 {
         textureStore(outputTex, coord, textureLoad(gBufferC, coord, 0));
         return;
     }
@@ -64,13 +64,27 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var shadow: f32 = 1.0;
     let lightViewPos = DirectionalLight.viewMatrix * vec4(worldPos, 1.0);
     let lightClipPos = DirectionalLight.projectionMatrix * lightViewPos;
-    let lightNDC = lightClipPos / lightClipPos.w;
-    let shadowUV = vec2<f32>(lightNDC.x * 0.5 + 0.5,1-(lightNDC.y * 0.5 + 0.5));
-    
+    let lightNDC = lightClipPos / lightClipPos.w * 0.5 + 0.5;
+    let shadowUV = vec2<f32>(lightNDC.x,1-lightNDC.y);
+
+    if (lightNDC.z < 0.0 || lightNDC.z > 1.0) {
+        // 光源的Z值不在有效的裁剪空间内
+        textureStore(outputTex, coord, textureLoad(gBufferC, coord, 0));
+        return;
+    }
+
+    // 检查 shadowUV 是否在有效的范围内 (0,0) 到 (1,1)
+    if (shadowUV.x < 0.0 || shadowUV.x > 1.0 || shadowUV.y < 0.0 || shadowUV.y > 1.0) {
+        // 如果 UV 越界，直接返回基础颜色
+        textureStore(outputTex, coord, textureLoad(gBufferC, coord, 0));
+        return;
+    }
+
+
     if all(shadowUV >= vec2(0.0)) && all(shadowUV <= vec2(1.0)) {
         // 计算阴影偏移
         let lightDir = normalize(DirectionalLight.lightDirection.xyz);
-        let normalBias = (1.0 - max(dot(worldNormal, lightDir), 0.0)) * 0.008;
+        let normalBias = (1.0 - max(dot(worldNormal, lightDir), 0.0)) * 0.001;
         let currentDepth = lightNDC.z - DirectionalLight.lightBias - normalBias;
         
         // 转换阴影贴图坐标
