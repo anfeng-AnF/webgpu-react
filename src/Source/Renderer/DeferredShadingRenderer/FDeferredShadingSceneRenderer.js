@@ -29,20 +29,6 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         this._ResourceManager = FResourceManager.GetInstance();
 
         /**
-         * UI场景
-         * @type {Scene}
-         * @public
-         */
-        this.Scene = new Scene();
-        /**
-         * GPU场景
-         * @type {GPUScene}
-         * @public
-         */
-        this.GPUScene = new GPUScene(this.Scene);
-
-
-        /**
          * 设备
          * @type {GPUDevice}
          * @protected
@@ -95,6 +81,19 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
          * @protected
          */
         this._TestShadowRender = new TestShadowRender();
+
+        /**
+         * UI场景
+         * @type {Scene}
+         * @public
+         */
+        this.Scene = new Scene();
+        /**
+         * GPU场景
+         * @type {GPUScene}
+         * @public
+         */
+        this.GPUScene = new GPUScene(this.Scene, this);
     }
 
     /**
@@ -127,7 +126,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         await this._BasePass.InitResourceName();
         await this._BasePass.Initialize(this);
         await this._ShadowMapPass.InitResourceName();
-        await this._ShadowMapPass.Initialize(this); 
+        await this._ShadowMapPass.Initialize(this);
         await this._TestShadowRender.InitResourceName();
         await this._TestShadowRender.Initialize(this);
 
@@ -135,7 +134,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const DetailBuilder = UIModule.WorldSettingsBuilder;
         DetailBuilder.addProperties({
             '渲染.缓冲显示': {
-                value: resourceName.PrePass.depthTexture,  // 设置初始值为深度纹理
+                value: resourceName.PrePass.depthTexture, // 设置初始值为深度纹理
                 label: '缓冲显示',
                 type: 'enum',
                 options: [
@@ -144,15 +143,18 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                     { value: resourceName.BasePass.gBufferB, label: 'Specular,Roughness,Metallic' },
                     { value: resourceName.BasePass.gBufferC, label: 'BaseColor' },
                     { value: resourceName.BasePass.gBufferD, label: 'Additional' },
-                    { value:'DirectLightShadowMap', label: 'test' },
-                    { value:'TestShadowRenderRT', label: 'testshadow' },
+                    { value: 'DirectLightShadowMap', label: 'test' },
+                    { value: 'TestShadowRenderRT', label: 'testshadow' },
                 ],
                 onChange: async (path, value) => {
                     if (this._CopyPass) {
                         this._CopyPass.Destroy();
                         this._CopyPass = new FCopyToCanvasPass(value, this.canvas);
                         await this._CopyPass.Initialize();
-                        await this._CopyPass.OnRenderTargetResize(this.canvas.width, this.canvas.height);
+                        await this._CopyPass.OnRenderTargetResize(
+                            this.canvas.width,
+                            this.canvas.height
+                        );
                     }
                 },
             },
@@ -175,7 +177,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
 
         //确保资源管理器已经初始化
         while (!this._bInitialized) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
         }
 
         // 更新 PrePass 的渲染目标大小
@@ -183,12 +185,10 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             await this._PrePass.OnRenderTargetResize(Width, Height);
         }
 
-        
         if (this._BasePass) {
             await this._BasePass.OnRenderTargetResize(Width, Height);
         }
-        
-        
+
         if (this._TestShadowRender) {
             await this._TestShadowRender.OnRenderTargetResize(Width, Height);
         }
@@ -210,7 +210,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
     async OnCanvasReady(Canvas) {
         //确保资源管理器已经初始化
         while (!this._bInitialized) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
         }
 
         // 初始化复制Pass，使用PrePass的深度纹理作为初始源
@@ -276,33 +276,44 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
      * 添加一些基本几何体用于测试
      */
     async CreateTestScene() {
-        const BaseColorTexture = await loadTexture(this._ResourceManager, 'Content/Other/Mat/textures/seaworn_sandstone_brick_diff_4k.jpg');
-        const NormalTexture = await loadTexture(this._ResourceManager, 'Content/Other/Mat/textures/seaworn_sandstone_brick_nor_gl_4k.png', true);
+        const BaseColorTexture = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/textures/seaworn_sandstone_brick_diff_4k.jpg'
+        );
+        const NormalTexture = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/textures/seaworn_sandstone_brick_nor_gl_4k.png',
+            true
+        );
         //const MetallicTexture = await loadTexture(this._ResourceManager, 'public/Texture/Metallic.png');
-        const RoughnessTexture = await loadTexture(this._ResourceManager, 'Content/Other/Mat/textures/seaworn_sandstone_brick_rough_4k.png');
+        const RoughnessTexture = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/textures/seaworn_sandstone_brick_rough_4k.png'
+        );
         //const SpecularTexture = await loadTexture(this._ResourceManager, 'public/Texture/Specular.png');
 
-        const BaseColorTextureSampler = this._ResourceManager.CreateResource('BaseColorTextureSampler', {
-            Type: 'Sampler',
-            desc: {
-                addressModeU: 'repeat',
-                addressModeV: 'repeat',
-                addressModeW: 'repeat',
+        const BaseColorTextureSampler = this._ResourceManager.CreateResource(
+            'BaseColorTextureSampler',
+            {
+                Type: 'Sampler',
+                desc: {
+                    addressModeU: 'repeat',
+                    addressModeV: 'repeat',
+                    addressModeW: 'repeat',
+                },
             }
-        });
-
-
+        );
 
         const PBRMaterial = await createPBRMaterial(
             this._ResourceManager,
             BaseColorTexture,
-            null,//NormalTexture,
+            null, //NormalTexture,
             null,
             RoughnessTexture,
             null,
 
             BaseColorTextureSampler,
-            null,//BaseColorTextureSampler,
+            null, //BaseColorTextureSampler,
             null,
             BaseColorTextureSampler,
             null
@@ -337,9 +348,9 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const sBoxMesh = await this.GPUScene.add(boxMesh);
         sBoxMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         sBoxMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.25, 0.25, 1, 1];
-        sBoxMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;   
-        sBoxMesh.GPUMaterial.dynamicAttributes.Metallic = 0.2;   
-        sBoxMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8;  
+        sBoxMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;
+        sBoxMesh.GPUMaterial.dynamicAttributes.Metallic = 0.2;
+        sBoxMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8;
         const sceneBoxMesh = new SceneStaticMesh();
         sceneBoxMesh.uuid = sBoxMesh.uuid;
         sceneBoxMesh.Position.copy(boxMesh.position);
@@ -356,9 +367,9 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const sSphereMesh = await this.GPUScene.add(sphereMesh);
         sSphereMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         sSphereMesh.GPUMaterial.dynamicAttributes.BaseColor = [0, 0, 1, 1];
-        sSphereMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;   
-        sSphereMesh.GPUMaterial.dynamicAttributes.Metallic = 0.2;   
-        sSphereMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8;  
+        sSphereMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;
+        sSphereMesh.GPUMaterial.dynamicAttributes.Metallic = 0.2;
+        sSphereMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8;
         const sceneSphereMesh = new SceneStaticMesh();
         sceneSphereMesh.uuid = sSphereMesh.uuid;
         sceneSphereMesh.Position.copy(sphereMesh.position);
@@ -375,9 +386,9 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const sCylinderMesh = await this.GPUScene.add(cylinderMesh);
         sCylinderMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
         sCylinderMesh.GPUMaterial.dynamicAttributes.BaseColor = [1, 0.5, 0.25, 1];
-        sCylinderMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;  
-        sCylinderMesh.GPUMaterial.dynamicAttributes.Metallic = 0.2;  
-        sCylinderMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8; 
+        sCylinderMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;
+        sCylinderMesh.GPUMaterial.dynamicAttributes.Metallic = 0.2;
+        sCylinderMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8;
         const sceneCylinderMesh = new SceneStaticMesh();
         sceneCylinderMesh.uuid = sCylinderMesh.uuid;
         sceneCylinderMesh.Position.copy(cylinderMesh.position);
@@ -386,22 +397,41 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         this.Scene.AddChild('cylinder', sceneCylinderMesh);
 
         // 天空球材质
-        const skyboxBaseColorTexture = await loadTexture(this._ResourceManager, 'Content/Texture/0000000352D27C38.png');
-        const skyboxBaseColorTextureSampler = this._ResourceManager.CreateResource('skyboxBaseColorTextureSampler', {
-            Type: 'Sampler',
-            desc: {
-                addressModeU: 'repeat',
-                addressModeV: 'repeat',
-                addressModeW: 'repeat',
+        const skyboxBaseColorTexture = await loadTexture(
+            this._ResourceManager,
+            'Content/Texture/0000000352D27C38.png'
+        );
+        const skyboxBaseColorTextureSampler = this._ResourceManager.CreateResource(
+            'skyboxBaseColorTextureSampler',
+            {
+                Type: 'Sampler',
+                desc: {
+                    addressModeU: 'repeat',
+                    addressModeV: 'repeat',
+                    addressModeW: 'repeat',
+                },
             }
-        });
-        const skyboxMaterial =await createPBRMaterial(this._ResourceManager, skyboxBaseColorTexture, null, null, null, null, skyboxBaseColorTextureSampler, null, null, null, null);
+        );
+        const skyboxMaterial = await createPBRMaterial(
+            this._ResourceManager,
+            skyboxBaseColorTexture,
+            null,
+            null,
+            null,
+            null,
+            skyboxBaseColorTextureSampler,
+            null,
+            null,
+            null,
+            null
+        );
         console.log(PBRMaterial);
         console.log(skyboxMaterial);
         // 天空球
         const FBXloader = new FBXLoader();
         const model = await FBXloader.loadAsync('Content/Module/Test/skyBox.fbx');
-        model.children[0].geometry.attributes.uv = model.children[0].geometry.attributes.uv5.clone();
+        model.children[0].geometry.attributes.uv =
+            model.children[0].geometry.attributes.uv5.clone();
         const SkySphereMesh = model.children[0];
         SkySphereMesh.geometry = BufferGeometryUtils.mergeVertices(SkySphereMesh.geometry);
 
@@ -411,13 +441,13 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         console.log(SkySphereMesh);
         SkySphereMesh.ID = 'SkySphere';
         SkySphereMesh.position.set(0, -5555, 0);
-        SkySphereMesh.scale.set(1,1,1);
+        SkySphereMesh.scale.set(1, 1, 1);
         const sSkySphereMesh = await this.GPUScene.add(SkySphereMesh);
         sSkySphereMesh.GPUMaterial = new GPUMaterialInstance(skyboxMaterial);
         sSkySphereMesh.GPUMaterial.dynamicAttributes.BaseColor = [1, 0, 0, 1];
-        sSkySphereMesh.GPUMaterial.dynamicAttributes.Specular = 0.0;   // 完全镜面反射
-        sSkySphereMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;   // 非金属
-        sSkySphereMesh.GPUMaterial.dynamicAttributes.Roughness = 0.0;  // 完全光滑
+        sSkySphereMesh.GPUMaterial.dynamicAttributes.Specular = 0.0; // 完全镜面反射
+        sSkySphereMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0; // 非金属
+        sSkySphereMesh.GPUMaterial.dynamicAttributes.Roughness = 0.0; // 完全光滑
 
         this.GPUScene.upLoadMeshToGPU();
 
@@ -432,7 +462,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         light.target.position.set(0, 0, 0);
         light.updateMatrixWorld(true);
         console.log(light);
-        
+
         this.Scene.Name = '测试场景';
         this.Scene.Update();
     }

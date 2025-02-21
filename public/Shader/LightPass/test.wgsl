@@ -19,7 +19,7 @@ var gBufferD: texture_2d<f32>; // RGBA8UNORM - Additional
 var sceneDepth: texture_depth_2d; // 场景的深度纹理
 
 @group(1) @binding(5)
-var shadowMap: texture_depth_2d; // 阴影贴图
+var shadowMap: texture_depth_2d_array; // 阴影贴图
 
 @group(1) @binding(6)
 var outputTex: texture_storage_2d<rgba8unorm, write>; // 最终输出的存储纹理
@@ -114,7 +114,7 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
                     // 采样阴影贴图
                     let sampleUV = shadowUV + offset;
                     let sampleCoord = vec2<i32>(sampleUV * vec2<f32>(shadowSize));
-                    let shadowDepth = textureLoad(shadowMap, sampleCoord, 0);
+                    let shadowDepth = textureLoad(shadowMap, sampleCoord, 0, 0);
                     shadowSum += f32(currentDepth <= shadowDepth);
                     validSamples += 1.0;
                 }

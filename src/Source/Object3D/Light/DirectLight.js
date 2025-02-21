@@ -41,11 +41,32 @@ class DirectLight extends THREE.DirectionalLight {
      * Creates an instance of DirectLight.
      * @param {THREE.Color | number | string} color - The light color.
      * @param {number} intensity - The light intensity.
+     * @param {THREE.Camera} mainCamera - The main camera. required for cascade shadow mapping.
+     * @param {number} numCascades - The number of cascades.
+     * @param {number} splitThreshold - The threshold for splitting the cascades split that lerp linear and Logarithmic.default use logarithmic.
      */
-    constructor(color, intensity) {
+    constructor(color, intensity, mainCamera, numCascades = 8, splitThreshold = 0) {
         super(color, intensity);
         // Bias may be used in shadow mapping calculations.
         this.bias = 0.0;
+        this.mainCamera = mainCamera;
+        this.numCascades = numCascades;
+        this.splitThreshold = splitThreshold;
+
+        /**
+         * 初始化cascade相机
+         * @type {THREE.OrthographicCamera[]}
+         */
+        this.cascadeCameras = [];
+        // 创建numCascades个相机
+        for(let i = 0; i < numCascades; i++) {
+            this.cascadeCameras.push(new THREE.OrthographicCamera(
+                -10, 10,    // 左右
+                10, -10,    // 上下
+                0,      // near
+                600       // far
+            ));
+        }
     }
 
     /**
@@ -81,6 +102,7 @@ class DirectLight extends THREE.DirectionalLight {
                 size: {
                     width: 1024,
                     height: 1024,
+                    depth: this.numCascades,
                 },
                 format: 'rgba16float',
                 usage:
@@ -142,12 +164,7 @@ class DirectLight extends THREE.DirectionalLight {
 
         // 获取投影矩阵
         const projectionMatrix = shadowCamera.projectionMatrix;
-        /*
-        const viewPos = new THREE.Vector4(0,0,0,1).applyMatrix4(viewMatrix);
-        const projectionPos = viewPos.applyMatrix4(projectionMatrix);
-        console.log(viewPos);
-        console.log(projectionPos.divideScalar(projectionPos.w).multiplyScalar(0.5).addScalar(0.5));
-*/
+
         // 打包数据到 Float32Array (48 floats = 192 bytes)
         const data = new Float32Array(48);
         let offset = 0;
@@ -189,6 +206,8 @@ class DirectLight extends THREE.DirectionalLight {
         const device = await resourceManager.GetDevice();
         const buffer = resourceManager.GetResource(DirectLight.BufferName);
         device.queue.writeBuffer(buffer, 0, data);
+
+        this.splitCascades();
     }
 
     /**
@@ -201,6 +220,97 @@ class DirectLight extends THREE.DirectionalLight {
         FResourceManager.GetInstance().DeleteResource(DirectLight.BufferName);
         FResourceManager.GetInstance().DeleteResource(resourceName.Light.DirectLightShadowMap);
     }
-}
 
+    splitCascades(mainCamera = this.mainCamera, numCascades = this.numCascades) {
+        if (!mainCamera) {
+            throw new Error('Main camera is required for cascade shadow mapping.');
+        }
+        // 根据near和far计算出每个cascade的z范围
+        this.cascades = [];
+        const near = mainCamera.near;
+        const far = mainCamera.far;
+        for(let i = 0; i < numCascades+1; i++) {
+            // 采用线性+指数混合的计算方式
+            let logz = near*Math.pow(far/near, i/numCascades);
+            let linearz = near + (far - near)*i/numCascades;
+            let z = logz*(1-this.splitThreshold) + linearz*this.splitThreshold;
+            this.cascades.push(z);
+        }
+        const cascadeSpheres = this.caculateCascadeSizeSphere();
+
+        // 计算每个相机的near和far，并设置相机信息
+        for(let i = 0; i < numCascades; i++) {
+            const near = 1;
+            const far = cascadeSpheres[i].radius*2+2e3*i;
+            const camera = this.cascadeCameras[i];
+            camera.near = near;
+            camera.far = far;
+            camera.left = -cascadeSpheres[i].radius;
+            camera.right = cascadeSpheres[i].radius;
+            camera.top = cascadeSpheres[i].radius;
+            camera.bottom = -cascadeSpheres[i].radius;
+            camera.updateProjectionMatrix();
+            camera.updateMatrixWorld();
+        }
+    }
+
+    /**
+     * 计算cascade区域大小 最大包围球
+     */
+    caculateCascadeSizeSphere(cascadeArray = this.cascades, mainCamera = this.mainCamera, numCascades = this.numCascades) {
+        const cascadeSpheres = [];
+        const projectMatrixInverse = mainCamera.projectionMatrixInverse;
+        const viewMatrix = mainCamera.matrixWorld;
+        const far = mainCamera.far;
+        const near = mainCamera.near;
+        const total = near + far;
+        const viewFrustum = [
+            new THREE.Vector4(1, 1, -1, 1),//near top right
+            new THREE.Vector4(-1, -1, -1, 1),//near bottom left
+            new THREE.Vector4(1, 1, 1, 1),//far top right
+            new THREE.Vector4(-1, -1, 1, 1),//far bottom left
+        ];
+        const viewPos = viewFrustum.map(v => {
+            v.applyMatrix4(projectMatrixInverse);
+            return new THREE.Vector3(v.x/v.w, v.y/v.w, v.z/v.w);
+        });
+        const NTR = viewPos[0];
+        const NTL = viewPos[1];
+        const FTR = viewPos[2];
+        const FTL = viewPos[3];
+        for(let i = 0; i < numCascades; i++) {
+            //通过z和total比值插值计算当前cascade的ntr,ntl,ftr,ftl
+            const zNear = cascadeArray[i];
+            const zFar = cascadeArray[i+1];
+            const ntr = new THREE.Vector3(
+                THREE.MathUtils.lerp(NTR.x, FTR.x, zNear/total),
+                THREE.MathUtils.lerp(NTR.y, FTR.y, zNear/total),
+                zNear
+            );
+            const ntl = new THREE.Vector3(
+                THREE.MathUtils.lerp(NTL.x, FTL.x, zNear/total),
+                THREE.MathUtils.lerp(NTL.y, FTL.y, zNear/total),
+                zNear
+            );  
+            const ftr = new THREE.Vector3(
+                THREE.MathUtils.lerp(NTR.x, FTR.x, zFar/total),
+                THREE.MathUtils.lerp(NTR.y, FTR.y, zFar/total),
+                zFar
+            );
+            const ftl = new THREE.Vector3(
+                THREE.MathUtils.lerp(NTL.x, FTL.x, zFar/total),
+                THREE.MathUtils.lerp(NTL.y, FTL.y, zFar/total),
+                zFar
+            );
+            const center = new THREE.Vector3(
+                (ntr.x + ftr.x + ntl.x + ftl.x)/4,
+                (ntr.y + ftr.y + ntl.y + ftl.y)/4,
+                (ntr.z + ftr.z + ntl.z + ftl.z)/4
+            );
+            const radius = [ntr,ntl,ftr,ftl].map(v => v.distanceTo(center)).reduce((a,b) => Math.max(a,b),0);
+            cascadeSpheres.push({center:center.applyMatrix4(viewMatrix),radius:radius});
+        }
+        return cascadeSpheres;
+    }
+}
 export default DirectLight;

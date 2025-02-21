@@ -74,7 +74,7 @@ class ShadowMapPass extends FPass {
         await this._ResourceManager.CreateResource(this.shadowMapTarget, {
             Type: 'Texture',
             desc: {
-                size: [4096, 4096, 1],
+                size: [4096, 4096, 2],
                 format: 'depth32float',
                 usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST,
                 sampleCount: 1,
@@ -155,7 +155,13 @@ class ShadowMapPass extends FPass {
         const renderPassDesc = {
             colorAttachments: [],
             depthStencilAttachment: {
-                view: shadowTexture.createView(),
+                view: shadowTexture.createView(
+                    {
+                        dimension: '2d-array',
+                        arrayLayerCount: 1,
+                        baseArrayLayer: 0,
+                    }
+                ),
                 depthClearValue: 1.0,
                 depthLoadOp: 'clear',
                 depthStoreOp: 'store',
