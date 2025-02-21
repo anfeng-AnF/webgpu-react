@@ -39,8 +39,9 @@ export default class GPUScene {
     /**
      * 构造函数
      * @param {Scene} scene
+     * @param {FDeferredShadingSceneRenderer} renderer
      */
-    constructor(scene) {
+    constructor(scene, renderer) {
         this.scene = scene;
         /**
          * GPU资源管理器实例，用于管理创建和销毁GPU资源
@@ -121,7 +122,7 @@ export default class GPUScene {
          * 平行光
          * @type {DirectLight}
          */
-        this.directLight = new DirectLight(new THREE.Color(0xffffff), 4);
+        this.directLight = new DirectLight(new THREE.Color(0xffffff), 4, renderer._MainCamera);
 
         /**
          * 光照信息缓冲区

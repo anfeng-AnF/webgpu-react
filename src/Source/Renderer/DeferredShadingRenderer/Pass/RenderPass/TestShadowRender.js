@@ -86,7 +86,7 @@ class TestShadowRender extends FPass {
                         {
                             binding: 5,
                             visibility: GPUShaderStage.COMPUTE,
-                            texture: { sampleType: 'depth', viewDimension: '2d' },
+                            texture: { sampleType: 'depth', viewDimension: '2d-array' },
                         },
                         {
                             binding: 6,
@@ -207,7 +207,11 @@ class TestShadowRender extends FPass {
                             binding: 5,
                             resource: this._ResourceManager
                                 .GetResource('DirectLightShadowMap')
-                                .createView(),
+                                .createView({
+                                    dimension: '2d-array',
+                                    arrayLayerCount: 1,
+                                    baseArrayLayer: 0,
+                                }),
                         },
                         {
                             binding: 6,
