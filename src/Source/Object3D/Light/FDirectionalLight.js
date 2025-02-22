@@ -4,6 +4,8 @@ import { resourceName } from '../../Renderer/DeferredShadingRenderer/ResourceNam
 import IGPULight from './IGPULight';
 import GPUScene from '../../Scene/GPUScene';
 import FModuleManager from '../../Core/FModuleManager';
+import ShaderIncluder from '../../Core/Shader/ShaderIncluder';
+import StaticMesh from '../Mesh/StaticMesh';
 
 /**
  * Represents a directional light with GPU resource management.
@@ -11,15 +13,23 @@ import FModuleManager from '../../Core/FModuleManager';
  * updating, and destruction.
  *
  * Buffer Layout (total 192 bytes):
- *   viewMatrix:        mat4x4<f32>   64 bytes, offset 0 - 63 bytes  (0 - 511 bit)
- *   projectionMatrix:  mat4x4<f32>   64 bytes, offset 64 - 127 bytes (512 - 1023 bit)
- *   lightPosition:     vec4<f32>     16 bytes, offset 128 - 143 bytes (1024 - 1151 bit)
- *   lightDirection:    vec4<f32>     16 bytes, offset 144 - 159 bytes (1152 - 1279 bit)
- *   lightColor:        vec4<f32>     16 bytes, offset 160 - 175 bytes (1280 - 1407 bit)
- *   lightIntensity:    f32           4 bytes,  offset 176 - 179 bytes (1408 - 1439 bit)
- *   lightBias:         f32           4 bytes,  offset 180 - 183 bytes (1440 - 1471 bit)
- *   padding:           vec2<f32>     8 bytes,  offset 184 - 191 bytes (1472 - 1535 bit)
+ *   viewMatrix:        mat4x4<f32>   64 bytes, offset --- - --- bytes     removed
+ *   projectionMatrix:  mat4x4<f32>   64 bytes, offset --- - --- bytes   removed
+ *   lightPosition:     vec4<f32>     16 bytes, offset --- - --- bytes   removed
+ *   lightDirection:    vec4<f32>     16 bytes, offset 0  - 15 bytes 
+ *   lightColor:        vec4<f32>     16 bytes, offset 16 - 31 bytes 
+ *   lightIntensity:    f32           4 bytes,  offset 32 - 35 bytes 
+ *   lightBias:         f32           4 bytes,  offset 36 - 39 bytes
+ *   padding:           f32array[6]   24 bytes, offset 40 - 63 bytes 
  *
+ * cascade buffer layout (storage buffer)
+ *  preArrayElementLayout:{
+ *      viewMatrix:             mat4x4<f32>   64 bytes, offset 0   - 63  bytes
+ *      projectionMatrix:       mat4x4<f32>   64 bytes, offset 64  - 127 bytes
+ *      sphereCenter+Radius:    vec4<f32>     16 bytes, offset 128 - 143 bytes xyz for world position, w for radius
+ *      padding:                f32array[12]  48 bytes, offset 144 - 191 bytes
+ *  }
+ * 
  * @class DirectLight
  * @extends THREE.DirectionalLight
  * @implements IGPULight
@@ -29,13 +39,16 @@ class DirectLight extends THREE.DirectionalLight {
      * 平行光缓冲区
      * @type {GPUBuffer}
      */
-    buffer = null;
+    BasicInfoBuffer = null;
 
     /**
      * 平行光阴影贴图
      * @type {GPUTexture}
      */
     shadowMap = null;
+
+    static cascadeInfoSizePerElement = 64*3;
+    static baseInfoSize = 64;
 
     /**
      * Creates an instance of DirectLight.
@@ -44,15 +57,16 @@ class DirectLight extends THREE.DirectionalLight {
      * @param {THREE.Camera} mainCamera - The main camera. required for cascade shadow mapping.
      * @param {number} numCascades - The number of cascades.
      * @param {number} splitThreshold - The threshold for splitting the cascades split that lerp linear and Logarithmic.default use logarithmic.
+     * @param {number} size - The size of the shadow map.
      */
-    constructor(color, intensity, mainCamera, numCascades = 8, splitThreshold = 0) {
+    constructor(color, intensity, mainCamera, numCascades = 8, splitThreshold = 0, size = 1024) {
         super(color, intensity);
         // Bias may be used in shadow mapping calculations.
         this.bias = 0.0;
         this.mainCamera = mainCamera;
         this.numCascades = numCascades;
         this.splitThreshold = splitThreshold;
-
+        this.size = size;
         /**
          * 初始化cascade相机
          * @type {THREE.OrthographicCamera[]}
@@ -85,12 +99,23 @@ class DirectLight extends THREE.DirectionalLight {
         const DirectLightBufferDesc = {
             Type: 'Buffer',
             desc: {
-                size: 192, // 192 bytes, following the layout above.
+                size: DirectLight.baseInfoSize,
                 usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
             },
         };
 
-        this.buffer = FResourceManager.GetInstance().CreateResource(
+        this.cascadeInfoBuffer = await FResourceManager.GetInstance().CreateResource(
+            'CascadeInfoBuffer',
+            {
+                Type: 'Buffer',
+                desc: {
+                    size: DirectLight.cascadeInfoSizePerElement*this.numCascades,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+                },
+            }
+        );
+
+        this.BasicInfoBuffer = await FResourceManager.GetInstance().CreateResource(
             DirectLight.BufferName,
             DirectLightBufferDesc
         );
@@ -100,18 +125,18 @@ class DirectLight extends THREE.DirectionalLight {
             Type: 'Texture',
             desc: {
                 size: {
-                    width: 1024,
-                    height: 1024,
+                    width: this.size,
+                    height: this.size,
                     depth: this.numCascades,
                 },
-                format: 'rgba16float',
+                format: 'depth32float',
                 usage:
                     GPUTextureUsage.RENDER_ATTACHMENT |
                     GPUTextureUsage.COPY_DST |
                     GPUTextureUsage.TEXTURE_BINDING |
                     GPUTextureUsage.COPY_SRC,
                 sampleCount: 1,
-                mipLevelCount: 4,
+                mipLevelCount: 1,
             },
         };
 
@@ -120,7 +145,144 @@ class DirectLight extends THREE.DirectionalLight {
             shadowMapDesc
         );
 
+        this.lightBindGroupLayout = await FResourceManager.GetInstance().CreateResource(
+            'DirectLightBindGroupLayout',
+            {
+                Type: 'BindGroupLayout',
+                desc: {
+                    entries: [
+                        {
+                            binding: 0,
+                            visibility:
+                                GPUShaderStage.VERTEX |
+                                GPUShaderStage.FRAGMENT |
+                                GPUShaderStage.COMPUTE,
+                            buffer: { type: 'uniform' },
+                        },
+                        {
+                            binding: 1,
+                            visibility:
+                                GPUShaderStage.VERTEX |
+                                GPUShaderStage.FRAGMENT |
+                                GPUShaderStage.COMPUTE,
+                            buffer: { type: 'read-only-storage', hasDynamicOffset: true },
+                        }
+                    ],
+                },
+            }
+        );
 
+        this.lightBindGroup = await FResourceManager.GetInstance().CreateResource(
+            'DirectLightBindGroup',
+            {
+                Type: 'BindGroup',
+                desc: {
+                    layout: this.lightBindGroupLayout,
+                    entries: [
+                        {
+                            binding: 0,
+                            resource: { buffer: this.BasicInfoBuffer },
+                        },
+                        {
+                            binding: 1,
+                            resource: { 
+                                buffer: this.cascadeInfoBuffer,
+                                size: DirectLight.cascadeInfoSizePerElement,
+                            },
+                        },
+                    ],
+                },
+            }
+        );
+
+        // pipelineLayout
+        const pipelineLayout = await FResourceManager.GetInstance().CreateResource(
+            'DirectLightPipelineLayout',
+            {
+                Type: 'PipelineLayout',
+                desc: {
+                    bindGroupLayouts: [
+                        FResourceManager.GetInstance().GetResource(resourceName.Scene.sceneBindGroupLayout),
+                        this.lightBindGroupLayout,
+                    ],
+                },
+            }
+        );
+
+        const shaderModule = await FResourceManager.GetInstance().CreateResource(
+            'Shader/LightPass/CascadeShadowMap.wgsh',
+            {
+                Type: 'ShaderModule',
+                desc: {
+                    code: await ShaderIncluder.GetShaderCode('/Shader/LightPass/CascadeShadowMap.wgsl'),
+                },
+            }
+        );  
+
+        const pipeline = await FResourceManager.GetInstance().CreateResource(
+            'DirectLightPipeline',
+            {
+                Type: 'RenderPipeline',
+                desc: {
+                    layout: pipelineLayout,
+                    vertex: {
+                        module: shaderModule,
+                        entryPoint: 'VSMain',
+                        buffers: [StaticMesh.VertexBufferDesc],
+                    },
+                    // 阴影通道不需要颜色输出，只输出深度
+                    primitive: {
+                        topology: 'triangle-list',
+                        cullMode: 'back',
+                    },
+                    depthStencil: {
+                        depthWriteEnabled: true,
+                        depthCompare: 'less',
+                        format: 'depth32float',
+                    },
+                },
+            }
+        );
+    }
+
+    /**
+     * 渲染阴影贴图
+     * @param {number} deltaTime - 时间
+     * @param {GPUScene} Scene - 场景
+     * @param {GPUCommandEncoder} commandEncoder - 命令编码器
+     * @param {Renderer} renderer - 渲染器
+     */
+    renderShadowMap(deltaTime, Scene, commandEncoder, renderer) {
+        for(let i = 0; i < this.numCascades; i++) {
+            const renderPassDesc = {
+                colorAttachments: [],
+                depthStencilAttachment: {
+                    view: this.shadowMap.createView({
+                        dimension: '2d-array',
+                        arrayLayerCount: 1,
+                        baseArrayLayer: i,
+                    }),
+                    depthClearValue: 1.0,
+                },
+            };
+            const passEncoder = commandEncoder.beginRenderPass(renderPassDesc);
+            passEncoder.setPipeline(this.pipeline);
+
+            const meshes = Scene.GetAllMesh();
+            for (const mesh of meshes) {
+                const dynamicOffset = Scene.getMeshOffset(mesh.uuid);
+                passEncoder.setBindGroup(0, Scene.sceneBindGroup, [dynamicOffset]);
+                passEncoder.setBindGroup(1, this.lightBindGroup, [this.cascadeInfoSizePerElement*i]);
+    
+                //Scene.debugCheckMeshInfo(mesh.uuid);
+                passEncoder.setVertexBuffer(0, mesh.GPUVertexBuffer);
+                passEncoder.setIndexBuffer(mesh.GPUIndexBuffer, 'uint16');
+    
+                passEncoder.drawIndexed(mesh.geometry.index.count, 1, 0, 0, 0);
+            }
+    
+            passEncoder.end();
+        }
     }
 
     /**
@@ -165,27 +327,14 @@ class DirectLight extends THREE.DirectionalLight {
         // 获取投影矩阵
         const projectionMatrix = shadowCamera.projectionMatrix;
 
-        // 打包数据到 Float32Array (48 floats = 192 bytes)
-        const data = new Float32Array(48);
+        // 打包数据到 Float32Array (16 floats = 64 bytes)
+        const data = new Float32Array(DirectLight.baseInfoSize/Float32Array.BYTES_PER_ELEMENT);
         let offset = 0;
-
-        // 写入 viewMatrix (16 floats, 64 bytes)
-        viewMatrix.toArray(data, offset);
-        offset += 16;
-
-        // 写入 projectionMatrix (16 floats, 64 bytes)
-        projectionMatrix.toArray(data, offset);
-        offset += 16;
-
-        // 写入 lightPosition (vec4, 16 bytes)
-        data.set([this.position.x, this.position.y, this.position.z, 1.0], offset);
-        offset += 4;
-
         // 写入 lightDirection (vec4, 16 bytes)
         const lightDir = new THREE.Vector3();
         // 从世界矩阵中提取方向向量
         lightDir.setFromMatrixColumn(shadowCamera.matrixWorld, 2);
-        lightDir.negate();
+        this.lightDirection = lightDir.negate();
         data.set([lightDir.x, lightDir.y, lightDir.z, 0.0], offset);
         offset += 4;
         // 写入 lightColor (vec4, 16 bytes)
@@ -198,16 +347,35 @@ class DirectLight extends THREE.DirectionalLight {
         // 写入 lightBias (f32, 4 bytes)
         data[offset++] = this.bias;
 
-        // 写入 padding (vec2<f32>, 8 bytes)
-        data[offset++] = 0.0;
-        data[offset++] = 0.0;
-
         // 上传缓冲区到 GPU
         const device = await resourceManager.GetDevice();
-        const buffer = resourceManager.GetResource(DirectLight.BufferName);
+        const buffer = this.BasicInfoBuffer;
         device.queue.writeBuffer(buffer, 0, data);
 
         this.splitCascades();
+
+        // 更新cascade信息
+        const cascadeInfo = new Float32Array(DirectLight.cascadeInfoSizePerElement/Float32Array.BYTES_PER_ELEMENT*this.numCascades);
+        offset = 0;
+        for(let i = 0; i < this.numCascades; i++) {
+            const camera = this.cascadeCameras[i];
+            const viewMatrix = camera.matrixWorldInverse;
+            const projectionMatrix = camera.projectionMatrix;
+            const sphereCenter = this.cascadeSpheres[i].center;
+            const sphereRadius = this.cascadeSpheres[i].radius;
+            const centerRadius = new THREE.Vector4(sphereCenter.x, sphereCenter.y, sphereCenter.z, sphereRadius);
+            const padding = new Float32Array(12);
+
+            cascadeInfo.set(viewMatrix.toArray(), offset);
+            offset += 16;
+            cascadeInfo.set(projectionMatrix.toArray(), offset);
+            offset += 16;
+            cascadeInfo.set(centerRadius.toArray(), offset);
+            offset += 4;    
+            cascadeInfo.set(padding, offset);
+            offset += 12;
+        }   
+        device.queue.writeBuffer(this.cascadeInfoBuffer, 0, cascadeInfo);
     }
 
     /**
@@ -236,19 +404,29 @@ class DirectLight extends THREE.DirectionalLight {
             let z = logz*(1-this.splitThreshold) + linearz*this.splitThreshold;
             this.cascades.push(z);
         }
-        const cascadeSpheres = this.caculateCascadeSizeSphere();
+        this.cascadeSpheres = this.caculateCascadeSizeSphere();
 
         // 计算每个相机的near和far，并设置相机信息
         for(let i = 0; i < numCascades; i++) {
             const near = 1;
-            const far = cascadeSpheres[i].radius*2+2e3*i;
+            const far = this.cascadeSpheres[i].radius*2+2e3*i;
             const camera = this.cascadeCameras[i];
             camera.near = near;
             camera.far = far;
-            camera.left = -cascadeSpheres[i].radius;
-            camera.right = cascadeSpheres[i].radius;
-            camera.top = cascadeSpheres[i].radius;
-            camera.bottom = -cascadeSpheres[i].radius;
+            camera.left = -this.cascadeSpheres[i].radius;
+            camera.right = this.cascadeSpheres[i].radius;
+            camera.top = this.cascadeSpheres[i].radius;
+            camera.bottom = -this.cascadeSpheres[i].radius;
+
+            // 计算相机位置
+            let cameraPos = new THREE.Vector3(
+                this.cascadeSpheres[i].center.x,
+                this.cascadeSpheres[i].center.y,
+                this.cascadeSpheres[i].center.z
+            );
+            cameraPos.addVectors(cameraPos, this.lightDirection.negate().multiplyScalar(far+near));
+            camera.position.copy(cameraPos);
+            
             camera.updateProjectionMatrix();
             camera.updateMatrixWorld();
         }
