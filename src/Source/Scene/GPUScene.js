@@ -736,7 +736,7 @@ export default class GPUScene {
                     },
                     {
                         binding: 2,
-                        resource: { buffer: this.directLight.buffer },
+                        resource: { buffer: this.directLight.BasicInfoBuffer },
                     },
                 ],
             },
