@@ -13,28 +13,27 @@ import StaticMesh from '../Mesh/StaticMesh';
  * updating, and destruction.
  *
  * Buffer Layout (total 192 bytes):
- *   viewMatrix:        mat4x4<f32>   64 bytes, offset --- - --- bytes     removed
- *   projectionMatrix:  mat4x4<f32>   64 bytes, offset --- - --- bytes   removed
- *   lightPosition:     vec4<f32>     16 bytes, offset --- - --- bytes   removed
  *   lightDirection:    vec4<f32>     16 bytes, offset 0  - 15 bytes 
  *   lightColor:        vec4<f32>     16 bytes, offset 16 - 31 bytes 
  *   lightIntensity:    f32           4 bytes,  offset 32 - 35 bytes 
  *   lightBias:         f32           4 bytes,  offset 36 - 39 bytes
- *   padding:           f32array[6]   24 bytes, offset 40 - 63 bytes 
+ *   numCascades:       u32           4 bytes,  offset 40 - 43 bytes
+ *   padding:           f32array[5]   24 bytes, offset 44 - 63 bytes 
  *
  * cascade buffer layout (storage buffer)
- *  preArrayElementLayout:{
+ *  preArrayElementLayout:{align 256
  *      viewMatrix:             mat4x4<f32>   64 bytes, offset 0   - 63  bytes
  *      projectionMatrix:       mat4x4<f32>   64 bytes, offset 64  - 127 bytes
  *      sphereCenter+Radius:    vec4<f32>     16 bytes, offset 128 - 143 bytes xyz for world position, w for radius
- *      padding:                f32array[12]  48 bytes, offset 144 - 191 bytes
+ *      cascadeDepth:           vec4<f32>     16 bytes, offset 144 - 159 bytes
+ *      padding:                f32array[24]  96 bytes, offset 159 - 255 bytes
  *  }
  * 
- * @class DirectLight
+ * @class FDirectionalLight
  * @extends THREE.DirectionalLight
  * @implements IGPULight
  */
-class DirectLight extends THREE.DirectionalLight {
+class FDirectionalLight extends THREE.DirectionalLight {
     /**
      * 平行光缓冲区
      * @type {GPUBuffer}
@@ -45,9 +44,9 @@ class DirectLight extends THREE.DirectionalLight {
      * 平行光阴影贴图
      * @type {GPUTexture}
      */
-    shadowMap = null;
+    shadowMaps = null;
 
-    static cascadeInfoSizePerElement = 64*3;
+    static cascadeInfoSizePerElement = 256;
     static baseInfoSize = 64;
 
     /**
@@ -59,7 +58,7 @@ class DirectLight extends THREE.DirectionalLight {
      * @param {number} splitThreshold - The threshold for splitting the cascades split that lerp linear and Logarithmic.default use logarithmic.
      * @param {number} size - The size of the shadow map.
      */
-    constructor(color, intensity, mainCamera, numCascades = 8, splitThreshold = 0, size = 1024) {
+    constructor(color, intensity, mainCamera, numCascades = 8, splitThreshold = 0.0, size = 1024) {
         super(color, intensity);
         // Bias may be used in shadow mapping calculations.
         this.bias = 0.0;
@@ -94,13 +93,13 @@ class DirectLight extends THREE.DirectionalLight {
      *
      * @async
      * @returns {Promise<void>}
-     */
+     */f
     async Init() {
         const DirectLightBufferDesc = {
             Type: 'Buffer',
             desc: {
-                size: DirectLight.baseInfoSize,
-                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+                size: FDirectionalLight.baseInfoSize,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
             },
         };
 
@@ -109,14 +108,14 @@ class DirectLight extends THREE.DirectionalLight {
             {
                 Type: 'Buffer',
                 desc: {
-                    size: DirectLight.cascadeInfoSizePerElement*this.numCascades,
-                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+                    size: FDirectionalLight.cascadeInfoSizePerElement * this.numCascades,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
                 },
             }
         );
 
         this.BasicInfoBuffer = await FResourceManager.GetInstance().CreateResource(
-            DirectLight.BufferName,
+            FDirectionalLight.BufferName,
             DirectLightBufferDesc
         );
 
@@ -124,11 +123,11 @@ class DirectLight extends THREE.DirectionalLight {
         const shadowMapDesc = {
             Type: 'Texture',
             desc: {
-                size: {
-                    width: this.size,
-                    height: this.size,
-                    depth: this.numCascades,
-                },
+                size: [
+                    this.size,
+                    this.size,
+                    this.numCascades,
+                ],
                 format: 'depth32float',
                 usage:
                     GPUTextureUsage.RENDER_ATTACHMENT |
@@ -140,7 +139,7 @@ class DirectLight extends THREE.DirectionalLight {
             },
         };
 
-        this.shadowMap = FResourceManager.GetInstance().CreateResource(
+        this.shadowMaps = FResourceManager.GetInstance().CreateResource(
             resourceName.Light.DirectLightShadowMap,
             shadowMapDesc
         );
@@ -165,7 +164,34 @@ class DirectLight extends THREE.DirectionalLight {
                                 GPUShaderStage.VERTEX |
                                 GPUShaderStage.FRAGMENT |
                                 GPUShaderStage.COMPUTE,
-                            buffer: { type: 'read-only-storage', hasDynamicOffset: true },
+                            buffer: { type: 'read-only-storage', hasDynamicOffset:true },
+                        }
+                    ],
+                },
+            }
+        );
+
+        this.lightBindGroupLayoutWithoutOffset = await FResourceManager.GetInstance().CreateResource(
+            'DirectLightBindGroupLayoutWithoutOffset',
+            {
+                Type: 'BindGroupLayout',
+                desc: {
+                    entries: [
+                        {
+                            binding: 0,
+                            visibility:
+                                GPUShaderStage.VERTEX |
+                                GPUShaderStage.FRAGMENT |
+                                GPUShaderStage.COMPUTE,
+                            buffer: { type: 'uniform' },
+                        },
+                        {
+                            binding: 1,
+                            visibility:
+                                GPUShaderStage.VERTEX |
+                                GPUShaderStage.FRAGMENT |
+                                GPUShaderStage.COMPUTE,
+                            buffer: { type: 'read-only-storage', hasDynamicOffset:false },
                         }
                     ],
                 },
@@ -187,7 +213,29 @@ class DirectLight extends THREE.DirectionalLight {
                             binding: 1,
                             resource: { 
                                 buffer: this.cascadeInfoBuffer,
-                                size: DirectLight.cascadeInfoSizePerElement,
+                                size: FDirectionalLight.cascadeInfoSizePerElement,
+                            },
+                        },
+                    ],
+                },
+            }
+        );
+
+        this.lightBindGroupWithoutOffset = await FResourceManager.GetInstance().CreateResource(
+            'DirectLightBindGroupWithoutOffset',
+            {
+                Type: 'BindGroup',
+                desc: {
+                    layout: this.lightBindGroupLayoutWithoutOffset,
+                    entries: [
+                        {
+                            binding: 0,
+                            resource: { buffer: this.BasicInfoBuffer },
+                        },
+                        {
+                            binding: 1,
+                            resource: { 
+                                buffer: this.cascadeInfoBuffer,
                             },
                         },
                     ],
@@ -219,7 +267,7 @@ class DirectLight extends THREE.DirectionalLight {
             }
         );  
 
-        const pipeline = await FResourceManager.GetInstance().CreateResource(
+        this.pipeline = await FResourceManager.GetInstance().CreateResource(
             'DirectLightPipeline',
             {
                 Type: 'RenderPipeline',
@@ -239,6 +287,8 @@ class DirectLight extends THREE.DirectionalLight {
                         depthWriteEnabled: true,
                         depthCompare: 'less',
                         format: 'depth32float',
+                        storeOp: 'store',
+                        loadOp: 'clear',
                     },
                 },
             }
@@ -257,12 +307,14 @@ class DirectLight extends THREE.DirectionalLight {
             const renderPassDesc = {
                 colorAttachments: [],
                 depthStencilAttachment: {
-                    view: this.shadowMap.createView({
+                    view: this.shadowMaps.createView({
                         dimension: '2d-array',
                         arrayLayerCount: 1,
                         baseArrayLayer: i,
                     }),
+                    depthLoadOp: 'clear',
                     depthClearValue: 1.0,
+                    depthStoreOp: 'store',
                 },
             };
             const passEncoder = commandEncoder.beginRenderPass(renderPassDesc);
@@ -272,7 +324,7 @@ class DirectLight extends THREE.DirectionalLight {
             for (const mesh of meshes) {
                 const dynamicOffset = Scene.getMeshOffset(mesh.uuid);
                 passEncoder.setBindGroup(0, Scene.sceneBindGroup, [dynamicOffset]);
-                passEncoder.setBindGroup(1, this.lightBindGroup, [this.cascadeInfoSizePerElement*i]);
+                passEncoder.setBindGroup(1, this.lightBindGroup, [dynamicOffset]);
     
                 //Scene.debugCheckMeshInfo(mesh.uuid);
                 passEncoder.setVertexBuffer(0, mesh.GPUVertexBuffer);
@@ -298,7 +350,7 @@ class DirectLight extends THREE.DirectionalLight {
 
         const resourceManager = FResourceManager.GetInstance();
         // 检查GPU资源是否存在，如果不存在则初始化
-        if (!(resourceManager.GetResource(DirectLight.BufferName) && 
+        if (!(resourceManager.GetResource(FDirectionalLight.BufferName) &&
               resourceManager.GetResource(resourceName.Light.DirectLightShadowMap))) {
             await this.Init();
         }
@@ -328,15 +380,16 @@ class DirectLight extends THREE.DirectionalLight {
         const projectionMatrix = shadowCamera.projectionMatrix;
 
         // 打包数据到 Float32Array (16 floats = 64 bytes)
-        const data = new Float32Array(DirectLight.baseInfoSize/Float32Array.BYTES_PER_ELEMENT);
+        const data = new Float32Array(FDirectionalLight.baseInfoSize/Float32Array.BYTES_PER_ELEMENT);
         let offset = 0;
+
         // 写入 lightDirection (vec4, 16 bytes)
         const lightDir = new THREE.Vector3();
-        // 从世界矩阵中提取方向向量
         lightDir.setFromMatrixColumn(shadowCamera.matrixWorld, 2);
         this.lightDirection = lightDir.negate();
         data.set([lightDir.x, lightDir.y, lightDir.z, 0.0], offset);
         offset += 4;
+
         // 写入 lightColor (vec4, 16 bytes)
         data.set([this.color.r, this.color.g, this.color.b, 1.0], offset);
         offset += 4;
@@ -347,6 +400,16 @@ class DirectLight extends THREE.DirectionalLight {
         // 写入 lightBias (f32, 4 bytes)
         data[offset++] = this.bias;
 
+        // 写入 numCascades (u32, 4 bytes)
+        data[offset++] = this.numCascades;
+
+        // 写入 padding0 (f32, 4 bytes)
+        data[offset++] = 0.0;
+
+        // 写入 padding1 (vec4, 16 bytes)
+        data.set([0.0, 0.0, 0.0, 0.0], offset);
+        offset += 4;
+
         // 上传缓冲区到 GPU
         const device = await resourceManager.GetDevice();
         const buffer = this.BasicInfoBuffer;
@@ -355,26 +418,32 @@ class DirectLight extends THREE.DirectionalLight {
         this.splitCascades();
 
         // 更新cascade信息
-        const cascadeInfo = new Float32Array(DirectLight.cascadeInfoSizePerElement/Float32Array.BYTES_PER_ELEMENT*this.numCascades);
+        const cascadeInfo = new Float32Array(FDirectionalLight.cascadeInfoSizePerElement/Float32Array.BYTES_PER_ELEMENT*this.numCascades);
         offset = 0;
         for(let i = 0; i < this.numCascades; i++) {
+            const baseOffset = i * (FDirectionalLight.cascadeInfoSizePerElement / Float32Array.BYTES_PER_ELEMENT);
             const camera = this.cascadeCameras[i];
             const viewMatrix = camera.matrixWorldInverse;
             const projectionMatrix = camera.projectionMatrix;
             const sphereCenter = this.cascadeSpheres[i].center;
             const sphereRadius = this.cascadeSpheres[i].radius;
             const centerRadius = new THREE.Vector4(sphereCenter.x, sphereCenter.y, sphereCenter.z, sphereRadius);
-            const padding = new Float32Array(12);
 
-            cascadeInfo.set(viewMatrix.toArray(), offset);
-            offset += 16;
-            cascadeInfo.set(projectionMatrix.toArray(), offset);
-            offset += 16;
-            cascadeInfo.set(centerRadius.toArray(), offset);
-            offset += 4;    
-            cascadeInfo.set(padding, offset);
-            offset += 12;
-        }   
+            // 写入视图矩阵 (64 bytes = 16 floats)
+            cascadeInfo.set(viewMatrix.toArray(), baseOffset);
+            
+            // 写入投影矩阵 (64 bytes = 16 floats)
+            cascadeInfo.set(projectionMatrix.toArray(), baseOffset + 16);
+            
+            // 写入球体中心和半径 (16 bytes = 4 floats)
+            cascadeInfo.set(centerRadius.toArray(), baseOffset + 32);
+            
+            // 写入cascade深度 (16 bytes = 4 floats)
+            cascadeInfo.set([this.cascades[i], 0.0, 0.0, 0.0], baseOffset + 36);
+            //console.log('第' + i + '个cascade的深度为' + this.zRatio[i]);
+        }
+
+        // 写入缓冲区
         device.queue.writeBuffer(this.cascadeInfoBuffer, 0, cascadeInfo);
     }
 
@@ -385,7 +454,7 @@ class DirectLight extends THREE.DirectionalLight {
      * @returns {Promise<void>}
      */
     async Destroy() {
-        FResourceManager.GetInstance().DeleteResource(DirectLight.BufferName);
+        FResourceManager.GetInstance().DeleteResource(FDirectionalLight.BufferName);
         FResourceManager.GetInstance().DeleteResource(resourceName.Light.DirectLightShadowMap);
     }
 
@@ -430,6 +499,8 @@ class DirectLight extends THREE.DirectionalLight {
             camera.updateProjectionMatrix();
             camera.updateMatrixWorld();
         }
+
+
     }
 
     /**
@@ -456,28 +527,36 @@ class DirectLight extends THREE.DirectionalLight {
         const NTL = viewPos[1];
         const FTR = viewPos[2];
         const FTL = viewPos[3];
+        this.zRatio = [];
+        for(let i = 0; i < numCascades+1; i++) {
+            // 计算每个cascade的深度
+            const z = this.cascades[i];
+            // 计算z在near到far范围内的比值
+            const ratio = (z - near) / (far - near);
+            this.zRatio.push(ratio);
+        }
         for(let i = 0; i < numCascades; i++) {
             //通过z和total比值插值计算当前cascade的ntr,ntl,ftr,ftl
-            const zNear = cascadeArray[i];
-            const zFar = cascadeArray[i+1];
+            const zNear = this.zRatio[i];
+            const zFar = this.zRatio[i+1];
             const ntr = new THREE.Vector3(
-                THREE.MathUtils.lerp(NTR.x, FTR.x, zNear/total),
-                THREE.MathUtils.lerp(NTR.y, FTR.y, zNear/total),
+                THREE.MathUtils.lerp(NTR.x, FTR.x, zNear),
+                THREE.MathUtils.lerp(NTR.y, FTR.y, zNear),
                 zNear
             );
             const ntl = new THREE.Vector3(
-                THREE.MathUtils.lerp(NTL.x, FTL.x, zNear/total),
-                THREE.MathUtils.lerp(NTL.y, FTL.y, zNear/total),
+                THREE.MathUtils.lerp(NTL.x, FTL.x, zNear),
+                THREE.MathUtils.lerp(NTL.y, FTL.y, zNear),
                 zNear
             );  
             const ftr = new THREE.Vector3(
-                THREE.MathUtils.lerp(NTR.x, FTR.x, zFar/total),
-                THREE.MathUtils.lerp(NTR.y, FTR.y, zFar/total),
+                THREE.MathUtils.lerp(NTR.x, FTR.x, zFar),
+                THREE.MathUtils.lerp(NTR.y, FTR.y, zFar),
                 zFar
             );
             const ftl = new THREE.Vector3(
-                THREE.MathUtils.lerp(NTL.x, FTL.x, zFar/total),
-                THREE.MathUtils.lerp(NTL.y, FTL.y, zFar/total),
+                THREE.MathUtils.lerp(NTL.x, FTL.x, zFar),
+                THREE.MathUtils.lerp(NTL.y, FTL.y, zFar),
                 zFar
             );
             const center = new THREE.Vector3(
@@ -490,5 +569,95 @@ class DirectLight extends THREE.DirectionalLight {
         }
         return cascadeSpheres;
     }
+
+    /**
+     * Debug：读取并打印DirectionalLight的基本信息缓冲区
+     */
+    async debugCheckBasicInfo() {
+        const device = await FResourceManager.GetInstance().GetDevice();
+        const stagingBuffer = device.createBuffer({
+            size: FDirectionalLight.baseInfoSize,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        });
+
+        // 复制数据到staging buffer
+        const commandEncoder = device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(
+            this.BasicInfoBuffer, 
+            0, 
+            stagingBuffer, 
+            0, 
+            FDirectionalLight.baseInfoSize
+        );
+        device.queue.submit([commandEncoder.finish()]);
+
+        // 读取数据
+        await stagingBuffer.mapAsync(GPUMapMode.READ);
+        const data = new Float32Array(stagingBuffer.getMappedRange());
+
+        // 格式化打印
+        console.log("DirectionalLight Basic Info:");
+        console.log("  lightDirection:", data.slice(0, 4));
+        console.log("  lightColor:", data.slice(4, 8));
+        console.log("  lightIntensity:", data[8]);
+        console.log("  lightBias:", data[9]);
+        console.log("  numCascades:", data[10]);
+        console.log("  padding0:", data[11]);
+        console.log("  padding1:", data.slice(12, 16));
+
+        stagingBuffer.unmap();
+    }
+
+    /**
+     * Debug：读取并打印指定级联的信息
+     * @param {number} cascadeIndex - 级联索引
+     */
+    async debugCheckCascadeInfo(cascadeIndex) {
+        if (cascadeIndex >= this.numCascades) {
+            console.error(`Invalid cascade index: ${cascadeIndex}, max is ${this.numCascades - 1}`);
+            return;
+        }
+
+        const device = await FResourceManager.GetInstance().GetDevice();
+        const stagingBuffer = device.createBuffer({
+            size: FDirectionalLight.cascadeInfoSizePerElement,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        });
+
+        // 复制指定级联的数据到staging buffer
+        const commandEncoder = device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(
+            this.cascadeInfoBuffer,
+            cascadeIndex * FDirectionalLight.cascadeInfoSizePerElement,
+            stagingBuffer,
+            0,
+            FDirectionalLight.cascadeInfoSizePerElement
+        );
+        device.queue.submit([commandEncoder.finish()]);
+
+        // 读取数据
+        await stagingBuffer.mapAsync(GPUMapMode.READ);
+        const data = new Float32Array(stagingBuffer.getMappedRange());
+
+        // 格式化打印
+        console.log(`DirectionalLight Cascade[${cascadeIndex}] Info:`);
+        console.log("  viewMatrix:", data.slice(0, 16));
+        console.log("  projectionMatrix:", data.slice(16, 32));
+        console.log("  sphereCenterRadius:", data.slice(32, 36));
+        console.log("  cascadeDepth:", data.slice(36, 40));
+        console.log("  padding:", data.slice(40, 64));
+
+        stagingBuffer.unmap();
+    }
+
+    /**
+     * Debug：读取并打印所有级联的信息
+     */
+    async debugCheckAllCascades() {
+        console.log(`Checking all ${this.numCascades} cascades:`);
+        for (let i = 0; i < this.numCascades; i++) {
+            await this.debugCheckCascadeInfo(i);
+        }
+    }
 }
-export default DirectLight;
+export default FDirectionalLight;

@@ -13,10 +13,10 @@ import { resourceName } from './ResourceNames';
 import { loadTexture } from '../../Core/Resource/Texture/LoadTexture';
 import { FBXLoader } from 'three/examples/jsm/Addons.js';
 import { BufferGeometryUtils } from 'three/examples/jsm/Addons.js';
-import ShadowMapPass from './Pass/RenderPass/ShadowMapPass';
-import TestShadowRender from './Pass/RenderPass/TestShadowRender';
 import Scene from '../../Scene/UI/Scene';
 import SceneStaticMesh from '../../Scene/UI/Object/SceneStaticMesh';
+import DynamicLightPass from './Pass/RenderPass/DynamicLightPass';
+import LightingAndShadowPass from './Pass/ComputePass/LightingAndShadowPass';
 class FDeferredShadingSceneRenderer extends FSceneRenderer {
     constructor() {
         super();
@@ -68,19 +68,6 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
          */
         this._CopyPass = null;
 
-        /**
-         * 阴影Pass
-         * @type {ShadowMapPass}
-         * @protected
-         */
-        this._ShadowMapPass = new ShadowMapPass();
-
-        /**
-         * 测试阴影Pass
-         * @type {TestShadowRender}
-         * @protected
-         */
-        this._TestShadowRender = new TestShadowRender();
 
         /**
          * UI场景
@@ -94,6 +81,20 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
          * @public
          */
         this.GPUScene = new GPUScene(this.Scene, this);
+
+        /**
+         * 动态光照Pass
+         * @type {DynamicLightPass}
+         * @public
+         */
+        this._DynamicLightPass = new DynamicLightPass();
+
+        /**
+         * 光照和阴影Pass
+         * @type {LightingAndShadowPass}
+         * @public
+         */
+        this._LightingAndShadowPass = new LightingAndShadowPass();
     }
 
     /**
@@ -125,10 +126,9 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         await this._PrePass.Initialize(this);
         await this._BasePass.InitResourceName();
         await this._BasePass.Initialize(this);
-        await this._ShadowMapPass.InitResourceName();
-        await this._ShadowMapPass.Initialize(this);
-        await this._TestShadowRender.InitResourceName();
-        await this._TestShadowRender.Initialize(this);
+
+        await this._LightingAndShadowPass.InitResourceName();
+        await this._LightingAndShadowPass.Initialize(this);
 
         const UIModule = FModuleManager.GetInstance().GetModule('UIModule');
         const DetailBuilder = UIModule.WorldSettingsBuilder;
@@ -143,8 +143,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                     { value: resourceName.BasePass.gBufferB, label: 'Specular,Roughness,Metallic' },
                     { value: resourceName.BasePass.gBufferC, label: 'BaseColor' },
                     { value: resourceName.BasePass.gBufferD, label: 'Additional' },
-                    { value: 'DirectLightShadowMap', label: 'test' },
-                    { value: 'TestShadowRenderRT', label: 'testshadow' },
+                    { value: 'LightingAndShadowPassRT', label: '光照和阴影' },
                 ],
                 onChange: async (path, value) => {
                     if (this._CopyPass) {
@@ -189,13 +188,14 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             await this._BasePass.OnRenderTargetResize(Width, Height);
         }
 
-        if (this._TestShadowRender) {
-            await this._TestShadowRender.OnRenderTargetResize(Width, Height);
+        if (this._LightingAndShadowPass) {
+            await this._LightingAndShadowPass.OnRenderTargetResize(Width, Height);
         }
 
         if (this._CopyPass) {
             await this._CopyPass.OnRenderTargetResize(Width, Height);
         }
+
         // 更新相机宽高比
         this._MainCamera.aspect = Width / Height;
         this._MainCamera.updateProjectionMatrix();
@@ -241,11 +241,10 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         // 执行BasePass
         await this._BasePass.Render(DeltaTime, this.GPUScene, commandEncoder, this);
 
-        // 执行ShadowMapPass
-        await this._ShadowMapPass.Render(DeltaTime, this.GPUScene, commandEncoder, this);
+        await this._DynamicLightPass.Render(DeltaTime, this.GPUScene, commandEncoder, this);
 
-        // 执行TestShadowRender
-        await this._TestShadowRender.Render(DeltaTime, this.GPUScene, commandEncoder, this);
+        // 执行光照和阴影Pass
+        await this._LightingAndShadowPass.Render(DeltaTime, this.GPUScene, commandEncoder, this);
 
         // 执行CopyPass
         if (this._CopyPass) {
@@ -253,6 +252,9 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         }
 
         this._Device.queue.submit([commandEncoder.finish()]);
+    
+        //await this.GPUScene.directLight.debugCheckAllCascades();
+        //await this.GPUScene.directLight.debugCheckBasicInfo();
     }
 
     /**
@@ -268,7 +270,8 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         // 销毁 BasePass
         await this._BasePass.Destroy();
         // 销毁 ShadowMapPass
-        await this._ShadowMapPass.Destroy();
+        await this._DynamicLightPass.Destroy();
+        await this._LightingAndShadowPass.Destroy();
     }
 
     /**

@@ -39,5 +39,6 @@ export const resourceName = {
     },
     Light: {
         DirectLightBuffer: 'DirectLightBuffer',
+        DirectLightShadowMap: 'DirectLightShadowMap'
     },
 }

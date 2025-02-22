@@ -72,6 +72,7 @@ class FResourceManager {
 
         if (this.#Resources.has(InName)) {
             this.DeleteResource(InName);
+            console.log('创建同名资源前删除资源',InName);
         }
 
         let Resource;

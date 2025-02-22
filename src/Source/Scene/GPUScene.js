@@ -4,7 +4,7 @@ import FResourceManager from '../Core/Resource/FResourceManager.js';
 import { createPBRMaterial } from '../Material/Mat_Instance/PBR.js';
 import { resourceName } from '../Renderer/DeferredShadingRenderer/ResourceNames.js';
 import AmbientLight from '../Object3D/Light/AmbientLight.js';
-import DirectLight from '../Object3D/Light/DirectLight.js';
+import FDirectionalLight from '../Object3D/Light/FDirectionalLight.js';
 import SceneStaticMesh from './UI/Object/SceneStaticMesh.js';
 import Scene from './UI/Scene.js';
 import DirectionalLight from './UI/Object/DirectionalLight.js';
@@ -120,9 +120,9 @@ export default class GPUScene {
 
         /**
          * 平行光
-         * @type {DirectLight}
+         * @type {FDirectionalLight}
          */
-        this.directLight = new DirectLight(new THREE.Color(0xffffff), 4, renderer._MainCamera);
+        this.directLight = new FDirectionalLight(new THREE.Color(0xffffff), 4, renderer._MainCamera);
 
         /**
          * 光照信息缓冲区
@@ -260,8 +260,6 @@ export default class GPUScene {
             },
         });
         await this.#reCreateSceneBindGroup();
-
-        await this.#createSceneLightBindGroup();
     }
 
     /**
@@ -683,7 +681,7 @@ export default class GPUScene {
         if(this.resourceManager.GetResource(AmbientLight.BufferName) === null){
             await this.ambientLight.Init();
         }
-        if(this.resourceManager.GetResource(DirectLight.BufferName) === null){
+        if(this.resourceManager.GetResource(FDirectionalLight.BufferName) === null){
             await this.directLight.Init();
         }
 

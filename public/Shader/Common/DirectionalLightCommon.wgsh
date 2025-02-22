@@ -1,22 +1,25 @@
 // 平行光
 struct DirectionalLightInfo {
-    viewMatrix: mat4x4<f32>,
-    projectionMatrix: mat4x4<f32>,
-    lightDirection: vec4<f32>,
-    lightColor: vec4<f32>,
-    lightIntensity: f32,
-    lightBias: f32,
-    padding: array<f32, 6>
+    lightDirection: vec4<f32>,      // 16 bytes, offset 0
+    lightColor: vec4<f32>,          // 16 bytes, offset 16
+    lightIntensity: f32,            // 4 bytes,  offset 32
+    lightBias: f32,                 // 4 bytes,  offset 36
+    numCascades: f32,               // 4 bytes,  offset 40
+    padding0: f32,                  // 4 bytes,  offset 44
+    padding1: vec4<f32>,           // 16 bytes, offset 48-63
 };
 
 struct DirectionalLightCascadeInfo {
-    viewMatrix: mat4x4<f32>,
-    projectionMatrix: mat4x4<f32>,
+    viewMatrix: mat4x4<f32>,        // 64 bytes
+    projectionMatrix: mat4x4<f32>,  // 64 bytes
+    sphereCenterRadius: vec4<f32>,  // 16 bytes
+    cascadeDepth: vec4<f32>,        // 16 bytes
+    padding: array<vec4<f32>, 6>    // 96 bytes (6 * 16)
 }
 
-@group(2) @binding(0)
+@group(1) @binding(0)
 var<uniform> DirectionalLight: DirectionalLightInfo;
 
-@group(2) @binding(1)
-var<storage, read> DirectionalLightCascade: array<DirectionalLightCascadeInfo>;
+@group(1) @binding(1)
+var<storage> DirectionalLightCascade: array<DirectionalLightCascadeInfo>;
 

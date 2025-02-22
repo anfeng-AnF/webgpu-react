@@ -1,31 +1,21 @@
 import FPass from '../Pass';
 import FResourceManager from '../../../../Core/Resource/FResourceManager';
-import { resourceName } from '../../ResourceNames';
 import ShaderIncluder from '../../../../Core/Shader/ShaderIncluder';
-
+import { resourceName } from '../../ResourceNames';
+import FDeferredShadingSceneRenderer from '../../FDeferredShadingSceneRenderer';
+import { sampler } from 'three/tsl';
 /**
- * TempLightCalPass
- * 
- * 临时光照计算Pass，使用ShadowMap和GBuffer计算最终光照
- * 输入:
- * - GBufferA (世界空间法线)
- * - GBufferB (Specular,Roughness,Metallic)
- * - GBufferC (BaseColor)
- * - DirectLightShadowMap (阴影贴图)
- * 
- * 输出:
- * - 一个与Canvas大小相同的光照结果纹理
+ * LightingAndShadowPass Pass 用于调试阴影贴图效果，
+ * 将 ShadowMapPass 生成的阴影贴图通过全屏绘制显示出来。
  */
-class TempLightCalPass extends FPass {
+class LightingAndShadowPass extends FPass {
+    // 定义调试渲染结果的输出纹理名称（可在 resourceName 中配置）
+    renderTargetName = 'LightingAndShadowPassRT';
+
     constructor() {
         super();
-        this._Name = 'TempLightCalPass';
-        
-        /**
-         * 光照结果纹理
-         * @type {string}
-         */
-        this.lightResultTexture = resourceName.LightPass.lightResultTexture;
+        this._Name = 'LightingAndShadowPass';
+        this.bCanvasReady = false;
     }
 
     /**
@@ -34,205 +24,241 @@ class TempLightCalPass extends FPass {
     async InitResourceName() {
         this._Resources = {
             PassName: this._Name,
-            Resources: {
-                Dependence: {
-                    Texture: [
-                        resourceName.BasePass.gBufferA,  // 世界空间法线
-                        resourceName.BasePass.gBufferB,  // Specular,Roughness,Metallic
-                        resourceName.BasePass.gBufferC,  // BaseColor
-                        resourceName.Light.DirectLightShadowMap, // 阴影贴图
-                    ],
-                },
-                Managed: {
-                    Texture: [this.lightResultTexture],
-                    Pipeline: [resourceName.LightPass.computePipeline],
-                },
-                Output: {
-                    Texture: [this.lightResultTexture],
-                },
-            },
         };
     }
 
     /**
-     * 初始化渲染通道
+     * 初始化 LightingAndShadowPass Pass
+     * 1. 创建用于输出调试结果的 render target
+     * 2. 加载 shader 并创建 shader module
+     * 3. 创建 PipelineLayout 与 RenderPipeline；同时创建绑定组用于采样阴影贴图
+     * @param {FDeferredShadingSceneRenderer} renderer 渲染器
      */
     async Initialize(renderer) {
-        // 创建光照结果纹理
-        await this.OnRenderTargetResize(1920, 1080);
+        this.shaderCode = await ShaderIncluder.GetShaderCode('/Shader/LightPass/test.wgsl');
 
-        // 加载计算着色器
-        const computeShaderCode = await ShaderIncluder.GetShaderCode('/Shader/LightPass/LightCalCompute.wgsl');
-        const computeShader = await this._ResourceManager.CreateResource(
-            resourceName.LightPass.computeShader,
+        this.shaderModule = await this._ResourceManager.CreateResource(
+            'TestShadowRenderShaderModule',
             {
                 Type: 'ShaderModule',
                 desc: {
-                    code: computeShaderCode,
+                    code: this.shaderCode,
                 },
             }
         );
 
-        // 创建绑定组布局
-        const bindGroupLayout = await this._ResourceManager.CreateResource(
-            resourceName.LightPass.computeBindGroupLayout,
+        // 创建 BindGroupLayout 描述符，根据注释定义：
+        // bindings 0-3：GBufferA-D
+        // binding 4：SceneDepth
+        // binding 5：ShadowMap
+        // binding 6：outputtexture（作为 storage texture 用于写入）
+        this.testBindGroupLayout = await this._ResourceManager.CreateResource(
+            'TestShadowRenderBindGroupLayout',
             {
                 Type: 'BindGroupLayout',
                 desc: {
                     entries: [
-                        // GBufferA
                         {
                             binding: 0,
                             visibility: GPUShaderStage.COMPUTE,
-                            texture: { sampleType: 'float' }
+                            texture: { sampleType: 'float', viewDimension: '2d' },
                         },
-                        // GBufferB
                         {
                             binding: 1,
                             visibility: GPUShaderStage.COMPUTE,
-                            texture: { sampleType: 'float' }
+                            texture: { sampleType: 'float', viewDimension: '2d' },
                         },
-                        // GBufferC
                         {
                             binding: 2,
                             visibility: GPUShaderStage.COMPUTE,
-                            texture: { sampleType: 'float' }
+                            texture: { sampleType: 'float', viewDimension: '2d' },
                         },
-                        // ShadowMap
                         {
                             binding: 3,
                             visibility: GPUShaderStage.COMPUTE,
-                            texture: { sampleType: 'depth' }
+                            texture: { sampleType: 'float', viewDimension: '2d' },
                         },
-                        // 输出纹理
                         {
                             binding: 4,
                             visibility: GPUShaderStage.COMPUTE,
-                            storageTexture: {
-                                access: 'write-only',
-                                format: 'rgba8unorm'
-                            }
+                            texture: { sampleType: 'depth', viewDimension: '2d' },
                         },
-                        // Scene光照信息
                         {
                             binding: 5,
                             visibility: GPUShaderStage.COMPUTE,
-                            buffer: { type: 'uniform' }
+                            texture: { sampleType: 'depth', viewDimension: '2d-array' },
+                        },
+                        {
+                            binding: 6,
+                            visibility: GPUShaderStage.COMPUTE,
+                            storageTexture: {
+                                access: 'write-only',
+                                format: 'rgba8unorm',
+                            },
                         }
+                    ],
+                },
+            }
+        );
+
+        // 获取外部传入的 BindGroupLayout（sceneBuffer 和 sceneLight），然后创建计算管线所需的 pipelineLayout：
+        // 计算管线Desc：
+        //  0 - sceneBuffer
+        //  1 - 本 Pass 的 BindGroup
+        //  2 - sceneLight
+        this.testPipelineLayout = await this._ResourceManager.CreateResource(
+            'TestShadowRenderPipelineLayout',
+            {
+                Type: 'PipelineLayout',
+                desc: {
+                    bindGroupLayouts: [
+                        renderer.GPUScene.sceneBindGroupLayout,
+                        renderer.GPUScene.directLight.lightBindGroupLayoutWithoutOffset,
+                        this.testBindGroupLayout,
                     ],
                 },
             }
         );
 
         // 创建计算管线
-        await this._ResourceManager.CreateResource(
-            resourceName.LightPass.computePipeline,
-            {
-                Type: 'ComputePipeline',
-                desc: {
-                    layout: device.createPipelineLayout({
-                        bindGroupLayouts: [bindGroupLayout],
-                    }),
-                    compute: {
-                        module: computeShader,
-                        entryPoint: 'main',
-                    },
+        this.testPipeline = await this._ResourceManager.CreateResource('TestShadowRenderPipeline', {
+            Type: 'ComputePipeline',
+            desc: {
+                layout: this.testPipelineLayout,
+                compute: {
+                    module: this.shaderModule,
+                    entryPoint: 'CSMain',
                 },
-            }
-        );
+            },
+        });
 
         this._bInitialized = true;
+
+        this.depthSampler = this._ResourceManager.CreateResource(
+            'shadowDepthSampler',
+            {
+                Type: 'Sampler',
+                desc: {
+                    magFilter: 'linear',
+                    minFilter: 'linear',
+                }
+            });
     }
 
     /**
      * 处理渲染目标大小改变
      */
     async OnRenderTargetResize(Width, Height) {
-        await this._ResourceManager.CreateResource(
-            this.lightResultTexture,
-            {
-                Type: 'Texture',
-                desc: {
-                    size: [Width, Height, 1],
-                    format: 'rgba8unorm',
-                    usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING,
-                },
-            }
-        );
-    }
+        this.width = Number(Width);
+        this.height = Number(Height);
+        this.renderTarget = this._ResourceManager.CreateResource(this.renderTargetName, {
+            Type: 'Texture',
+            desc: {
+                size: { width: Width, height: Height },
+                format: 'rgba8unorm',
+                usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC,
+            },
+        });
 
-    /**
-     * 渲染
-     */
-    async Render(DeltaTime, Scene, CommandEncoder, renderer) {
-        const computePass = CommandEncoder.beginComputePass();
-        
-        // 设置计算管线
-        computePass.setPipeline(
-            this._ResourceManager.GetResource(resourceName.LightPass.computePipeline)
-        );
-
-        // 创建绑定组
-        const bindGroup = this._ResourceManager.CreateResource(
-            resourceName.LightPass.computeBindGroup,
+        // 更新 BindGroup
+        this.testBindGroup = await this._ResourceManager.CreateResource(
+            'TestShadowRenderBindGroup',
             {
                 Type: 'BindGroup',
                 desc: {
-                    layout: this._ResourceManager.GetResource(resourceName.LightPass.computeBindGroupLayout),
+                    layout: this.testBindGroupLayout,
                     entries: [
                         {
                             binding: 0,
-                            resource: this._ResourceManager.GetResource(resourceName.BasePass.gBufferA).createView()
+                            resource: this._ResourceManager
+                                .GetResource(resourceName.BasePass.gBufferA)
+                                .createView(),
                         },
                         {
                             binding: 1,
-                            resource: this._ResourceManager.GetResource(resourceName.BasePass.gBufferB).createView()
+                            resource: this._ResourceManager
+                                .GetResource(resourceName.BasePass.gBufferB)
+                                .createView(),
                         },
                         {
                             binding: 2,
-                            resource: this._ResourceManager.GetResource(resourceName.BasePass.gBufferC).createView()
+                            resource: this._ResourceManager
+                                .GetResource(resourceName.BasePass.gBufferC)
+                                .createView(),
                         },
                         {
                             binding: 3,
-                            resource: this._ResourceManager.GetResource(resourceName.Light.DirectLightShadowMap).createView()
+                            resource: this._ResourceManager
+                                .GetResource(resourceName.BasePass.gBufferD)
+                                .createView(),
                         },
                         {
                             binding: 4,
-                            resource: this._ResourceManager.GetResource(this.lightResultTexture).createView()
+                            resource: this._ResourceManager
+                                .GetResource(resourceName.PrePass.depthTexture)
+                                .createView(),
                         },
                         {
                             binding: 5,
-                            resource: { buffer: Scene.sceneLightBindGroup }
+                            resource: this._ResourceManager
+                                .GetResource(resourceName.Light.DirectLightShadowMap)
+                                .createView({
+                                    dimension: '2d-array',
+                                    arrayLayerCount: 8,
+                                    baseArrayLayer: 0,
+                                }),
+                        },
+                        {
+                            binding: 6,
+                            resource: this.renderTarget.createView(),
                         }
                     ],
                 },
             }
         );
+        this.bCanvasReady = true;
+    }
 
-        computePass.setBindGroup(0, bindGroup);
+    /**
+     * 渲染调试阴影贴图的全屏效果
+     * 采用全屏绘制的方式，将阴影贴图输出
+     * @param {number} DeltaTime 时间差
+     * @param {GPUScene} Scene 场景（本 Pass 不用，但保持 API 一致）
+     * @param {GPUCommandEncoder} CommandEncoder 命令编码器
+     * @param {FDeferredShadingSceneRenderer} renderer 渲染器
+     */
+    async Render(DeltaTime, Scene, CommandEncoder, renderer) {
 
-        // 调度计算着色器
-        const width = renderer.Width;
-        const height = renderer.Height;
-        computePass.dispatchWorkgroups(
-            Math.ceil(width / 8),
-            Math.ceil(height / 8),
-            1
-        );
+        while (!this.bCanvasReady||!this._bInitialized) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        }
 
+        // 开始 compute pass
+        const computePass = CommandEncoder.beginComputePass();
+
+        // 设置 compute pipeline
+        computePass.setPipeline(this.testPipeline);
+        // 设置绑定的各个 BindGroup：
+        //  0 - sceneBuffer（由 renderer.Scene.sceneBindGroup 提供）
+        //  1 - 本 Pass 的 BindGroup（已经在 OnRenderTargetResize 中创建）
+        //  2 - sceneLight（由 renderer.Scene.sceneLightBindGroup 提供）
+        computePass.setBindGroup(0, renderer.GPUScene.sceneBindGroup, [0]);
+        computePass.setBindGroup(1, renderer.GPUScene.directLight.lightBindGroupWithoutOffset);
+        computePass.setBindGroup(2, this.testBindGroup);
+
+        // 使用 OnRenderTargetResize 中保存的宽高来计算工作组数量
+        const workgroupsX = Math.ceil(this.width / 8);
+        const workgroupsY = Math.ceil(this.height / 8);
+
+        // 分派 compute shader 任务
+        computePass.dispatchWorkgroups(workgroupsX, workgroupsY,1);
         computePass.end();
     }
 
     /**
      * 销毁资源
      */
-    async Destroy() {
-        this._ResourceManager.DeleteResource(this.lightResultTexture);
-        this._ResourceManager.DeleteResource(resourceName.LightPass.computePipeline);
-        this._ResourceManager.DeleteResource(resourceName.LightPass.computeShader);
-        this._ResourceManager.DeleteResource(resourceName.LightPass.computeBindGroupLayout);
-    }
+    async Destroy() {}
 }
 
-export default TempLightCalPass;
-
+export default LightingAndShadowPass;
