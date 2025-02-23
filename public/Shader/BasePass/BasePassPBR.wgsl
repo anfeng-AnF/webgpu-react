@@ -128,19 +128,24 @@ fn PSMain(input: vsOutput) -> FragmentOutput {
     
     // 计算切线空间到世界空间的转换矩阵
     let normalMatrix = mat3x3<f32>(
-        GetModelMatrix()[0].xyz,
-        GetModelMatrix()[1].xyz,
-        GetModelMatrix()[2].xyz
+        normalize(GetModelMatrix()[0].xyz),  // 需要标准化
+        normalize(GetModelMatrix()[1].xyz),
+        normalize(GetModelMatrix()[2].xyz)
     );
     
     // 计算世界空间的基向量
-    let worldNormal = normalize(input.normal * normalMatrix);
-    let worldTangent = normalize(input.tangent * normalMatrix);
-    let worldBitangent = normalize(cross(worldNormal, worldTangent));
+    let worldNormal = normalize(normalMatrix * input.normal);  // 修改矩阵乘法顺序
+    let worldTangent = normalize(normalMatrix * input.tangent);
+    
+    // 确保切线垂直于法线
+    let worldTangentOrthogonal = normalize(worldTangent - dot(worldTangent, worldNormal) * worldNormal);
+    
+    // 计算副切线，使用叉积确保右手坐标系
+    let worldBitangent = normalize(cross(worldNormal, worldTangentOrthogonal));
     
     // 构建TBN矩阵（切线空间到世界空间的变换矩阵）
     let TBN = mat3x3<f32>(
-        worldTangent,
+        worldTangentOrthogonal,
         worldBitangent,
         worldNormal
     );
@@ -149,14 +154,14 @@ fn PSMain(input: vsOutput) -> FragmentOutput {
     var normalTS = PBRParam.Normal;
     if ((PBRParam.flags & NORMAL_USE_TEXTURE) != 0u) {
         var normalMap = textureSample(texture_normal, sampler_normal, uv).rgb;
-
         normalTS = normalMap * 2.0 - 1.0;
+        normalTS.y = -normalTS.y; // 翻转 Y 分量以匹配 OpenGL 约定
     }
     
     // 将切线空间的法线转换到世界空间
     var finalNormal = worldNormal;
     if ((PBRParam.flags & NORMAL_USE_TEXTURE) != 0u) {
-        finalNormal =-1* normalize(TBN * normalTS);
+        finalNormal = normalize(TBN * normalTS);  // 移除负号
     }
     
     // 计算基础颜色

@@ -2,9 +2,10 @@ import Object3D from './Object3D';
 import * as THREE from 'three';
 
 class DirectionalLight extends Object3D {
-    constructor(name = '') {
+    constructor(GPULight,name = '') {
         super();
         this.Name = name;
+        this.GPULight = GPULight;
         this.Type = 'directionalLight';
         this.uuid = ''; // GPU端对应的光源标识符
 
@@ -18,7 +19,7 @@ class DirectionalLight extends Object3D {
             numCascades: 8, // 级联数量
             cascadeLightBias: new Float32Array(8), // 级联深度偏移
             cascadeNormalBias: new Float32Array(8), // 级联法线偏移
-            splitThreshold: 0.0005, // 级联分割的线性/对数混合阈值
+            splitThreshold: 0.002, // 级联分割的线性/对数混合阈值
             size: 1024, // 每张阴影贴图边长
             cascadeNear: 0.1, // 级联相机近平面
             farMultiplier: 3.0, // 级联相机远平面 = radius * farMultiplier
@@ -33,13 +34,33 @@ class DirectionalLight extends Object3D {
         
         this.#UpdateRotation();
 
-
         // 初始化默认的级联偏移值
-        let BasicBias = 0.00001;
-        let BasicNormalBias = 0.002;
+        const cascadeLightBiasValues = [
+            0.01,    // 级联0
+            0.02,    // 级联1
+            0.04,    // 级联2
+            0.632,   // 级联3
+            0.887,   // 级联4
+            5.37,    // 级联5
+            0.64,    // 级联6
+            1.28     // 级联7
+        ];
+
+        const cascadeNormalBiasValues = [
+            2.0,     // 级联0
+            4.0,     // 级联1
+            8.0,     // 级联2
+            6.0,    // 级联3
+            3.16,    // 级联4
+            6.241,   // 级联5
+            200.0,   // 级联6
+            256.0    // 级联7
+        ];
+
+        // 设置级联偏移值
         for (let i = 0; i < this.DynamicVariables.numCascades; i++) {
-            this.DynamicVariables.cascadeLightBias[i] = BasicBias * Math.pow(2, i);
-            this.DynamicVariables.cascadeNormalBias[i] = BasicNormalBias * Math.pow(2, i);
+            this.DynamicVariables.cascadeLightBias[i] = cascadeLightBiasValues[i] * 0.001;  // 转换为实际值
+            this.DynamicVariables.cascadeNormalBias[i] = cascadeNormalBiasValues[i] * 0.001; // 转换为实际值
         }
     }
 
@@ -119,7 +140,9 @@ class DirectionalLight extends Object3D {
     }
 
     UpdateLight() {
-
+        if(this.GPULight){
+            this.GPULight.UpdateParamsFromUI(this);
+        }
     }
 
     GetDetailProperties() {
