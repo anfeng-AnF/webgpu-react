@@ -31,7 +31,7 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let coord = vec2<i32>(global_id.xy);
 
     let depth = textureLoad(sceneDepth, coord, 0);
-    let normal = textureLoad(gBufferA, coord, 0);
+    let normal = textureLoad(gBufferA, coord, 0)*2.0-1.0;
     let SRM = textureLoad(gBufferB, coord, 0);
     let BaseColor = textureLoad(gBufferC, coord, 0);
     let Additional = textureLoad(gBufferD, coord, 0);
@@ -152,7 +152,7 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     // 计算基础项
     let NoV = max(dot(N, V), 0.0001);
-    NoL = max(dot(N, L), 0.0001);
+    NoL = max(dot(N, L), 0.0);
     let NoH = max(dot(N, H), 0.0);
     let VoH = max(dot(V, H), 0.0);
     
@@ -185,23 +185,15 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // 合并直接光照
     let directLight = (diffuse + specular) * DirectionalLight.lightColor.rgb * DirectionalLight.lightIntensity * NoL;
     
-    // 应用阴影
-    let finalColor = directLight * shadow;
+    // 添加固定的环境光
+    let ambientIntensity = 0.08; // 环境光强度
+    let ambientColor = vec3<f32>(1.0, 1.0, 1.0); // 白色环境光
+    let ambient = ambientColor * ambientIntensity * baseColor;
+    
+    // 应用阴影和环境光
+    let finalColor = max(directLight * shadow ,vec3<f32>(0.0))+ ambient;
     
     // 输出最终颜色（添加gamma校正）
     let gammaCorrected = pow(finalColor, vec3<f32>(1.0/2.2));
     textureStore(outputTex, coord, vec4<f32>(gammaCorrected, 1.0));
 }
-/*
-[  viewCascadeDepth
-    -0.1,
-    -0.5156692688606229,
-    -2.6591479484724942,
-    -13.712408783810368,
-    -70.71067811865476,
-    -364.6332368608555,
-    -1880.3015465431968,
-    -9696.137237434288,
-    -50000
-]
-*/

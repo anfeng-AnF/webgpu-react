@@ -2,7 +2,7 @@ import Object3D from './Object3D';
 import * as THREE from 'three';
 
 class SceneStaticMesh extends Object3D {
-    constructor(name = '') {
+    constructor(Mesh,name = '') {
         super();
         this.Name = name;
         this.Type = 'staticMesh';  // 设置类型为 staticMesh，对应 UI 中的静态网格图标
@@ -15,6 +15,7 @@ class SceneStaticMesh extends Object3D {
 
         // 用于标识对应的GPU端网格数据
         this.uuid = '';
+        this.Mesh = Mesh;
     }
 
     /**
@@ -36,9 +37,7 @@ class SceneStaticMesh extends Object3D {
      */
     UpdateTransform() {
         if (this.Mesh) {
-            this.Mesh.position.copy(this.Position);
-            this.Mesh.rotation.copy(this.Rotation);
-            this.Mesh.scale.copy(this.Scale);
+            this.Mesh.update(this);
         }
     }
 

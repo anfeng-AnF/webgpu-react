@@ -202,22 +202,7 @@ export default class GPUScene {
      * @param {Scene} scene
      */
     async UpdateObject(scene){
-        scene.transver((object)=>{
-            if(object instanceof SceneStaticMesh){
-                const mesh = this.meshes[this.meshSlotMap.get(object.uuid)];
-                if(mesh){
-                    mesh.update(object);
-                }
-            }
-            else if(object instanceof AmbientLight){
-                this.ambientLight.update(object);
-            }
-            else if(object instanceof DirectionalLight&&object.uuid === this.directLight.uuid){
-                this.directLight.UpdateParamsFromUI(object);
-            }
 
-            
-        });
     }
 
 
