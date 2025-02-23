@@ -58,7 +58,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             60, // FOV
             window.innerWidth / window.innerHeight,
             0.1, // near
-            1e7 // far
+            5e4 // far
         );
 
         /**
