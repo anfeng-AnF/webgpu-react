@@ -32,28 +32,79 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let depth = textureLoad(sceneDepth, coord, 0);
     let uv = vec2<f32>(coord) / vec2<f32>(textureDimensions(sceneDepth));
     let worldPos = ReconstructWorldPositionFromDepth(depth, uv);
-    let viewPos = scene.viewMatrix * vec4<f32>(worldPos, 1.0);
+    //let viewPos = scene.viewMatrix * vec4<f32>(worldPos, 1.0);
 
-
+    //textureStore(outputTex, coord, vec4<f32>(viewPos.xyz, 1.0));
+    //return;
 
     let dimension = textureDimensions(shadowMap);
 
     // 数组定义8个颜色
     let colors = array<vec4<f32>, 8>(
-        vec4<f32>(1.0, 0.0, 0.0, 1.0),
-        vec4<f32>(0.0, 1.0, 0.0, 1.0),
         vec4<f32>(0.0, 0.0, 1.0, 1.0),
-        vec4<f32>(1.0, 1.0, 0.0, 1.0),
+        vec4<f32>(0.0, 1.0, 0.0, 1.0),
         vec4<f32>(0.0, 1.0, 1.0, 1.0),
+        vec4<f32>(1.0, 0.0, 0.0, 1.0),
         vec4<f32>(1.0, 0.0, 1.0, 1.0),
+        vec4<f32>(1.0, 1.0, 0.0, 1.0),
         vec4<f32>(1.0, 1.0, 1.0, 1.0),
         vec4<f32>(0.0, 0.0, 0.0, 1.0),
     );
 
+    //textureStore(outputTex, coord, vec4<f32>(f32(viewPos.z>-25000.0), 0.0, 0.0, 1.0));
+    //return;
+    //textureStore(outputTex, coord, vec4<f32>(-DirectionalLightCascade[3].cascadeDepth.x/2.0/13.712408,0.0,0.0, 1.0));
+    //return;
+
+    var cascadeLevel = 0u;
     for(var i = 0u; i < u32(DirectionalLight.numCascades); i++) {
-        if(DirectionalLightCascade[i].cascadeDepth.x < -viewPos.z) {
-            textureStore(outputTex, coord, colors[i]); 
+        //尝试球体判别
+        let distance = length(worldPos - DirectionalLightCascade[i].sphereCenterRadius.xyz);
+        if(distance <= DirectionalLightCascade[i].sphereCenterRadius.w) {
+            // 返回满足条件的最低级联
+            //textureStore(outputTex, coord, colors[i]); 
+            cascadeLevel = i;
+            break;
         }
     }
-}
 
+    // 世界坐标->光源视角坐标
+    let lightClipPos = 
+    DirectionalLightCascade[cascadeLevel].projectionMatrix * 
+    DirectionalLightCascade[cascadeLevel].viewMatrix * 
+    vec4<f32>(worldPos, 1.0);
+    let lightNDCPos = lightClipPos * 0.5 + 0.5;
+    let lightUV = vec2<u32>(vec2<f32>(lightNDCPos.x,1 - lightNDCPos.y)*vec2<f32>(textureDimensions(shadowMap).xy));
+    
+    if((lightNDCPos.z < 0.0)||(lightNDCPos.z > 1.0)||(lightUV.x < 0) || (lightUV.x >= textureDimensions(shadowMap).x) || (lightUV.y < 0) || (lightUV.y >= textureDimensions(shadowMap).y)) {
+        textureStore(outputTex, coord, vec4<f32>(0.5, 0.5, 0.0, 1.0));
+        return;
+    }
+
+    let currentDepth = lightNDCPos.z;
+    let lightDepth = textureLoad(shadowMap,lightUV,cascadeLevel,0);
+
+    // 显示cascade深度
+    textureStore(outputTex, coord, vec4<f32>(pow(lightDepth,2)*colors[cascadeLevel]));
+    textureStore(outputTex, coord, vec4<f32>(pow(currentDepth,2)*colors[cascadeLevel]));
+
+
+    if(currentDepth > lightDepth) {
+        textureStore(outputTex, coord, vec4<f32>(0.0, 0.0, 0.0, 1.0));
+    } else {
+        textureStore(outputTex, coord, vec4<f32>(1.0, 1.0, 1.0, 1.0));
+    }
+}
+/*
+[  viewCascadeDepth
+    -0.1,
+    -0.5156692688606229,
+    -2.6591479484724942,
+    -13.712408783810368,
+    -70.71067811865476,
+    -364.6332368608555,
+    -1880.3015465431968,
+    -9696.137237434288,
+    -50000
+]
+*/
