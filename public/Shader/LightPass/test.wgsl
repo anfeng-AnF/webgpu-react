@@ -89,7 +89,7 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
         textureStore(outputTex, coord, vec4<f32>(0.5, 0.5, 0.0, 1.0));
         return;
     }
-    let NoL = dot(normal.xyz,DirectionalLight.lightDirection.xyz);
+    var NoL = dot(normal.xyz,DirectionalLight.lightDirection.xyz);
     let normalBias = DirectionalLightCascade[cascadeLevel].lightBiasNormalBias.y*NoL;
     let currentDepth = lightNDCPos.z + normalBias + DirectionalLightCascade[cascadeLevel].lightBiasNormalBias.x;
     let lightDepth = textureLoad(shadowMap,lightUV,cascadeLevel,0);
@@ -135,6 +135,59 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Output the final color with PCF shadow
     let shadowColor = mix(vec4<f32>(0.0), vec4<f32>(1.0), shadow);
     textureStore(outputTex, coord, shadowColor);
+
+    // 实现光照计算 cook-torrance方法
+    let V = normalize(scene.camPosFar.xyz - worldPos); // 视线方向
+    let L = normalize(-DirectionalLight.lightDirection.xyz); // 光线方向
+    let N = normalize(normal.xyz); // 法线方向
+    let H = normalize(L + V); // 半程向量
+    
+    // 获取材质属性
+    let roughness = SRM.g;
+    let metallic = SRM.b;
+    let baseColor = BaseColor.rgb;
+    
+    // 计算基础项
+    let NoV = max(dot(N, V), 0.0001);
+    NoL = max(dot(N, L), 0.0001);
+    let NoH = max(dot(N, H), 0.0);
+    let VoH = max(dot(V, H), 0.0);
+    
+    // 计算F0（0度反射率）
+    let dielectricF0 = vec3<f32>(0.04); // 非金属的F0通常是0.04
+    let F0 = mix(dielectricF0, baseColor, metallic);
+    
+    // Distribution - GGX/Trowbridge-Reitz
+    let alpha = roughness * roughness;
+    let alpha2 = alpha * alpha;
+    let NoH2 = NoH * NoH;
+    let D = alpha2 / (pi * pow(NoH2 * (alpha2 - 1.0) + 1.0, 2.0));
+    
+    // Fresnel - Schlick
+    let F = F0 + (vec3<f32>(1.0) - F0) * pow(1.0 - VoH, 5.0);
+    
+    // Geometry - Smith with Schlick-GGX
+    let k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
+    let GV = NoV / (NoV * (1.0 - k) + k);
+    let GL = NoL / (NoL * (1.0 - k) + k);
+    let G = GV * GL;
+    
+    // Specular BRDF
+    let specular = (D * F * G) / (4.0 * NoV * NoL);
+    
+    // Diffuse BRDF (Lambert)
+    let kD = (vec3<f32>(1.0) - F) * (1.0 - metallic);
+    let diffuse = kD * baseColor / pi;
+    
+    // 合并直接光照
+    let directLight = (diffuse + specular) * DirectionalLight.lightColor.rgb * DirectionalLight.lightIntensity * NoL;
+    
+    // 应用阴影
+    let finalColor = directLight * shadow;
+    
+    // 输出最终颜色（添加gamma校正）
+    let gammaCorrected = pow(finalColor, vec3<f32>(1.0/2.2));
+    textureStore(outputTex, coord, vec4<f32>(gammaCorrected, 1.0));
 }
 /*
 [  viewCascadeDepth
