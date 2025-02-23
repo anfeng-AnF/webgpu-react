@@ -10,6 +10,12 @@
  * @method Destroy - Cleans up and destroys the GPU resources.
  */
 class IGPULight {
+    /**
+     * @type {Object}
+     * @description Additional parameters for the light.
+     */
+    params = {};
+
     constructor() {
         if (new.target === IGPULight) {
             throw new Error("IGPULight is an interface and cannot be instantiated directly.");
