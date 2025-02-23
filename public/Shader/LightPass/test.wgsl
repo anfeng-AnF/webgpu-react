@@ -29,15 +29,24 @@ var outputTex: texture_storage_2d<rgba8unorm, write>; // 最终输出的存储�
 @compute @workgroup_size(8, 8, 1)
 fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let coord = vec2<i32>(global_id.xy);
+
     let depth = textureLoad(sceneDepth, coord, 0);
+    let normal = textureLoad(gBufferA, coord, 0);
+    let SRM = textureLoad(gBufferB, coord, 0);
+    let BaseColor = textureLoad(gBufferC, coord, 0);
+    let Additional = textureLoad(gBufferD, coord, 0);
+
+    
     let uv = vec2<f32>(coord) / vec2<f32>(textureDimensions(sceneDepth));
     let worldPos = ReconstructWorldPositionFromDepth(depth, uv);
+
+
     //let viewPos = scene.viewMatrix * vec4<f32>(worldPos, 1.0);
 
     //textureStore(outputTex, coord, vec4<f32>(viewPos.xyz, 1.0));
     //return;
 
-    let dimension = textureDimensions(shadowMap);
+    let dimension = vec2<i32>(textureDimensions(shadowMap).xy);
 
     // 数组定义8个颜色
     let colors = array<vec4<f32>, 8>(
@@ -74,19 +83,20 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     DirectionalLightCascade[cascadeLevel].viewMatrix * 
     vec4<f32>(worldPos, 1.0);
     let lightNDCPos = lightClipPos * 0.5 + 0.5;
-    let lightUV = vec2<u32>(vec2<f32>(lightNDCPos.x,1 - lightNDCPos.y)*vec2<f32>(textureDimensions(shadowMap).xy));
+    let lightUV = vec2<i32>(vec2<f32>(lightNDCPos.x,1 - lightNDCPos.y)*vec2<f32>(textureDimensions(shadowMap).xy));
     
-    if((lightNDCPos.z < 0.0)||(lightNDCPos.z > 1.0)||(lightUV.x < 0) || (lightUV.x >= textureDimensions(shadowMap).x) || (lightUV.y < 0) || (lightUV.y >= textureDimensions(shadowMap).y)) {
+    if((lightNDCPos.z < 0.0)||(lightNDCPos.z > 1.0)||(lightUV.x < 0) || (lightUV.x >= dimension.x) || (lightUV.y < 0) || (lightUV.y >= dimension.y)) {
         textureStore(outputTex, coord, vec4<f32>(0.5, 0.5, 0.0, 1.0));
         return;
     }
-
-    let currentDepth = lightNDCPos.z;
+    let NoL = dot(normal.xyz,DirectionalLight.lightDirection.xyz);
+    let normalBias = DirectionalLightCascade[cascadeLevel].lightBiasNormalBias.y*NoL;
+    let currentDepth = lightNDCPos.z + normalBias + DirectionalLightCascade[cascadeLevel].lightBiasNormalBias.x;
     let lightDepth = textureLoad(shadowMap,lightUV,cascadeLevel,0);
 
     // 显示cascade深度
-    textureStore(outputTex, coord, vec4<f32>(pow(lightDepth,2)*colors[cascadeLevel]));
-    textureStore(outputTex, coord, vec4<f32>(pow(currentDepth,2)*colors[cascadeLevel]));
+    //textureStore(outputTex, coord, vec4<f32>(pow(lightDepth,2)*colors[cascadeLevel]));
+
 
 
     if(currentDepth > lightDepth) {
@@ -94,6 +104,37 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     } else {
         textureStore(outputTex, coord, vec4<f32>(1.0, 1.0, 1.0, 1.0));
     }
+
+    // pcf
+    var shadow = 0.0;
+    let texelSize = 1.0 / f32(textureDimensions(shadowMap).x);
+    let kernelSize = 1; // 控制kernel大小，1表示3x3, 2表示5x5, 以此类推
+    let totalSamples = f32((kernelSize * 2 + 1) * (kernelSize * 2 + 1));
+    
+    // NxN PCF kernel
+    for(var x = -kernelSize; x <= kernelSize; x++) {
+        for(var y = -kernelSize; y <= kernelSize; y++) {
+            let offset = vec2<i32>(x, y);
+            let sampleUV = lightUV + offset;
+            
+            // Ensure we don't sample outside the shadow map
+            if(sampleUV.x >= 0 && sampleUV.x < dimension.x && 
+               sampleUV.y >= 0 && sampleUV.y < dimension.y) {
+                let sampleDepth = textureLoad(shadowMap, sampleUV, cascadeLevel, 0);
+                
+                if(currentDepth <= sampleDepth) {
+                    shadow += 1.0;
+                }
+            }
+        }
+    }
+    
+    // Average the samples
+    shadow /= totalSamples;
+
+    // Output the final color with PCF shadow
+    let shadowColor = mix(vec4<f32>(0.0), vec4<f32>(1.0), shadow);
+    textureStore(outputTex, coord, shadowColor);
 }
 /*
 [  viewCascadeDepth

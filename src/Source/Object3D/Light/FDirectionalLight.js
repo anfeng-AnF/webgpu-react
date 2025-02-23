@@ -26,7 +26,8 @@ import StaticMesh from '../Mesh/StaticMesh';
  *      projectionMatrix:       mat4x4<f32>   64 bytes, offset 64  - 127 bytes
  *      sphereCenter+Radius:    vec4<f32>     16 bytes, offset 128 - 143 bytes xyz for world position, w for radius
  *      cascadeDepth:           vec4<f32>     16 bytes, offset 144 - 159 bytes
- *      padding:                f32array[24]  96 bytes, offset 159 - 255 bytes
+ *      lightBiasNormalBias:    vec4<f32>     16 bytes, offset 160 - 175 bytes
+ *      padding:                f32array[20]  80 bytes, offset 175 - 255 bytes
  *  }
  *
  * @class FDirectionalLight
@@ -110,6 +111,27 @@ class FDirectionalLight extends THREE.DirectionalLight {
                     600 // far
                 )
             );
+        }
+
+        // 初始化级联偏移
+        /**
+         * 级联偏移
+         * @type {Float32Array}
+         */
+        this.cascadeLightBias = new Float32Array(this.numCascades);
+
+        /**
+         * 级联法线偏移
+         * @type {Float32Array}
+         */
+        this.cascadeNormalBias = new Float32Array(this.numCascades);
+
+        // 初始化默认值
+        let BasicBias = 0.001;
+        let BasicNormalBias = 0.002;
+        for (let i = 0; i < this.numCascades; i++) {
+            this.cascadeLightBias[i] = BasicBias * Math.pow(2, i);
+            this.cascadeNormalBias[i] = BasicNormalBias * Math.pow(2, i);
         }
     }
 
@@ -354,7 +376,9 @@ class FDirectionalLight extends THREE.DirectionalLight {
             for (const mesh of meshes) {
                 const dynamicOffset = Scene.getMeshOffset(mesh.uuid);
                 passEncoder.setBindGroup(0, Scene.sceneBindGroup, [dynamicOffset]);
-                passEncoder.setBindGroup(1, this.lightBindGroup, [i * FDirectionalLight.cascadeInfoSizePerElement]);
+                passEncoder.setBindGroup(1, this.lightBindGroup, [
+                    i * FDirectionalLight.cascadeInfoSizePerElement,
+                ]);
 
                 //Scene.debugCheckMeshInfo(mesh.uuid);
                 passEncoder.setVertexBuffer(0, mesh.GPUVertexBuffer);
@@ -464,6 +488,7 @@ class FDirectionalLight extends THREE.DirectionalLight {
             const cascadeNear = this.#cascades[i];
             const cascadeFar = this.#cascades[i + 1];
             const cascadeDepthData = [cascadeNear, cascadeFar, 0.0, 0.0];
+            const lightBiasNormalBias = [this.cascadeLightBias[i], this.cascadeNormalBias[i], 0.0, 0.0];
 
             offset =
                 (i * FDirectionalLight.cascadeInfoSizePerElement) / Float32Array.BYTES_PER_ELEMENT;
@@ -474,6 +499,8 @@ class FDirectionalLight extends THREE.DirectionalLight {
             cascadeInfo.set(sphereCenterRadius, offset);
             offset += 4;
             cascadeInfo.set(cascadeDepthData, offset);
+            offset += 4;
+            cascadeInfo.set(lightBiasNormalBias, offset);
             offset += 4;
         }
 
@@ -676,7 +703,7 @@ class FDirectionalLight extends THREE.DirectionalLight {
             // 更新相机矩阵
             camera.updateProjectionMatrix();
             camera.updateMatrixWorld(true);
-        }        /*
+        } /*
         console.log(
             this.cascadeCameras.map((camera) => {
                 return {
