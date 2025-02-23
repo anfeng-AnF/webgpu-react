@@ -122,7 +122,7 @@ export default class GPUScene {
          * 平行光
          * @type {FDirectionalLight}
          */
-        this.directLight = new FDirectionalLight(new THREE.Color(0xffffff), 4, renderer._MainCamera);
+        this.directLight = new FDirectionalLight(renderer._MainCamera);
 
         /**
          * 光照信息缓冲区
@@ -213,7 +213,7 @@ export default class GPUScene {
                 this.ambientLight.update(object);
             }
             else if(object instanceof DirectionalLight&&object.uuid === this.directLight.uuid){
-                this.directLight.update(object);
+                this.directLight.UpdateParamsFromUI(object);
             }
 
             

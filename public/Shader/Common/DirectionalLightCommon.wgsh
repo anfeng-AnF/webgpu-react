@@ -3,7 +3,7 @@ struct DirectionalLightInfo {
     lightDirection: vec4<f32>,      // 16 bytes, offset 0
     lightColor: vec4<f32>,          // 16 bytes, offset 16
     lightIntensity: f32,            // 4 bytes,  offset 32
-    lightBias: f32,                 // 4 bytes,  offset 36
+    bShowCascade: f32,             // 4 bytes,  offset 36
     numCascades: f32,               // 4 bytes,  offset 40
     padding0: f32,                  // 4 bytes,  offset 44
     padding1: vec4<f32>,           // 16 bytes, offset 48-63

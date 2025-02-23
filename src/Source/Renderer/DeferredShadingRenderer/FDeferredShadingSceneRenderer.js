@@ -17,6 +17,7 @@ import Scene from '../../Scene/UI/Scene';
 import SceneStaticMesh from '../../Scene/UI/Object/SceneStaticMesh';
 import DynamicLightPass from './Pass/RenderPass/DynamicLightPass';
 import LightingAndShadowPass from './Pass/ComputePass/LightingAndShadowPass';
+import DirectionalLight from '../../Scene/UI/Object/DirectionalLight';
 class FDeferredShadingSceneRenderer extends FSceneRenderer {
     constructor() {
         super();
@@ -460,13 +461,15 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         sceneSkySphereMesh.Rotation.copy(SkySphereMesh.rotation);
         sceneSkySphereMesh.Scale.copy(SkySphereMesh.scale);
         this.Scene.AddChild('SkySphere', sceneSkySphereMesh);
-        const light = new THREE.DirectionalLight(0xffffff, 1);
-        light.position.set(0, 0, 0);
-        light.target.position.set(0, 0, 0);
-        light.updateMatrixWorld(true);
-        console.log(light);
+
 
         this.Scene.Name = '测试场景';
+        const sceneDirectionalLight = new DirectionalLight();
+        sceneDirectionalLight.uuid = this.GPUScene.directLight.uuid;
+        sceneDirectionalLight.SetLightData(this.GPUScene.directLight.params, this.GPUScene.directLight.uuid);
+
+        this.Scene.AddChild('DirectionalLight', sceneDirectionalLight);
+
         this.Scene.Update();
     }
 }

@@ -16,7 +16,7 @@ import StaticMesh from '../Mesh/StaticMesh';
  *   lightDirection:    vec4<f32>     16 bytes, offset 0  - 15 bytes
  *   lightColor:        vec4<f32>     16 bytes, offset 16 - 31 bytes
  *   lightIntensity:    f32           4 bytes,  offset 32 - 35 bytes
- *   lightBias:         f32           4 bytes,  offset 36 - 39 bytes
+ *   bShowCascade:      f32           4 bytes,  offset 36 - 39 bytes
  *   numCascades:       u32           4 bytes,  offset 40 - 43 bytes
  *   padding:           f32array[5]   24 bytes, offset 44 - 63 bytes
  *
@@ -35,10 +35,38 @@ import StaticMesh from '../Mesh/StaticMesh';
  * @implements IGPULight
  */
 class FDirectionalLight extends THREE.DirectionalLight {
-    test = {
-        num: 0,
-    };
+    /**
+     * 可调参数集
+     * @type {Object} params
+     * @property {THREE.Vector3} lightDirection - 默认光照方向
+     * @property {THREE.Color} color - 颜色
+     * @property {number} intensity - 强度
+     * @property {number} numCascades - 级联数量
+     * @property {Float32Array} cascadeLightBias - 级联深度偏移
+     * @property {Float32Array} cascadeNormalBias - 级联法线偏移
+     * @property {number} splitThreshold - 级联分割的线性/对数混合阈值
+     * @property {number} size - 每张阴影贴图边长
+     * @property {number} cascadeNear - 级联相机近平面
+     * @description Additional parameters for the light.
+     */
+    params = {
+        lightDirection: new THREE.Vector3(-0.5, -1, -0.5), // 默认光照方向
+        color: new THREE.Color(1.0, 1.0, 1.0), // 颜色
+        intensity: 1.0, // 强度
 
+        // 级联阴影
+        numCascades: 8, // 级联数量
+        cascadeLightBias: [], // 级联深度偏移
+        cascadeNormalBias: [], // 级联法线偏移
+        splitThreshold: 0.0005, // 级联分割的线性/对数混合阈值
+        size: 1024, // 每张阴影贴图边长
+        cascadeNear: 0.1, // 级联相机近平面
+        farMultiplier: 3.0, // 级联相机远平面 = radius * farMultiplier
+        farOffset: 20.0, // 级联相机远平面额外偏移
+
+        // 控制参数
+        bShowCascade: false,
+    };
     /**
      * 平行光缓冲区
      * @type {GPUBuffer}
@@ -74,26 +102,32 @@ class FDirectionalLight extends THREE.DirectionalLight {
 
     /**
      * Creates an instance of DirectLight.
+     * @param {THREE.Camera} mainCamera - The main camera. required for cascade shadow mapping.
      * @param {THREE.Color | number | string} color - The light color.
      * @param {number} intensity - The light intensity.
-     * @param {THREE.Camera} mainCamera - The main camera. required for cascade shadow mapping.
      * @param {number} numCascades - The number of cascades.
      * @param {number} splitThreshold - The threshold for splitting the cascades split that lerp linear and Logarithmic.default use logarithmic.
      * @param {number} size - The size of the shadow map.
      */
-    constructor(color, intensity, mainCamera, numCascades = 8, splitThreshold = 0.0, size = 1024) {
+    constructor(
+        mainCamera,
+        color = new THREE.Color(1.0, 1.0, 1.0),
+        intensity = 3.0,
+        lightDirection = new THREE.Vector3(0, 0, 0),
+        numCascades = 8,
+        splitThreshold = 0.0005,
+        size = 1024
+    ) {
         super(color, intensity);
-        // 设置默认方向为向下
-        this.position.set(0, 1, 0);
-        this.target.position.set(0, 0, 0);
-        this.lightDirection = new THREE.Vector3(-0.5, -1, -0.5).normalize();
+        this.params.LightDirection = lightDirection;
 
         // Bias may be used in shadow mapping calculations.
         this.bias = 0.0;
         this.mainCamera = mainCamera;
-        this.numCascades = numCascades;
-        this.splitThreshold = splitThreshold;
-        this.size = size;
+        this.params.numCascades = numCascades;
+        this.params.splitThreshold = splitThreshold;
+        this.params.size = size;
+        this.params.intensity = intensity;
         /**
          * 初始化cascade相机
          * @type {THREE.OrthographicCamera[]}
@@ -118,20 +152,20 @@ class FDirectionalLight extends THREE.DirectionalLight {
          * 级联偏移
          * @type {Float32Array}
          */
-        this.cascadeLightBias = new Float32Array(this.numCascades);
+        this.params.cascadeLightBias = new Float32Array(this.params.numCascades);
 
         /**
          * 级联法线偏移
          * @type {Float32Array}
          */
-        this.cascadeNormalBias = new Float32Array(this.numCascades);
+        this.params.cascadeNormalBias = new Float32Array(this.params.numCascades);
 
         // 初始化默认值
-        let BasicBias = 0.001;
+        let BasicBias = 0.00001;
         let BasicNormalBias = 0.002;
-        for (let i = 0; i < this.numCascades; i++) {
-            this.cascadeLightBias[i] = BasicBias * Math.pow(2, i);
-            this.cascadeNormalBias[i] = BasicNormalBias * Math.pow(2, i);
+        for (let i = 0; i < this.params.numCascades; i++) {
+            this.params.cascadeLightBias[i] = BasicBias * Math.pow(2, i);
+            this.params.cascadeNormalBias[i] = BasicNormalBias * Math.pow(2, i);
         }
     }
 
@@ -161,7 +195,7 @@ class FDirectionalLight extends THREE.DirectionalLight {
             {
                 Type: 'Buffer',
                 desc: {
-                    size: FDirectionalLight.cascadeInfoSizePerElement * this.numCascades,
+                    size: FDirectionalLight.cascadeInfoSizePerElement * this.params.numCascades,
                     usage:
                         GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
                 },
@@ -177,7 +211,7 @@ class FDirectionalLight extends THREE.DirectionalLight {
         const shadowMapDesc = {
             Type: 'Texture',
             desc: {
-                size: [this.size, this.size, this.numCascades],
+                size: [this.params.size, this.params.size, this.params.numCascades],
                 format: 'depth32float',
                 usage:
                     GPUTextureUsage.RENDER_ATTACHMENT |
@@ -355,7 +389,7 @@ class FDirectionalLight extends THREE.DirectionalLight {
      * @param {Renderer} renderer - 渲染器
      */
     renderShadowMap(deltaTime, Scene, commandEncoder, renderer) {
-        for (let i = 0; i < this.numCascades; i++) {
+        for (let i = 0; i < this.params.numCascades; i++) {
             const renderPassDesc = {
                 colorAttachments: [],
                 depthStencilAttachment: {
@@ -433,23 +467,23 @@ class FDirectionalLight extends THREE.DirectionalLight {
         let offset = 0;
 
         data.set(
-            [this.lightDirection.x, this.lightDirection.y, this.lightDirection.z, 0.0],
+            [this.params.lightDirection.x, this.params.lightDirection.y, this.params.lightDirection.z, 0.0],
             offset
         );
         offset += 4;
 
         // 写入 lightColor (vec4, 16 bytes)
-        data.set([this.color.r, this.color.g, this.color.b, 1.0], offset);
+        data.set([this.params.color.r, this.params.color.g, this.params.color.b, 1.0], offset);
         offset += 4;
 
         // 写入 lightIntensity (f32, 4 bytes)
-        data[offset++] = this.intensity;
+        data[offset++] = this.params.intensity;
 
-        // 写入 lightBias (f32, 4 bytes)
-        data[offset++] = this.bias;
+        // 写入 bShowCascade (f32, 4 bytes)
+        data[offset++] = this.params.bShowCascade?1.0:0.0;
 
         // 写入 numCascades (u32, 4 bytes)
-        data[offset++] = this.numCascades;
+        data[offset++] = this.params.numCascades;
 
         // 写入 padding0 (f32, 4 bytes)
         data[offset++] = 0.0;
@@ -467,10 +501,10 @@ class FDirectionalLight extends THREE.DirectionalLight {
     async #writeCascadeInfoBuffer(scene) {
         const cascadeInfo = new Float32Array(
             (FDirectionalLight.cascadeInfoSizePerElement / Float32Array.BYTES_PER_ELEMENT) *
-                this.numCascades
+                this.params.numCascades
         );
         let offset = 0;
-        for (let i = 0; i < this.numCascades; i++) {
+        for (let i = 0; i < this.params.numCascades; i++) {
             const camera = this.cascadeCameras[i];
             // 使用 .elements 确保传入的是 Float32Array
             const viewMatrix = camera.matrixWorldInverse.elements;
@@ -488,7 +522,12 @@ class FDirectionalLight extends THREE.DirectionalLight {
             const cascadeNear = this.#cascades[i];
             const cascadeFar = this.#cascades[i + 1];
             const cascadeDepthData = [cascadeNear, cascadeFar, 0.0, 0.0];
-            const lightBiasNormalBias = [this.cascadeLightBias[i], this.cascadeNormalBias[i], 0.0, 0.0];
+            const lightBiasNormalBias = [
+                this.params.cascadeLightBias[i],
+                this.params.cascadeNormalBias[i],
+                0.0,
+                0.0,
+            ];
 
             offset =
                 (i * FDirectionalLight.cascadeInfoSizePerElement) / Float32Array.BYTES_PER_ELEMENT;
@@ -510,7 +549,7 @@ class FDirectionalLight extends THREE.DirectionalLight {
     }
 
     #caculateCascadeCamera(mainCamera) {
-        this.splitCascades(mainCamera, this.numCascades);
+        this.splitCascades(mainCamera, this.params.numCascades);
         this.caculateCascadeSizeSphere();
         this.configureCascadeCameras();
     }
@@ -531,7 +570,7 @@ class FDirectionalLight extends THREE.DirectionalLight {
      * @param {THREE.PerspectiveCamera} mainCamera
      * @param {number} numCascades
      */
-    splitCascades(mainCamera = this.mainCamera, numCascades = this.numCascades) {
+    splitCascades(mainCamera = this.mainCamera, numCascades = this.params.numCascades) {
         if (!mainCamera) {
             throw new Error('Main camera is required for cascade shadow mapping.');
         }
@@ -548,7 +587,7 @@ class FDirectionalLight extends THREE.DirectionalLight {
             const linearDepth = near + (far - near) * p;
 
             // 使用splitThreshold混合两种深度计算方式
-            const depth = logDepth * (1 - this.splitThreshold) + linearDepth * this.splitThreshold;
+            const depth = logDepth * (1 - this.params.splitThreshold) + linearDepth * this.params.splitThreshold;
 
             // 存储深度值（负值，因为在view space中远离相机的方向是负的）
             cascades.push(-depth);
@@ -563,7 +602,7 @@ class FDirectionalLight extends THREE.DirectionalLight {
     caculateCascadeSizeSphere(
         cascadeArray = this.#cascades,
         mainCamera = this.mainCamera,
-        numCascades = this.numCascades
+        numCascades = this.params.numCascades
     ) {
         const NDCCorners = [
             new THREE.Vector4(-1, -1, -1, 1), // near bottom left
@@ -667,7 +706,7 @@ class FDirectionalLight extends THREE.DirectionalLight {
      * @param {THREE.PerspectiveCamera} mainCamera - 主相机
      * @param {number} numCascades - 级联数量
      */
-    configureCascadeCameras(mainCamera = this.mainCamera, numCascades = this.numCascades) {
+    configureCascadeCameras(mainCamera = this.mainCamera, numCascades = this.params.numCascades) {
         if (!this.#cascadeSpheres || this.#cascadeSpheres.length === 0) {
             console.warn('Cascade spheres not calculated yet');
             return;
@@ -685,13 +724,13 @@ class FDirectionalLight extends THREE.DirectionalLight {
             camera.bottom = -radius;
 
             // 设置近远平面
-            const near = 0.1; // 使用一个较小的近平面值
-            const far = radius * 3.0 + 2e1; // 远平面设置为半径的3倍 + 固定偏移，确保完全覆盖，并防止低cascade的阴影失真
+            const near = this.params.cascadeNear; // 使用一个较小的近平面值
+            const far = radius * this.params.farMultiplier + this.params.farOffset; // 远平面设置为半径的3倍 + 固定偏移，确保完全覆盖，并防止低cascade的阴影失真
             camera.near = near;
             camera.far = far;
 
             // 设置相机位置（在光源方向上偏移）
-            const lightDir = this.lightDirection.clone().normalize();
+            const lightDir = this.params.lightDirection.clone().normalize();
             const distanceFromCenter = (near + far) * 0.5;
 
             // 将相机放置在包围球中心沿光线方向往后的位置
@@ -780,8 +819,8 @@ class FDirectionalLight extends THREE.DirectionalLight {
      * @param {number} cascadeIndex - 级联索引
      */
     async debugCheckCascadeInfo(cascadeIndex) {
-        if (cascadeIndex >= this.numCascades) {
-            console.error(`Invalid cascade index: ${cascadeIndex}, max is ${this.numCascades - 1}`);
+        if (cascadeIndex >= this.params.numCascades) {
+            console.error(`Invalid cascade index: ${cascadeIndex}, max is ${this.params.numCascades - 1}`);
             return;
         }
 
@@ -821,10 +860,69 @@ class FDirectionalLight extends THREE.DirectionalLight {
      * Debug：读取并打印所有级联的信息
      */
     async debugCheckAllCascades() {
-        console.log(`Checking all ${this.numCascades} cascades:`);
-        for (let i = 0; i < this.numCascades; i++) {
+        console.log(`Checking all ${this.params.numCascades} cascades:`);
+        for (let i = 0; i < this.params.numCascades; i++) {
             await this.debugCheckCascadeInfo(i);
         }
+    }
+
+    /**
+     * 从UI DirectionalLight更新参数
+     * @param {DirectionalLight} uiLight UI端的平行光对象
+     */
+    UpdateParamsFromUI(uiLight) {
+        if (!uiLight || !uiLight.DynamicVariables) {
+            console.warn('Invalid UI DirectionalLight object');
+            return;
+        }
+
+        const uiParams = uiLight.DynamicVariables;
+
+        // 更新基本参数
+        this.params.lightDirection.copy(uiParams.lightDirection);
+        this.params.color.copy(uiParams.color);
+        this.params.intensity = uiParams.intensity;
+
+        // 更新级联阴影参数
+        this.params.numCascades = uiParams.numCascades;
+        
+        // 确保级联数组大小匹配
+        if (this.params.cascadeLightBias.length !== uiParams.cascadeLightBias.length) {
+            this.params.cascadeLightBias = new Float32Array(uiParams.cascadeLightBias);
+            this.params.cascadeNormalBias = new Float32Array(uiParams.cascadeNormalBias);
+        } else {
+            // 复制数组内容
+            this.params.cascadeLightBias.set(uiParams.cascadeLightBias);
+            this.params.cascadeNormalBias.set(uiParams.cascadeNormalBias);
+        }
+
+        this.params.splitThreshold = uiParams.splitThreshold;
+        this.params.size = uiParams.size;
+        this.params.cascadeNear = uiParams.cascadeNear;
+        this.params.farMultiplier = uiParams.farMultiplier;
+        this.params.farOffset = uiParams.farOffset;
+        this.params.bShowCascade = uiParams.bShowCascade;
+
+        // 如果级联数量发生变化，需要重新初始化相关资源
+        if (this.cascadeCameras.length !== this.params.numCascades) {
+            // 重新创建相机数组
+            this.cascadeCameras = [];
+            for (let i = 0; i < this.params.numCascades; i++) {
+                this.cascadeCameras.push(
+                    new THREE.OrthographicCamera(
+                        -10,
+                        10, // 左右
+                        10,
+                        -10, // 上下
+                        0, // near
+                        600 // far
+                    )
+                );
+            }
+        }
+
+        // 更新GPU资源
+        this.update(this.scene);
     }
 }
 export default FDirectionalLight;

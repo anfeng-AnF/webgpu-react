@@ -95,7 +95,10 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let lightDepth = textureLoad(shadowMap,lightUV,cascadeLevel,0);
 
     // 显示cascade深度
-    //textureStore(outputTex, coord, vec4<f32>(pow(lightDepth,2)*colors[cascadeLevel]));
+    if(DirectionalLight.bShowCascade!=0.0) {
+        textureStore(outputTex, coord, vec4<f32>(pow(lightDepth,2)*colors[cascadeLevel]));
+        return;
+    }
 
 
 
