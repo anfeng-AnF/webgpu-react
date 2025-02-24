@@ -212,7 +212,7 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     // 根据金属度计算漫反射和镜面反射
     let envDiffuse = mix(baseEnvLight, envReflection, envInfluence) * (1.0 - metallic) * baseColor;
-    let envSpecular = envReflection * envFresnel * envInfluence * envStrength* baseColor*1.2;  // 对镜面反射也应用强度系数
+    let envSpecular = envReflection * envFresnel * envInfluence * envStrength* baseColor*1.5;  // 对镜面反射也应用强度系数
 
     // 降低环境遮蔽强度
     let ambientOcclusion = 0.1;
