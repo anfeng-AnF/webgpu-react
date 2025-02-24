@@ -134,18 +134,28 @@ fn PSMain(input: vsOutput) -> FragmentOutput {
     );
     
     // 计算世界空间的基向量
-    let worldNormal = normalize(normalMatrix * input.normal);  // 修改矩阵乘法顺序
-    let worldTangent = normalize(normalMatrix * input.tangent);
+    let worldNormal = normalize(normalMatrix * input.normal);
     
-    // 确保切线垂直于法线
-    let worldTangentOrthogonal = normalize(worldTangent - dot(worldTangent, worldNormal) * worldNormal);
+    // 对于球体，我们需要构建一个合适的切线空间
+    // 使用世界空间上方向来构建切线
+    let upVector = vec3<f32>(0.0, 1.0, 0.0);
     
-    // 计算副切线，使用叉积确保右手坐标系
-    let worldBitangent = normalize(cross(worldNormal, worldTangentOrthogonal));
+    // 如果法线接近上方向，使用右方向作为备选
+    let tempVector = select(
+        upVector,
+        vec3<f32>(1.0, 0.0, 0.0),
+        abs(dot(worldNormal, upVector)) > 0.99
+    );
     
-    // 构建TBN矩阵（切线空间到世界空间的变换矩阵）
+    // 计算切线：使用上方向（或右方向）和法线的叉积
+    let worldTangent = normalize(cross(tempVector, worldNormal));
+    
+    // 计算副切线
+    let worldBitangent = normalize(cross(worldNormal, worldTangent));
+    
+    // 构建TBN矩阵
     let TBN = mat3x3<f32>(
-        worldTangentOrthogonal,
+        worldTangent,
         worldBitangent,
         worldNormal
     );
@@ -155,13 +165,12 @@ fn PSMain(input: vsOutput) -> FragmentOutput {
     if ((PBRParam.flags & NORMAL_USE_TEXTURE) != 0u) {
         var normalMap = textureSample(texture_normal, sampler_normal, uv).rgb;
         normalTS = normalMap * 2.0 - 1.0;
-        normalTS.y = -normalTS.y; // 翻转 Y 分量以匹配 OpenGL 约定
     }
     
     // 将切线空间的法线转换到世界空间
     var finalNormal = worldNormal;
     if ((PBRParam.flags & NORMAL_USE_TEXTURE) != 0u) {
-        finalNormal = normalize(TBN * normalTS);  // 移除负号
+        finalNormal = normalize(TBN * normalTS);
     }
     
     // 计算基础颜色
@@ -189,9 +198,10 @@ fn PSMain(input: vsOutput) -> FragmentOutput {
     }
 
     return FragmentOutput(
-        vec4<f32>(finalNormal * 0.5 + 0.5, 1.0),                // GBufferA: normal (转换到[0,1]范围)
-        vec4<f32>(specular, roughness, metallic, 1.0),          // GBufferB: Specular,Roughness,Metallic
-        vec4<f32>(baseColor.rgb, baseColor.a),                  // GBufferC: BaseColor
-        vec4<f32>(0.0, 0.0, 0.0, 1.0),                         // GBufferD: 预留
+        // 输出世界空间法线
+        vec4<f32>(finalNormal * 0.5 + 0.5, 1.0),  // 将世界空间法线输出到GBufferA
+        vec4<f32>(specular, roughness, metallic, 1.0),
+        vec4<f32>(baseColor.rgb, baseColor.a),
+        vec4<f32>(0.0, 0.0, 0.0, 1.0)
     );
 }
