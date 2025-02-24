@@ -1,3 +1,4 @@
+import GenerateMipmapPass from '../../../Renderer/DeferredShadingRenderer/Pass/ComputePass/GenerateMipmapPass';
 /**
  * 加载指定路径的纹理，并上传至 GPU。
  *
@@ -47,3 +48,94 @@ export async function loadTexture(resourceManager, texturePath, needFlipy = fals
 
     return texture;
 }
+
+/**
+ * 加载HDR环境贴图
+ * @param {FResourceManager} resourceManager - 资源管理器实例
+ * @param {string} hdrPath - HDR文件路径
+ * @returns {Promise<GPUTexture>} 返回创建好的GPU纹理
+ */
+export async function loadHDRTexture(resourceManager, hdrPath) {
+    // 导入THREE.js的HDR加载器和相关类
+    const { RGBELoader } = await import('three/examples/jsm/loaders/RGBELoader.js');
+    const { FloatType, LinearFilter, LinearSRGBColorSpace } = await import('three');
+    
+    // 加载HDR贴图
+    const loader = new RGBELoader().setDataType(FloatType);
+    const hdrTexture = await new Promise((resolve, reject) => {
+        loader.load(hdrPath, 
+            (texture) => {
+                texture.minFilter = LinearFilter;
+                texture.magFilter = LinearFilter;
+                texture.colorSpace = LinearSRGBColorSpace;
+                resolve(texture);
+            },
+            undefined,
+            reject
+        );
+    });
+
+    // 获取GPU设备并创建纹理
+    const device = await resourceManager.GetDevice();
+    if (!device) {
+        throw new Error("GPU Device not available in resource manager");
+    }
+
+    // 计算mipmap级别
+    const mipLevelCount = Math.floor(Math.log2(Math.max(hdrTexture.image.width, hdrTexture.image.height))) + 1;
+
+    // 创建GPU纹理
+    const gpuTexture = resourceManager.CreateResource(hdrPath, {
+        Type: 'Texture',
+        desc: {
+            size: [hdrTexture.image.width, hdrTexture.image.height, 1],
+            format: 'rgba32float',
+            usage: GPUTextureUsage.TEXTURE_BINDING | 
+                   GPUTextureUsage.COPY_DST | 
+                   GPUTextureUsage.STORAGE_BINDING,
+            dimension: '2d',
+            mipLevelCount: mipLevelCount,  // 添加mipmap级别
+            viewFormats: ['rgba32float']
+        },
+        Metadata: { source: hdrPath, type: 'HDR' }
+    });
+
+    // 上传数据到GPU
+    const bytesPerRow = hdrTexture.image.width * 16;
+    const uploadBuffer = device.createBuffer({
+        size: bytesPerRow * hdrTexture.image.height,
+        usage: GPUBufferUsage.COPY_SRC,
+        mappedAtCreation: true,
+    });
+
+    new Float32Array(uploadBuffer.getMappedRange()).set(hdrTexture.image.data);
+    uploadBuffer.unmap();
+
+    // 复制数据到纹理
+    const copyEncoder = device.createCommandEncoder();
+    copyEncoder.copyBufferToTexture(
+        {
+            buffer: uploadBuffer,
+            bytesPerRow,
+            rowsPerImage: hdrTexture.image.height,
+        },
+        { texture: gpuTexture },
+        [hdrTexture.image.width, hdrTexture.image.height, 1]
+    );
+
+    // 提交命令
+    device.queue.submit([copyEncoder.finish()]);
+    uploadBuffer.destroy();
+
+    // 生成mipmap
+    const mipmapPass = new GenerateMipmapPass();
+    await mipmapPass.Initialize();
+    mipmapPass.setSourceTexture(gpuTexture);
+    
+    const mipmapEncoder = device.createCommandEncoder();
+    await mipmapPass.Render(0, null, mipmapEncoder);
+    device.queue.submit([mipmapEncoder.finish()]);
+
+    return gpuTexture;
+}
+

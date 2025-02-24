@@ -58,14 +58,14 @@ fn GetPBRMaterialInfo() -> PBRMaterialInfo {
 @group(1) @binding(0) var texture_baseColor: texture_2d<f32>;
 @group(1) @binding(1) var texture_normal: texture_2d<f32>;
 @group(1) @binding(2) var texture_metallic: texture_2d<f32>;
-@group(1) @binding(3) var texture_specular: texture_2d<f32>;
-@group(1) @binding(4) var texture_roughness: texture_2d<f32>;
+@group(1) @binding(3) var texture_roughness: texture_2d<f32>;
+@group(1) @binding(4) var texture_specular: texture_2d<f32>;
 
 @group(1) @binding(5) var sampler_baseColor: sampler;
 @group(1) @binding(6) var sampler_normal: sampler;
 @group(1) @binding(7) var sampler_metallic: sampler;
-@group(1) @binding(8) var sampler_specular: sampler;
-@group(1) @binding(9) var sampler_roughness: sampler;
+@group(1) @binding(8) var sampler_roughness: sampler;
+@group(1) @binding(9) var sampler_specular: sampler;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -196,6 +196,7 @@ fn PSMain(input: vsOutput) -> FragmentOutput {
     if ((PBRParam.flags & ROUGHNESS_USE_TEXTURE) != 0u) {
         roughness = textureSample(texture_roughness, sampler_roughness, uv).r;
     }
+
 
     return FragmentOutput(
         // 输出世界空间法线

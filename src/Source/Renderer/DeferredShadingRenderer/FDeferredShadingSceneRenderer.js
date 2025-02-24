@@ -283,17 +283,20 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         // mat1 textures
         const BaseColorTexture = await loadTexture(
             this._ResourceManager,
-            'Content/Other/Mat/textures/seaworn_sandstone_brick_diff_4k.jpg'
+            'Content/Other/Mat/Foil002/Foil002_4K-JPG_Color.jpg'
         );
         const NormalTexture = await loadTexture(
             this._ResourceManager,
-            'Content/Other/Mat/textures/seaworn_sandstone_brick_nor_gl_4k.png',
-            true
+            'Content/Other/Mat/Foil002/Foil002_4K-JPG_NormalDX.jpg'
         );
         //const MetallicTexture = await loadTexture(this._ResourceManager, 'public/Texture/Metallic.png');
         const RoughnessTexture = await loadTexture(
             this._ResourceManager,
-            'Content/Other/Mat/textures/seaworn_sandstone_brick_rough_4k.png'
+            'Content/Other/Mat/Foil002/Foil002_4K-JPG_Roughness.jpg'
+        );
+        const MetallicTexture = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/Foil002/Foil002_4K-JPG_Metalness.jpg'
         );
         //const SpecularTexture = await loadTexture(this._ResourceManager, 'public/Texture/Specular.png');
 
@@ -315,6 +318,59 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             '/Content/Other/Mat/Metal055A/Metal055A_4K-JPG_Roughness.jpg'
         );
 
+        // mat3 textures
+        const BaseColorTexturePavingStones085 = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/PavingStones085/PavingStones085_4K-JPG_Color.jpg'
+        );
+        const NormalTexturePavingStones085 = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/PavingStones085/PavingStones085_4K-JPG_NormalDX.jpg'
+        );
+        const RoughnessPavingStones085 = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/PavingStones085/PavingStones085_4K-JPG_Roughness.jpg'
+        );
+
+        // mat4 textures
+        const BaseColorTextureMetal034 = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/Metal034/Metal034_4K-JPG_Color.jpg'
+        );
+        const NormalTextureMetal034 = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/Metal034/Metal034_4K-JPG_NormalDX.jpg'
+        );
+        const RoughnessMetal034 = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/Metal034/Metal034_4K-JPG_Roughness.jpg'
+        );
+        const MetallicMetal034 = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/Metal034/Metal034_4K-JPG_Metalness.jpg'
+        );
+        
+        // mat5 textures
+        const BaseColorTextureRock017 = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/Rock017/Rock017_4K-JPG_Color.jpg'
+        );
+        const NormalTextureRock017 = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/Rock017/Rock017_4K-JPG_NormalDX.jpg'
+        );
+        const RoughnessRock017 = await loadTexture(
+            this._ResourceManager,
+            'Content/Other/Mat/Rock017/Rock017_4K-JPG_Roughness.jpg'
+        );
+        
+        
+        
+        
+        
+        
+        
+
         const BaseColorTextureSampler = this._ResourceManager.CreateResource(
             'BaseColorTextureSampler',
             {
@@ -326,6 +382,21 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 },
             }
         );
+
+        const PBRMaterialPavingStones085 = await createPBRMaterial(
+            this._ResourceManager,
+            BaseColorTexturePavingStones085,
+            NormalTexturePavingStones085,
+            null,
+            RoughnessPavingStones085,
+            null,
+            BaseColorTextureSampler,
+            BaseColorTextureSampler,
+            BaseColorTextureSampler,
+            BaseColorTextureSampler,
+            BaseColorTextureSampler
+        );
+
         const PBRMaterialMetal055 = await createPBRMaterial(
             this._ResourceManager,
             BaseColorMetal055,
@@ -341,19 +412,49 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             null
         );
 
-        const PBRMaterial = await createPBRMaterial(
+        const PBRMaterialFoil002 = await createPBRMaterial(
             this._ResourceManager,
             BaseColorTexture,
-            null, //NormalTexture,
-            null,
+            NormalTexture,
+            MetallicTexture,
             RoughnessTexture,
             null,
 
             BaseColorTextureSampler,
-            null, //BaseColorTextureSampler,
-            null,
+            BaseColorTextureSampler,
+            BaseColorTextureSampler,
             BaseColorTextureSampler,
             null
+        );
+
+        const PBRMaterialMetal034 = await createPBRMaterial(
+            this._ResourceManager,
+            BaseColorTextureMetal034,
+            NormalTextureMetal034,
+            MetallicMetal034,
+            RoughnessMetal034,
+            null,
+
+            BaseColorTextureSampler,
+            BaseColorTextureSampler,
+            BaseColorTextureSampler,
+            BaseColorTextureSampler,
+            BaseColorTextureSampler,
+        );
+
+        const PBRMaterialRock017 = await createPBRMaterial(
+            this._ResourceManager,
+            BaseColorTextureRock017,
+            NormalTextureRock017,
+            null,
+            RoughnessRock017,
+            null,
+
+            BaseColorTextureSampler,
+            BaseColorTextureSampler,
+            BaseColorTextureSampler,
+            BaseColorTextureSampler,
+            BaseColorTextureSampler,
         );
 
         const createRandomMeshScene = async (material, dynamicOffset = new THREE.Vector3(75, 0, 0)) => {
@@ -361,7 +462,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             filter.Name = 'testObject';
             this.Scene.AddChild('Filter', filter);
     
-            // 创建一个水平地面（使用扁平的立方体代替平面）
+            // 创建一个水平地面
             let planeGeometry = new THREE.BoxGeometry(100, 0.1, 100);
             planeGeometry = BufferGeometryUtils.mergeVertices(planeGeometry);
             planeGeometry.computeTangents();
@@ -370,52 +471,59 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             planeMesh.position.set(dynamicOffset.x, dynamicOffset.y, dynamicOffset.z);
             planeMesh.updateMatrixWorld(true);
             planeMesh.ID = 'plane';
+            
             const staticPlaneMesh = new StaticMesh(planeMesh, this._ResourceManager);
             staticPlaneMesh.meshID = planeMesh.ID;
-            staticPlaneMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
+            staticPlaneMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterialPavingStones085);
+            // 设置地面的固定材质属性
+            staticPlaneMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;
+            staticPlaneMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;  // 非金属
+            staticPlaneMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8; // 较粗糙
             await this.GPUScene.addStaticMesh(staticPlaneMesh);
+            
             const scenePlaneMesh = new SceneStaticMesh();
             scenePlaneMesh.uuid = staticPlaneMesh.uuid;
             scenePlaneMesh.Position.copy(planeMesh.position);
             scenePlaneMesh.Rotation.copy(planeMesh.rotation);
             scenePlaneMesh.Scale.copy(planeMesh.scale);
             filter.AddChild('plane', scenePlaneMesh);
+            
             let num = 100;
 
+            // 固定的材质属性组
+            const materialPresets = [
+                {
+                    // 塑料
+                    specular: 1.0,
+                    metallic: 0.0,
+                    roughness: 0.8
+                }
+            ];
+
             for (let i = 0; i < num; i++) {
-                // 生成随机PBR材质属性
-                const getRandomMaterialProps = () => {
-                    return {
-                        specular: Math.random(), // 0 到 1
-                        metallic: Math.random(), // 0 到 1
-                        roughness: Math.random() * 0.8 + 0.2, // 0.2 到 1.0，避免完全光滑
-                    };
-                };
-                // 生成随机位置、旋转和缩放
+                // 从预设中选择材质
+                const materialProps = materialPresets[i % materialPresets.length];
+                const currentMat = material[i % material.length];
+
+                // 生成随机位置、旋转
                 const getRandomPosition = () => {
                     return {
-                        x: (Math.random() * 2 - 1) * 25, // -100 到 100
-                        y: Math.random() * 30 + 1, // 1 到 100
-                        z: (Math.random() * 2 - 1) * 25, // -100 到 100
+                        x: (Math.random() * 2 - 1) * 25,
+                        y: Math.random() * 30 + 1,
+                        z: (Math.random() * 2 - 1) * 25,
                     };
                 };
 
                 const getRandomRotation = () => {
                     return {
-                        x: Math.random() * Math.PI * 2, // 0 到 2π
+                        x: Math.random() * Math.PI * 2,
                         y: Math.random() * Math.PI * 2,
                         z: Math.random() * Math.PI * 2,
                     };
                 };
 
-                const getRandomScale = () => {
-                    return { x: 1, y: 1, z: 1 };
-                    return {
-                        x: Math.random() * 3.5 + 1.5, // 0.5 到 5
-                        y: Math.random() * 3.5 + 1.5,
-                        z: Math.random() * 3.5 + 1.5,
-                    };
-                };
+                // 使用固定缩放
+                const scale = { x: 1, y: 1, z: 1 };
 
                 // 立方体：随机金属质感
                 let boxGeometry = new THREE.BoxGeometry(1, 1, 1);
@@ -424,14 +532,14 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 const boxMesh = new THREE.Mesh(boxGeometry);
                 const boxPos = getRandomPosition();
                 const boxRot = getRandomRotation();
-                const boxScale = getRandomScale();
+                const boxScale = scale;
                 boxMesh.position.set(boxPos.x + dynamicOffset.x, boxPos.y + dynamicOffset.y, boxPos.z + dynamicOffset.z);
                 boxMesh.rotation.set(boxRot.x, boxRot.y, boxRot.z);
                 boxMesh.scale.set(boxScale.x, boxScale.y, boxScale.z);
                 boxMesh.ID = `box${i}`;
                 const sBoxMesh = await this.GPUScene.add(boxMesh);
-                const boxMat = getRandomMaterialProps();
-                sBoxMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
+                const boxMat = materialProps;
+                sBoxMesh.GPUMaterial = new GPUMaterialInstance(currentMat);
                 sBoxMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.7, 0.7, 0.8, 1];
                 sBoxMesh.GPUMaterial.dynamicAttributes.Specular = boxMat.specular;
                 sBoxMesh.GPUMaterial.dynamicAttributes.Metallic = boxMat.metallic;
@@ -450,14 +558,14 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 const sphereMesh = new THREE.Mesh(sphereGeometry);
                 const spherePos = getRandomPosition();
                 const sphereRot = getRandomRotation();
-                const sphereScale = getRandomScale();
+                const sphereScale = scale;
                 sphereMesh.position.set(spherePos.x + dynamicOffset.x, spherePos.y + dynamicOffset.y, spherePos.z + dynamicOffset.z);
                 sphereMesh.rotation.set(sphereRot.x, sphereRot.y, sphereRot.z);
                 sphereMesh.scale.set(sphereScale.x, sphereScale.y, sphereScale.z);
                 sphereMesh.ID = `sphere${i}`;
                 const sSphereMesh = await this.GPUScene.add(sphereMesh);
-                const sphereMat = getRandomMaterialProps();
-                sSphereMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
+                const sphereMat = materialProps;
+                sSphereMesh.GPUMaterial = new GPUMaterialInstance(currentMat);
                 sSphereMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.8, 0.2, 0.2, 1];
                 sSphereMesh.GPUMaterial.dynamicAttributes.Specular = sphereMat.specular;
                 sSphereMesh.GPUMaterial.dynamicAttributes.Metallic = sphereMat.metallic;
@@ -476,14 +584,14 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 const cylinderMesh = new THREE.Mesh(cylinderGeometry);
                 const cylinderPos = getRandomPosition();
                 const cylinderRot = getRandomRotation();
-                const cylinderScale = getRandomScale();
+                const cylinderScale = scale;
                 cylinderMesh.position.set(cylinderPos.x + dynamicOffset.x, cylinderPos.y + dynamicOffset.y, cylinderPos.z + dynamicOffset.z);
                 cylinderMesh.rotation.set(cylinderRot.x, cylinderRot.y, cylinderRot.z);
                 cylinderMesh.scale.set(cylinderScale.x, cylinderScale.y, cylinderScale.z);
                 cylinderMesh.ID = `cylinder${i}`;
                 const sCylinderMesh = await this.GPUScene.add(cylinderMesh);
-                const cylinderMat = getRandomMaterialProps();
-                sCylinderMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
+                const cylinderMat = materialProps;
+                sCylinderMesh.GPUMaterial = new GPUMaterialInstance(currentMat);
                 sCylinderMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.2, 0.8, 0.3, 1];
                 sCylinderMesh.GPUMaterial.dynamicAttributes.Specular = cylinderMat.specular;
                 sCylinderMesh.GPUMaterial.dynamicAttributes.Metallic = cylinderMat.metallic;
@@ -513,10 +621,10 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             
             const staticPlatformMesh = new StaticMesh(platformMesh, this._ResourceManager);
             staticPlatformMesh.meshID = platformMesh.ID;
-            staticPlatformMesh.GPUMaterial = new GPUMaterialInstance(material);
-            staticPlatformMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;
-            staticPlatformMesh.GPUMaterial.dynamicAttributes.Metallic = 0.5;
-            staticPlatformMesh.GPUMaterial.dynamicAttributes.Roughness = 0.5;
+            staticPlatformMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterialPavingStones085);
+            staticPlatformMesh.GPUMaterial.dynamicAttributes.Specular = 0.9;
+            staticPlatformMesh.GPUMaterial.dynamicAttributes.Metallic = 0.9;
+            staticPlatformMesh.GPUMaterial.dynamicAttributes.Roughness = 0.1;
             await this.GPUScene.addStaticMesh(staticPlatformMesh);
             
             const scenePlatformMesh = new SceneStaticMesh();
@@ -559,9 +667,9 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 staticMesh.meshID = mesh.ID;
                 staticMesh.GPUMaterial = new GPUMaterialInstance(material);
                 staticMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.7, 0.7, 0.8, 1];
-                staticMesh.GPUMaterial.dynamicAttributes.Specular = 0.2;
-                staticMesh.GPUMaterial.dynamicAttributes.Metallic = 0.5;
-                staticMesh.GPUMaterial.dynamicAttributes.Roughness = 0.5;
+                staticMesh.GPUMaterial.dynamicAttributes.Specular = 0.9;
+                staticMesh.GPUMaterial.dynamicAttributes.Metallic = 0.9;
+                staticMesh.GPUMaterial.dynamicAttributes.Roughness = 0.1;
                 await this.GPUScene.addStaticMesh(staticMesh);
                 
                 const sceneMesh = new SceneStaticMesh();
@@ -577,7 +685,15 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         await createPreviewScene(PBRMaterialMetal055);
         
         // 创建随机场景（使用原来的材质）
-        await createRandomMeshScene(PBRMaterial, new THREE.Vector3(75, 0, 0));
+        await createRandomMeshScene(
+            [
+                PBRMaterialMetal055,
+                PBRMaterialFoil002,
+                PBRMaterialMetal034,
+                PBRMaterialRock017
+            ],
+            new THREE.Vector3(75, 0, 0)
+        );
 
         // 天空球材质
         const skyboxBaseColorTexture = await loadTexture(
@@ -608,7 +724,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             null,
             null
         );
-        console.log(PBRMaterial);
+        console.log(PBRMaterialFoil002);
         console.log(skyboxMaterial);
         // 天空球
         const FBXloader = new FBXLoader();
