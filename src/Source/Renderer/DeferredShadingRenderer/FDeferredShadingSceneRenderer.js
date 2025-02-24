@@ -481,7 +481,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             staticPlaneMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8; // 较粗糙
             await this.GPUScene.addStaticMesh(staticPlaneMesh);
             
-            const scenePlaneMesh = new SceneStaticMesh();
+            const scenePlaneMesh = new SceneStaticMesh(staticPlaneMesh);
             scenePlaneMesh.uuid = staticPlaneMesh.uuid;
             scenePlaneMesh.Position.copy(planeMesh.position);
             scenePlaneMesh.Rotation.copy(planeMesh.rotation);
@@ -627,7 +627,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             staticPlatformMesh.GPUMaterial.dynamicAttributes.Roughness = 0.1;
             await this.GPUScene.addStaticMesh(staticPlatformMesh);
             
-            const scenePlatformMesh = new SceneStaticMesh();
+            const scenePlatformMesh = new SceneStaticMesh(staticPlatformMesh);
             scenePlatformMesh.uuid = staticPlatformMesh.uuid;
             scenePlatformMesh.Position.copy(platformMesh.position);
             scenePlatformMesh.Rotation.copy(platformMesh.rotation);
@@ -663,16 +663,15 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 mesh.updateMatrixWorld(true);
                 mesh.ID = item.name;
                 
-                const staticMesh = new StaticMesh(mesh, this._ResourceManager);
+                const staticMesh = await this.GPUScene.add(mesh);
                 staticMesh.meshID = mesh.ID;
                 staticMesh.GPUMaterial = new GPUMaterialInstance(material);
                 staticMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.7, 0.7, 0.8, 1];
                 staticMesh.GPUMaterial.dynamicAttributes.Specular = 0.9;
                 staticMesh.GPUMaterial.dynamicAttributes.Metallic = 0.9;
                 staticMesh.GPUMaterial.dynamicAttributes.Roughness = 0.1;
-                await this.GPUScene.addStaticMesh(staticMesh);
                 
-                const sceneMesh = new SceneStaticMesh();
+                const sceneMesh = new SceneStaticMesh(staticMesh);
                 sceneMesh.uuid = staticMesh.uuid;
                 sceneMesh.Position.copy(mesh.position);
                 sceneMesh.Rotation.copy(mesh.rotation);
