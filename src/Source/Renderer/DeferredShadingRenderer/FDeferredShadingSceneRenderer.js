@@ -311,13 +311,13 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const PBRMaterial = await createPBRMaterial(
             this._ResourceManager,
             BaseColorTexture,
-            null, //NormalTexture,
+            NormalTexture,
             null,
             RoughnessTexture,
             null,
 
             BaseColorTextureSampler,
-            null, //BaseColorTextureSampler,
+            BaseColorTextureSampler,
             null,
             BaseColorTextureSampler,
             null
@@ -346,14 +346,23 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         scenePlaneMesh.Scale.copy(planeMesh.scale);
         filter.AddChild('plane', scenePlaneMesh);
 
+        // 生成随机PBR材质属性
+        const getRandomMaterialProps = () => {
+            return {
+                specular: Math.random(),          // 0 到 1
+                metallic: Math.random(),          // 0 到 1
+                roughness: Math.random() * 0.8 + 0.2  // 0.2 到 1.0，避免完全光滑
+            };
+        };
+
         let num = 100;
         for (let i = 0; i < num; i++) {
             // 生成随机位置、旋转和缩放
             const getRandomPosition = () => {
                 return {
-                    x: (Math.random() * 2 - 1) * 50, // -100 到 100
-                    y: Math.random() * 100 + 1,        // 1 到 100
-                    z: (Math.random() * 2 - 1) * 50  // -100 到 100
+                    x: (Math.random() * 2 - 1) * 25, // -100 到 100
+                    y: Math.random() * 30 + 1,        // 1 到 100
+                    z: (Math.random() * 2 - 1) * 25  // -100 到 100
                 };
             };
             
@@ -366,6 +375,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             };
             
             const getRandomScale = () => {
+                return {x:1,y:1,z:1};
                 return {
                     x: Math.random() * 3.5 + 1.5, // 0.5 到 5
                     y: Math.random() * 3.5 + 1.5,
@@ -373,7 +383,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 };
             };
 
-            // 立方体：金属质感
+            // 立方体：随机金属质感
             let boxGeometry = new THREE.BoxGeometry(1, 1, 1);
             boxGeometry = BufferGeometryUtils.mergeVertices(boxGeometry);
             boxGeometry.computeTangents();
@@ -386,11 +396,12 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             boxMesh.scale.set(boxScale.x, boxScale.y, boxScale.z);
             boxMesh.ID = `box${i}`;
             const sBoxMesh = await this.GPUScene.add(boxMesh);
+            const boxMat = getRandomMaterialProps();
             sBoxMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
-            sBoxMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.25, 0.25, 1, 1];
-            sBoxMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;
-            sBoxMesh.GPUMaterial.dynamicAttributes.Metallic = 0.2;
-            sBoxMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8;
+            sBoxMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.7, 0.7, 0.8, 1];
+            sBoxMesh.GPUMaterial.dynamicAttributes.Specular = boxMat.specular;
+            sBoxMesh.GPUMaterial.dynamicAttributes.Metallic = boxMat.metallic;
+            sBoxMesh.GPUMaterial.dynamicAttributes.Roughness = boxMat.roughness;
             const sceneBoxMesh = new SceneStaticMesh(sBoxMesh);
             sceneBoxMesh.uuid = sBoxMesh.uuid;
             sceneBoxMesh.Position.copy(boxMesh.position);
@@ -398,7 +409,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             sceneBoxMesh.Scale.copy(boxMesh.scale);
             filter.AddChild(`box${i}`, sceneBoxMesh);
 
-            // 球体：光滑塑料质感
+            // 球体：随机塑料/金属质感
             let sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
             sphereGeometry = BufferGeometryUtils.mergeVertices(sphereGeometry);
             sphereGeometry.computeTangents();
@@ -411,11 +422,12 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             sphereMesh.scale.set(sphereScale.x, sphereScale.y, sphereScale.z);
             sphereMesh.ID = `sphere${i}`;
             const sSphereMesh = await this.GPUScene.add(sphereMesh);
+            const sphereMat = getRandomMaterialProps();
             sSphereMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
-            sSphereMesh.GPUMaterial.dynamicAttributes.BaseColor = [0, 0, 1, 1];
-            sSphereMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;
-            sSphereMesh.GPUMaterial.dynamicAttributes.Metallic = 0.2;
-            sSphereMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8;
+            sSphereMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.8, 0.2, 0.2, 1];
+            sSphereMesh.GPUMaterial.dynamicAttributes.Specular = sphereMat.specular;
+            sSphereMesh.GPUMaterial.dynamicAttributes.Metallic = sphereMat.metallic;
+            sSphereMesh.GPUMaterial.dynamicAttributes.Roughness = sphereMat.roughness;
             const sceneSphereMesh = new SceneStaticMesh(sSphereMesh);
             sceneSphereMesh.uuid = sSphereMesh.uuid;
             sceneSphereMesh.Position.copy(sphereMesh.position);
@@ -423,7 +435,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             sceneSphereMesh.Scale.copy(sphereMesh.scale);
             filter.AddChild(`sphere${i}`, sceneSphereMesh);
 
-            // 圆柱体：粗糙金属质感
+            // 圆柱体：随机金属质感
             let cylinderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 32);
             cylinderGeometry = BufferGeometryUtils.mergeVertices(cylinderGeometry);
             cylinderGeometry.computeTangents();
@@ -436,11 +448,12 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             cylinderMesh.scale.set(cylinderScale.x, cylinderScale.y, cylinderScale.z);
             cylinderMesh.ID = `cylinder${i}`;
             const sCylinderMesh = await this.GPUScene.add(cylinderMesh);
+            const cylinderMat = getRandomMaterialProps();
             sCylinderMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterial);
-            sCylinderMesh.GPUMaterial.dynamicAttributes.BaseColor = [1, 0.5, 0.25, 1];
-            sCylinderMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;
-            sCylinderMesh.GPUMaterial.dynamicAttributes.Metallic = 0.2;
-            sCylinderMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8;
+            sCylinderMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.2, 0.8, 0.3, 1];
+            sCylinderMesh.GPUMaterial.dynamicAttributes.Specular = cylinderMat.specular;
+            sCylinderMesh.GPUMaterial.dynamicAttributes.Metallic = cylinderMat.metallic;
+            sCylinderMesh.GPUMaterial.dynamicAttributes.Roughness = cylinderMat.roughness;
             const sceneCylinderMesh = new SceneStaticMesh(sCylinderMesh);
             sceneCylinderMesh.uuid = sCylinderMesh.uuid;
             sceneCylinderMesh.Position.copy(cylinderMesh.position);

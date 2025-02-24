@@ -40,6 +40,11 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let uv = vec2<f32>(coord) / vec2<f32>(textureDimensions(sceneDepth));
     let worldPos = ReconstructWorldPositionFromDepth(depth, uv);
 
+    // 不对远处进行阴影计算
+    if(length(worldPos) > 1000.0) {
+        textureStore(outputTex, coord, BaseColor);
+        return;
+    }
 
     //let viewPos = scene.viewMatrix * vec4<f32>(worldPos, 1.0);
 
@@ -137,7 +142,7 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Output the final color with PCF shadow
     let shadowColor = mix(vec4<f32>(0.0), vec4<f32>(1.0), shadow);
-    textureStore(outputTex, coord, shadowColor);
+    //textureStore(outputTex, coord, shadowColor);
 
     // 实现光照计算 cook-torrance方法
     let V = normalize(scene.camPosFar.xyz - worldPos); // 视线方向
