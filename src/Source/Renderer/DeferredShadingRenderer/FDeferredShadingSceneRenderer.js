@@ -349,7 +349,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             this._ResourceManager,
             'Content/Other/Mat/Metal034/Metal034_4K-JPG_Metalness.jpg'
         );
-        
+
         // mat5 textures
         const BaseColorTextureRock017 = await loadTexture(
             this._ResourceManager,
@@ -363,13 +363,6 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             this._ResourceManager,
             'Content/Other/Mat/Rock017/Rock017_4K-JPG_Roughness.jpg'
         );
-        
-        
-        
-        
-        
-        
-        
 
         const BaseColorTextureSampler = this._ResourceManager.CreateResource(
             'BaseColorTextureSampler',
@@ -439,7 +432,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             BaseColorTextureSampler,
             BaseColorTextureSampler,
             BaseColorTextureSampler,
-            BaseColorTextureSampler,
+            BaseColorTextureSampler
         );
 
         const PBRMaterialRock017 = await createPBRMaterial(
@@ -454,14 +447,14 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             BaseColorTextureSampler,
             BaseColorTextureSampler,
             BaseColorTextureSampler,
-            BaseColorTextureSampler,
+            BaseColorTextureSampler
         );
 
-        const createRandomMeshScene = async (material, dynamicOffset = new THREE.Vector3(75, 0, 0)) => {
+        const createRandomMeshScene = async (materials, dynamicOffset = new THREE.Vector3(75, 0, 0)) => {
             const filter = new Filter();
             filter.Name = 'testObject';
             this.Scene.AddChild('Filter', filter);
-    
+
             // 创建一个水平地面
             let planeGeometry = new THREE.BoxGeometry(100, 0.1, 100);
             planeGeometry = BufferGeometryUtils.mergeVertices(planeGeometry);
@@ -471,79 +464,67 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
             planeMesh.position.set(dynamicOffset.x, dynamicOffset.y, dynamicOffset.z);
             planeMesh.updateMatrixWorld(true);
             planeMesh.ID = 'plane';
-            
+
             const staticPlaneMesh = new StaticMesh(planeMesh, this._ResourceManager);
             staticPlaneMesh.meshID = planeMesh.ID;
             staticPlaneMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterialPavingStones085);
             // 设置地面的固定材质属性
             staticPlaneMesh.GPUMaterial.dynamicAttributes.Specular = 0.5;
-            staticPlaneMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;  // 非金属
-            staticPlaneMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8; // 较粗糙
+            staticPlaneMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;
+            staticPlaneMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8;
             await this.GPUScene.addStaticMesh(staticPlaneMesh);
-            
+
             const scenePlaneMesh = new SceneStaticMesh(staticPlaneMesh);
             scenePlaneMesh.uuid = staticPlaneMesh.uuid;
             scenePlaneMesh.Position.copy(planeMesh.position);
             scenePlaneMesh.Rotation.copy(planeMesh.rotation);
             scenePlaneMesh.Scale.copy(planeMesh.scale);
             filter.AddChild('plane', scenePlaneMesh);
-            
+
             let num = 100;
 
-            // 固定的材质属性组
-            const materialPresets = [
-                {
-                    // 塑料
-                    specular: 1.0,
-                    metallic: 0.0,
-                    roughness: 0.8
-                }
-            ];
-
             for (let i = 0; i < num; i++) {
-                // 从预设中选择材质
-                const materialProps = materialPresets[i % materialPresets.length];
-                const currentMat = material[i % material.length];
+                // 随机选择一个材质配置
+                const materialConfig = materials[Math.floor(Math.random() * materials.length)];
 
                 // 生成随机位置、旋转
-                const getRandomPosition = () => {
-                    return {
-                        x: (Math.random() * 2 - 1) * 25,
-                        y: Math.random() * 30 + 1,
-                        z: (Math.random() * 2 - 1) * 25,
-                    };
-                };
+                const getRandomPosition = () => ({
+                    x: (Math.random() * 2 - 1) * 25,
+                    y: Math.random() * 30 + 1,
+                    z: (Math.random() * 2 - 1) * 25,
+                });
 
-                const getRandomRotation = () => {
-                    return {
-                        x: Math.random() * Math.PI * 2,
-                        y: Math.random() * Math.PI * 2,
-                        z: Math.random() * Math.PI * 2,
-                    };
-                };
+                const getRandomRotation = () => ({
+                    x: Math.random() * Math.PI * 2,
+                    y: Math.random() * Math.PI * 2,
+                    z: Math.random() * Math.PI * 2,
+                });
 
-                // 使用固定缩放
                 const scale = { x: 1, y: 1, z: 1 };
 
-                // 立方体：随机金属质感
+                // 立方体
                 let boxGeometry = new THREE.BoxGeometry(1, 1, 1);
                 boxGeometry = BufferGeometryUtils.mergeVertices(boxGeometry);
                 boxGeometry.computeTangents();
                 const boxMesh = new THREE.Mesh(boxGeometry);
                 const boxPos = getRandomPosition();
+                boxMesh.position.set(
+                    boxPos.x + dynamicOffset.x,
+                    boxPos.y + dynamicOffset.y,
+                    boxPos.z + dynamicOffset.z
+                );
                 const boxRot = getRandomRotation();
-                const boxScale = scale;
-                boxMesh.position.set(boxPos.x + dynamicOffset.x, boxPos.y + dynamicOffset.y, boxPos.z + dynamicOffset.z);
                 boxMesh.rotation.set(boxRot.x, boxRot.y, boxRot.z);
-                boxMesh.scale.set(boxScale.x, boxScale.y, boxScale.z);
+                boxMesh.scale.set(scale.x, scale.y, scale.z);
                 boxMesh.ID = `box${i}`;
+                
                 const sBoxMesh = await this.GPUScene.add(boxMesh);
-                const boxMat = materialProps;
-                sBoxMesh.GPUMaterial = new GPUMaterialInstance(currentMat);
+                sBoxMesh.GPUMaterial = new GPUMaterialInstance(materialConfig.material);
                 sBoxMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.7, 0.7, 0.8, 1];
-                sBoxMesh.GPUMaterial.dynamicAttributes.Specular = boxMat.specular;
-                sBoxMesh.GPUMaterial.dynamicAttributes.Metallic = boxMat.metallic;
-                sBoxMesh.GPUMaterial.dynamicAttributes.Roughness = boxMat.roughness;
+                sBoxMesh.GPUMaterial.dynamicAttributes.Specular = materialConfig.specular;
+                sBoxMesh.GPUMaterial.dynamicAttributes.Metallic = materialConfig.metallic;
+                sBoxMesh.GPUMaterial.dynamicAttributes.Roughness = materialConfig.roughness;
+
                 const sceneBoxMesh = new SceneStaticMesh(sBoxMesh);
                 sceneBoxMesh.uuid = sBoxMesh.uuid;
                 sceneBoxMesh.Position.copy(boxMesh.position);
@@ -551,7 +532,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 sceneBoxMesh.Scale.copy(boxMesh.scale);
                 filter.AddChild(`box${i}`, sceneBoxMesh);
 
-                // 球体：随机塑料/金属质感
+                // 球体
                 let sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
                 sphereGeometry = BufferGeometryUtils.mergeVertices(sphereGeometry);
                 sphereGeometry.computeTangents();
@@ -559,17 +540,22 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 const spherePos = getRandomPosition();
                 const sphereRot = getRandomRotation();
                 const sphereScale = scale;
-                sphereMesh.position.set(spherePos.x + dynamicOffset.x, spherePos.y + dynamicOffset.y, spherePos.z + dynamicOffset.z);
+                sphereMesh.position.set(
+                    spherePos.x + dynamicOffset.x,
+                    spherePos.y + dynamicOffset.y,
+                    spherePos.z + dynamicOffset.z
+                );
                 sphereMesh.rotation.set(sphereRot.x, sphereRot.y, sphereRot.z);
                 sphereMesh.scale.set(sphereScale.x, sphereScale.y, sphereScale.z);
                 sphereMesh.ID = `sphere${i}`;
+                
                 const sSphereMesh = await this.GPUScene.add(sphereMesh);
-                const sphereMat = materialProps;
-                sSphereMesh.GPUMaterial = new GPUMaterialInstance(currentMat);
+                sSphereMesh.GPUMaterial = new GPUMaterialInstance(materialConfig.material);
                 sSphereMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.8, 0.2, 0.2, 1];
-                sSphereMesh.GPUMaterial.dynamicAttributes.Specular = sphereMat.specular;
-                sSphereMesh.GPUMaterial.dynamicAttributes.Metallic = sphereMat.metallic;
-                sSphereMesh.GPUMaterial.dynamicAttributes.Roughness = sphereMat.roughness;
+                sSphereMesh.GPUMaterial.dynamicAttributes.Specular = materialConfig.specular;
+                sSphereMesh.GPUMaterial.dynamicAttributes.Metallic = materialConfig.metallic;
+                sSphereMesh.GPUMaterial.dynamicAttributes.Roughness = materialConfig.roughness;
+
                 const sceneSphereMesh = new SceneStaticMesh(sSphereMesh);
                 sceneSphereMesh.uuid = sSphereMesh.uuid;
                 sceneSphereMesh.Position.copy(sphereMesh.position);
@@ -577,7 +563,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 sceneSphereMesh.Scale.copy(sphereMesh.scale);
                 filter.AddChild(`sphere${i}`, sceneSphereMesh);
 
-                // 圆柱体：随机金属质感
+                // 圆柱体
                 let cylinderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 2, 32);
                 cylinderGeometry = BufferGeometryUtils.mergeVertices(cylinderGeometry);
                 cylinderGeometry.computeTangents();
@@ -585,17 +571,22 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 const cylinderPos = getRandomPosition();
                 const cylinderRot = getRandomRotation();
                 const cylinderScale = scale;
-                cylinderMesh.position.set(cylinderPos.x + dynamicOffset.x, cylinderPos.y + dynamicOffset.y, cylinderPos.z + dynamicOffset.z);
+                cylinderMesh.position.set(
+                    cylinderPos.x + dynamicOffset.x,
+                    cylinderPos.y + dynamicOffset.y,
+                    cylinderPos.z + dynamicOffset.z
+                );
                 cylinderMesh.rotation.set(cylinderRot.x, cylinderRot.y, cylinderRot.z);
                 cylinderMesh.scale.set(cylinderScale.x, cylinderScale.y, cylinderScale.z);
                 cylinderMesh.ID = `cylinder${i}`;
+                
                 const sCylinderMesh = await this.GPUScene.add(cylinderMesh);
-                const cylinderMat = materialProps;
-                sCylinderMesh.GPUMaterial = new GPUMaterialInstance(currentMat);
+                sCylinderMesh.GPUMaterial = new GPUMaterialInstance(materialConfig.material);
                 sCylinderMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.2, 0.8, 0.3, 1];
-                sCylinderMesh.GPUMaterial.dynamicAttributes.Specular = cylinderMat.specular;
-                sCylinderMesh.GPUMaterial.dynamicAttributes.Metallic = cylinderMat.metallic;
-                sCylinderMesh.GPUMaterial.dynamicAttributes.Roughness = cylinderMat.roughness;
+                sCylinderMesh.GPUMaterial.dynamicAttributes.Specular = materialConfig.specular;
+                sCylinderMesh.GPUMaterial.dynamicAttributes.Metallic = materialConfig.metallic;
+                sCylinderMesh.GPUMaterial.dynamicAttributes.Roughness = materialConfig.roughness;
+
                 const sceneCylinderMesh = new SceneStaticMesh(sCylinderMesh);
                 sceneCylinderMesh.uuid = sCylinderMesh.uuid;
                 sceneCylinderMesh.Position.copy(cylinderMesh.position);
@@ -603,96 +594,152 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 sceneCylinderMesh.Scale.copy(cylinderMesh.scale);
                 filter.AddChild(`cylinder${i}`, sceneCylinderMesh);
             }
-        }
+        };
 
-        const createPreviewScene = async (material) => {
+        const createPreviewScene = async (materials, offset = new THREE.Vector3(0, 0, 0)) => {
             const filter = new Filter();
             filter.Name = 'previewObject';
             this.Scene.AddChild('PreviewFilter', filter);
-    
-            // 创建一个展示平台（使用扁平的圆柱体）
-            let platformGeometry = new THREE.CylinderGeometry(5, 5, 0.2, 32);
-            platformGeometry = BufferGeometryUtils.mergeVertices(platformGeometry);
-            platformGeometry.computeTangents();
-            const platformMesh = new THREE.Mesh(platformGeometry);
-            platformMesh.position.set(0, 0, 0);  // 放在原点
-            platformMesh.updateMatrixWorld(true);
-            platformMesh.ID = 'previewPlatform';
-            
-            const staticPlatformMesh = new StaticMesh(platformMesh, this._ResourceManager);
-            staticPlatformMesh.meshID = platformMesh.ID;
-            staticPlatformMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterialPavingStones085);
-            staticPlatformMesh.GPUMaterial.dynamicAttributes.Specular = 0.9;
-            staticPlatformMesh.GPUMaterial.dynamicAttributes.Metallic = 0.9;
-            staticPlatformMesh.GPUMaterial.dynamicAttributes.Roughness = 0.1;
-            await this.GPUScene.addStaticMesh(staticPlatformMesh);
-            
-            const scenePlatformMesh = new SceneStaticMesh(staticPlatformMesh);
-            scenePlatformMesh.uuid = staticPlatformMesh.uuid;
-            scenePlatformMesh.Position.copy(platformMesh.position);
-            scenePlatformMesh.Rotation.copy(platformMesh.rotation);
-            scenePlatformMesh.Scale.copy(platformMesh.scale);
-            filter.AddChild('platform', scenePlatformMesh);
-    
-            // 添加一些预览用的基础几何体
-            const geometries = [
-                {
-                    geometry: new THREE.SphereGeometry(1, 32, 32),
-                    position: new THREE.Vector3(-2, 1.5, 0),
-                    name: 'previewSphere'
-                },
-                {
-                    geometry: new THREE.BoxGeometry(1.5, 1.5, 1.5),
-                    position: new THREE.Vector3(0, 1.5, 0),
-                    name: 'previewCube'
-                },
-                {
-                    geometry: new THREE.CylinderGeometry(0.7, 0.7, 2, 32),
-                    position: new THREE.Vector3(2, 1.5, 0),
-                    name: 'previewCylinder'
+
+            // 为每个材质创建一组预览物体
+            for (let i = 0; i < materials.length; i++) {
+                const materialConfig = materials[i];  // 获取材质配置
+                const groupOffset = new THREE.Vector3(
+                    offset.x + i * 15,
+                    offset.y,
+                    offset.z
+                );
+
+                // 创建展示平台
+                let platformGeometry = new THREE.CylinderGeometry(5, 5, 0.2, 32);
+                platformGeometry = BufferGeometryUtils.mergeVertices(platformGeometry);
+                platformGeometry.computeTangents();
+                const platformMesh = new THREE.Mesh(platformGeometry);
+                platformMesh.position.copy(groupOffset);
+                platformMesh.updateMatrixWorld(true);
+                platformMesh.ID = `previewPlatform_${i}`;
+                
+                const staticPlatformMesh = new StaticMesh(platformMesh, this._ResourceManager);
+                staticPlatformMesh.meshID = platformMesh.ID;
+                staticPlatformMesh.GPUMaterial = new GPUMaterialInstance(PBRMaterialPavingStones085);
+                staticPlatformMesh.GPUMaterial.dynamicAttributes.Specular = 0.9;
+                staticPlatformMesh.GPUMaterial.dynamicAttributes.Metallic = 0.0;
+                staticPlatformMesh.GPUMaterial.dynamicAttributes.Roughness = 0.8;
+                await this.GPUScene.addStaticMesh(staticPlatformMesh);
+                
+                const scenePlatformMesh = new SceneStaticMesh(staticPlatformMesh);
+                scenePlatformMesh.uuid = staticPlatformMesh.uuid;
+                scenePlatformMesh.Position.copy(platformMesh.position);
+                scenePlatformMesh.Rotation.copy(platformMesh.rotation);
+                scenePlatformMesh.Scale.copy(platformMesh.scale);
+                filter.AddChild(`platform_${i}`, scenePlatformMesh);
+
+                // 预览几何体
+                const geometries = [
+                    {
+                        geometry: new THREE.SphereGeometry(1, 32, 32),
+                        position: new THREE.Vector3(-2, 1.5, 0),
+                        name: 'sphere',
+                    },
+                    {
+                        geometry: new THREE.BoxGeometry(1.5, 1.5, 1.5),
+                        position: new THREE.Vector3(0, 1.5, 0),
+                        name: 'cube',
+                    },
+                    {
+                        geometry: new THREE.CylinderGeometry(0.7, 0.7, 2, 32),
+                        position: new THREE.Vector3(2, 1.5, 0),
+                        name: 'cylinder',
+                    },
+                ];
+
+                // 创建预览几何体
+                for (const item of geometries) {
+                    const geometry = BufferGeometryUtils.mergeVertices(item.geometry);
+                    geometry.computeTangents();
+                    
+                    const mesh = new THREE.Mesh(geometry);
+                    mesh.position.set(
+                        item.position.x + groupOffset.x,
+                        item.position.y + groupOffset.y,
+                        item.position.z + groupOffset.z
+                    );
+                    mesh.updateMatrixWorld(true);
+                    mesh.ID = `preview_${item.name}_${i}`;
+                    
+                    const staticMesh = await this.GPUScene.add(mesh);
+                    staticMesh.meshID = mesh.ID;
+                    staticMesh.GPUMaterial = new GPUMaterialInstance(materialConfig.material);
+                    staticMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.7, 0.7, 0.8, 1];
+                    // 使用传入的材质属性
+                    staticMesh.GPUMaterial.dynamicAttributes.Specular = materialConfig.specular;
+                    staticMesh.GPUMaterial.dynamicAttributes.Metallic = materialConfig.metallic;
+                    staticMesh.GPUMaterial.dynamicAttributes.Roughness = materialConfig.roughness;
+                    
+                    const sceneMesh = new SceneStaticMesh(staticMesh);
+                    sceneMesh.uuid = staticMesh.uuid;
+                    sceneMesh.Position.copy(mesh.position);
+                    sceneMesh.Rotation.copy(mesh.rotation);
+                    sceneMesh.Scale.copy(mesh.scale);
+                    filter.AddChild(`${item.name}_${i}`, sceneMesh);
                 }
-            ];
-    
-            // 创建预览几何体
-            for (const item of geometries) {
-                const geometry = BufferGeometryUtils.mergeVertices(item.geometry);
-                geometry.computeTangents();
-                
-                const mesh = new THREE.Mesh(geometry);
-                mesh.position.copy(item.position);
-                mesh.updateMatrixWorld(true);
-                mesh.ID = item.name;
-                
-                const staticMesh = await this.GPUScene.add(mesh);
-                staticMesh.meshID = mesh.ID;
-                staticMesh.GPUMaterial = new GPUMaterialInstance(material);
-                staticMesh.GPUMaterial.dynamicAttributes.BaseColor = [0.7, 0.7, 0.8, 1];
-                staticMesh.GPUMaterial.dynamicAttributes.Specular = 0.9;
-                staticMesh.GPUMaterial.dynamicAttributes.Metallic = 0.9;
-                staticMesh.GPUMaterial.dynamicAttributes.Roughness = 0.1;
-                
-                const sceneMesh = new SceneStaticMesh(staticMesh);
-                sceneMesh.uuid = staticMesh.uuid;
-                sceneMesh.Position.copy(mesh.position);
-                sceneMesh.Rotation.copy(mesh.rotation);
-                sceneMesh.Scale.copy(mesh.scale);
-                filter.AddChild(item.name, sceneMesh);
-            }//63,127,253
+            }
         };
 
-        // 创建预览场景（使用Metal055A材质）
-        await createPreviewScene(PBRMaterialMetal055);
-        
-        // 创建随机场景（使用原来的材质）
-        await createRandomMeshScene(
-            [
-                PBRMaterialMetal055,
-                PBRMaterialFoil002,
-                PBRMaterialMetal034,
-                PBRMaterialRock017
-            ],
-            new THREE.Vector3(75, 0, 0)
-        );
+        // 创建createRandomMeshScene
+        await createRandomMeshScene([
+            {
+                material: PBRMaterialMetal055,
+                specular: 1.0,
+                metallic: 0.9,
+                roughness: 0.2,
+            },
+            {
+                material: PBRMaterialFoil002,
+                specular: 1.0,
+                metallic: 0.0,
+                roughness: 0.4,
+            },
+            {
+                material: PBRMaterialMetal034,
+                specular: 1.0,
+                metallic: 0.9,
+                roughness: 0.1,
+            },
+            {
+                material: PBRMaterialRock017,
+                specular: 0.5,
+                metallic: 0.0,
+                roughness: 0.8,
+            },
+        ], new THREE.Vector3(0, 0, -75));
+        // 创建createPreviewScene
+        await createPreviewScene([
+            {
+                material: PBRMaterialMetal055,
+                specular: 1.0,
+                metallic: 0.9,
+                roughness: 0.2,
+            },
+            {
+                material: PBRMaterialFoil002,
+                specular: 1.0,
+                metallic: 0.0,
+                roughness: 0.4,
+            },
+            {
+                material: PBRMaterialMetal034,
+                specular: 1.0,
+                metallic: 0.9,
+                roughness: 0.1,
+            },
+            {
+                material: PBRMaterialRock017,
+                specular: 0.5,
+                metallic: 0.0,
+                roughness: 0.8,
+            },
+        ], new THREE.Vector3(-10, 0, 0));
 
         // 天空球材质
         const skyboxBaseColorTexture = await loadTexture(
