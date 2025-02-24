@@ -4,6 +4,7 @@ import ShaderIncluder from '../../../../Core/Shader/ShaderIncluder';
 import { resourceName } from '../../ResourceNames';
 import FDeferredShadingSceneRenderer from '../../FDeferredShadingSceneRenderer';
 import { sampler } from 'three/tsl';
+import { loadHDRTexture } from '../../../../Core/Resource/Texture/LoadTexture';
 /**
  * LightingAndShadowPass Pass 用于调试阴影贴图效果，
  * 将 ShadowMapPass 生成的阴影贴图通过全屏绘制显示出来。
@@ -12,10 +13,11 @@ class LightingAndShadowPass extends FPass {
     // 定义调试渲染结果的输出纹理名称（可在 resourceName 中配置）
     renderTargetName = 'LightingAndShadowPassRT';
 
-    constructor() {
+    constructor(hdrTexturePath = '/Content/Other/Mat/HDR/FireFlySceneHDR1.hdr') {
         super();
         this._Name = 'LightingAndShadowPass';
         this.bCanvasReady = false;
+        this.hdrTexturePath = hdrTexturePath;
     }
 
     /**
@@ -95,11 +97,42 @@ class LightingAndShadowPass extends FPass {
                                 access: 'write-only',
                                 format: 'rgba8unorm',
                             },
+                        },
+                        {
+                            binding: 7,
+                            visibility: GPUShaderStage.COMPUTE,
+                            texture: { 
+                                sampleType: 'unfilterable-float',
+                                viewDimension: '2d'
+                            }
+                        },
+                        {
+                            binding: 8,
+                            visibility: GPUShaderStage.COMPUTE,
+                            sampler: {
+                                type: 'non-filtering'
+                            }
                         }
                     ],
                 },
             }
         );
+
+        //slot8 的采样器
+        this.hdrTextureSampler = await this._ResourceManager.CreateResource(
+            'hdrTextureSampler',
+            {
+                Type: 'Sampler',
+                desc: {
+                    magFilter: 'nearest',
+                    minFilter: 'nearest',
+                    mipmapFilter: 'nearest',
+                    addressModeU: 'repeat',
+                    addressModeV: 'clamp-to-edge',
+                }
+            }
+        );
+        
 
         // 获取外部传入的 BindGroupLayout（sceneBuffer 和 sceneLight），然后创建计算管线所需的 pipelineLayout：
         // 计算管线Desc：
@@ -143,6 +176,8 @@ class LightingAndShadowPass extends FPass {
                     minFilter: 'linear',
                 }
             });
+
+        this.hdrTexture = await loadHDRTexture(this._ResourceManager, this.hdrTexturePath);
     }
 
     /**
@@ -211,6 +246,14 @@ class LightingAndShadowPass extends FPass {
                         {
                             binding: 6,
                             resource: this.renderTarget.createView(),
+                        },
+                        {
+                            binding: 7,
+                            resource: this.hdrTexture.createView(),
+                        },
+                        {
+                            binding: 8,
+                            resource: this.hdrTextureSampler,
                         }
                     ],
                 },

@@ -289,6 +289,7 @@ export async function createPBRMaterial(
     MetallicTexture,
     RoughnessTexture,
     SpecularTexture,
+    
     BaseColorSampler,
     NormalSampler,
     MetallicSampler,

@@ -24,6 +24,11 @@ var shadowMap: texture_depth_2d_array; // 阴影贴图
 @group(2) @binding(6)
 var outputTex: texture_storage_2d<rgba8unorm, write>; // 最终输出的存储纹理
 
+@group(2) @binding(7)
+var envMap: texture_2d<f32>; // 环境贴图
+
+@group(2) @binding(8)
+var envMapSampler: sampler; // 环境贴图采样器
 
 // 采用 8x8 的 workgroup 尺寸
 @compute @workgroup_size(8, 8, 1)
@@ -189,16 +194,55 @@ fn CSMain(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     // 合并直接光照
     let directLight = (diffuse + specular) * DirectionalLight.lightColor.rgb * DirectionalLight.lightIntensity * NoL;
+
+    // 计算环境贴图采样方向
+    let R = reflect(-V, N); // 反射向量
+    let envReflection = SampleEnvironmentMap(R, roughness);
+
+    // 计算菲涅尔项用于环境反射
+    let envFresnel = F0 + (1.0 - F0) * pow(1.0 - NoV, 5.0);
+
+    let envStrength = 0.5;  // 降低环境光强度
     
-    // 添加固定的环境光
-    let ambientIntensity = 0.08; // 环境光强度
-    let ambientColor = vec3<f32>(1.0, 1.0, 1.0); // 白色环境光
-    let ambient = ambientColor * ambientIntensity * baseColor;
+    // 基于粗糙度计算环境贴图的影响
+    let envInfluence = pow(1.0 - roughness, 2.0);
     
-    // 应用阴影和环境光
-    let finalColor = max(directLight * shadow ,vec3<f32>(0.0))+ ambient;
+    // 降低基础环境光强度
+    let baseEnvLight = vec3<f32>(0.1, 0.1, 0.1) * envStrength;
     
+    // 根据金属度计算漫反射和镜面反射
+    let envDiffuse = mix(baseEnvLight, envReflection, envInfluence) * (1.0 - metallic) * baseColor;
+    let envSpecular = envReflection * envFresnel * envInfluence * envStrength* baseColor*1.2;  // 对镜面反射也应用强度系数
+
+    // 降低环境遮蔽强度
+    let ambientOcclusion = 0.1;
+    let roughDiffuse = baseColor * (1.0 - envInfluence) * ambientOcclusion;
+
+    // 混合最终的环境光照
+    let envColor = envDiffuse + envSpecular + roughDiffuse;
+
+    // 将直接光照和环境光照结合
+    let finalColor = max(directLight * shadow, vec3<f32>(0.0)) + envColor;
+    
+
     // 输出最终颜色（添加gamma校正）
     let gammaCorrected = pow(finalColor, vec3<f32>(1.0/2.2));
     textureStore(outputTex, coord, vec4<f32>(gammaCorrected, 1.0));
+}
+
+// 计算环境光HDR贴图采样
+fn SampleEnvironmentMap(R: vec3<f32>, roughness: f32) -> vec3<f32> {
+    // 计算球面坐标
+    let envUV = vec2<f32>(
+        atan2(R.z, R.x) / (2.0 * pi) + 0.5,
+        acos(R.y) / pi
+    );
+
+    let mipLevel = i32(roughness * 8.0);
+    // 将UV坐标转换为纹理坐标
+    let texSize = vec2<f32>(textureDimensions(envMap));
+    let texCoord = vec2<i32>(envUV * texSize)/i32(pow(2.0,f32(mipLevel)));
+
+
+    return textureLoad(envMap, texCoord, mipLevel).rgb;
 }
