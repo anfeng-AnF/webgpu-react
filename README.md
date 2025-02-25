@@ -1,70 +1,80 @@
-# Getting Started with Create React App
+# WebGPU Deferred Rendering
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+一个基于 WebGPU 的延迟渲染项目。
 
-## Available Scripts
+## 项目预览
 
-In the project directory, you can run:
+- 操作界面
+  ![](READMERESOURCE/OperationInterface.gif)
+
+- 较为粗糙的金属材质
+  ![](READMERESOURCE/Matel055A.png)
+
+- 光滑金属球
+  ![](READMERESOURCE/Metal034.png)  
+
+- 《皱巴巴的锡箔纸》
+  ![](READMERESOURCE/Foil.png)
+
+- 石材
+  ![](READMERESOURCE/Rock017.png)
+
+- GBuffers
+  ![](READMERESOURCE/BufferDisplay.gif)
+
+- CSM Cascade Shadow Map
+  ![](READMERESOURCE/ShowCSM.png)
+
+- 几何体控制
+  ![](READMERESOURCE/ObjectDisplay.gif)
+
+
+## 开发环境准备
+
+确保您的开发环境中已安装以下工具：
+
+- Node.js (推荐 v14.0.0 或更高版本)
+- npm (Node.js 包管理器)
+
+## 项目启动
+
+在项目目录下，您可以运行：
+
+### `npm install`
+
+安装项目所需的所有依赖包。
 
 ### `npm start`
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+启动开发服务器，运行应用程序。\
+在浏览器中打开 [http://localhost:3000](http://localhost:3000) 查看应用。
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
-
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+当您修改代码时，页面将自动刷新。\
+您也可以在控制台中查看任何代码错误。
 
 ### `npm run build`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+将应用程序构建到 `build` 文件夹中，为生产环境做好准备。\
+构建后的文件已经过优化，可以获得最佳性能。
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 项目内容简述
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+|——public
+| |——Shader # 着色器文件
+| | |——Common # 通用着色器
+| | |——DeferredShading # 延迟渲染着色器
+| | |——PostProcess # 后处理着色器
+| | └──Shadow # 阴影相关着色器
+|
+|——src
+| |——Source
+| | |——UI # UI模块
+| | | |——Components # UI组件
+| | | |——Styles # UI样式
+| | |——Material # 材质系统
+| | |
+| | |——Renderer # 渲染器模块
+| | | └——DeferredShadingRenderer # 延迟渲染实现
 
-### `npm run eject`
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)

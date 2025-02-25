@@ -165,6 +165,7 @@ fn PSMain(input: vsOutput) -> FragmentOutput {
     if ((PBRParam.flags & NORMAL_USE_TEXTURE) != 0u) {
         var normalMap = textureSample(texture_normal, sampler_normal, uv).rgb;
         normalTS = normalMap * 2.0 - 1.0;
+        normalTS.y = -normalTS.y;
     }
     
     // 将切线空间的法线转换到世界空间
