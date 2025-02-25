@@ -19,10 +19,13 @@
 - 石材
   ![](READMERESOURCE/Rock017.png)
 
-- GBuffers
+- 场景
+  ![](READMERESOURCE/Scene.gif)
+
+- 场景GBuffers
   ![](READMERESOURCE/BufferDisplay.gif)
 
-- CSM Cascade Shadow Map
+- 场景中CSM (Cascade Shadow Map)
   ![](READMERESOURCE/ShowCSM.png)
 
 - 几何体控制
