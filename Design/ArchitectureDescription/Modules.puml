@@ -1,0 +1,117 @@
+@startuml Engine Module Structure
+
+' 设置支持中文的字体
+skinparam defaultFontName "Microsoft YaHei"
+skinparam backgroundColor white
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam handwritten false
+skinparam defaultFontSize 14
+
+' 其他字体相关设置
+skinparam note {
+    FontName "Microsoft YaHei"
+    FontSize 12
+}
+
+skinparam legend {
+    FontName "Microsoft YaHei"
+    FontSize 12
+}
+
+' 其他通用样式设置
+skinparam component {
+    BackgroundColor white
+    BorderColor black
+    ArrowColor black
+}
+
+skinparam NoteBackgroundColor #FEFECE
+skinparam NoteBorderColor #A80036
+skinparam NoteFontSize 11
+
+' 设置样式
+skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 60
+
+package "Engine Core" {
+    note as N1
+        引擎核心模块
+        -模块化架构
+        -事件系统
+        -资源管理
+    end note
+
+    [Engine] as EngineCore
+
+    package "Scene Module" {
+        note as N2
+            场景管理系统
+            -场景图
+            -对象管理
+            -状态同步
+        end note
+
+        [Scene] as SceneManager
+        [SceneObject]
+        [Transform]
+        [Camera]
+    }
+
+    package "Renderer Module" {
+        note as N3
+            渲染系统
+            -WebGPU渲染
+            -延迟渲染
+            -资源管理
+        end note
+
+        [Renderer] as RenderManager
+        [RenderPipeline]
+        [GPUResourceManager]
+    }
+
+    package "UI Module" {
+        note as N4
+            用户界面系统
+            -组件化设计
+            -事件处理
+            -布局管理
+        end note
+
+        [UIManager]
+        [Components]
+        [EventSystem]
+    }
+
+    package "Resource Module" {
+        note as N5
+            资源管理系统
+            -资源加载
+            -缓存管理
+            -内存优化
+        end note
+
+        [ResourceManager]
+        [AssetLoader]
+        [Cache]
+    }
+}
+
+' 模块间依赖关系
+EngineCore --> SceneManager : manages
+EngineCore --> RenderManager : manages
+EngineCore --> UIManager : manages
+EngineCore --> ResourceManager : manages
+
+SceneManager --> RenderManager : updates
+UIManager --> RenderManager : updates
+ResourceManager --> RenderManager : provides resources
+
+SceneManager --> ResourceManager : loads assets
+UIManager --> ResourceManager : loads assets
+
+@enduml

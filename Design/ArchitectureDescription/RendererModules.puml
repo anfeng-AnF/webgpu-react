@@ -1,0 +1,129 @@
+@startuml Renderer Module Structure
+
+' 设置支持中文的字体
+skinparam defaultFontName "Microsoft YaHei"
+skinparam backgroundColor white
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam handwritten false
+skinparam defaultFontSize 14
+
+' 其他字体相关设置
+skinparam note {
+    FontName "Microsoft YaHei"
+    FontSize 12
+}
+
+skinparam legend {
+    FontName "Microsoft YaHei"
+    FontSize 12
+}
+
+' 其他通用样式设置
+skinparam component {
+    BackgroundColor white
+    BorderColor black
+    ArrowColor black
+}
+
+skinparam NoteBackgroundColor #FEFECE
+skinparam NoteBorderColor #A80036
+skinparam NoteFontSize 11
+
+' 设置样式
+skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 60
+
+package "Renderer Module" {
+    note as N1
+        延迟渲染系统
+        -基于WebGPU
+        -模块化设计
+        -高性能渲染
+    end note
+    
+    [FDeferredShadingSceneRenderer] as DeferredRenderer
+    
+    package "Render Passes" {
+        note as N2
+            渲染通道系统
+            -流水线设计
+            -可配置管线
+            -资源依赖管理
+        end note
+
+        package "Base Passes" {
+            [PrePass]
+            [BasePass]
+            note right of PrePass
+                预渲染通道
+                -深度预处理
+                -提前剔除
+            end note
+            
+            note right of BasePass
+                基础通道
+                -G-Buffer生成
+                -PBR材质
+            end note
+        }
+
+        package "Lighting Passes" {
+            [DynamicLightPass]
+            [LightingAndShadowPass]
+            note right of DynamicLightPass
+                动态光照通道
+                -阴影贴图
+                -级联阴影
+            end note
+        }
+
+        package "Post Process" {
+            [GenerateMipmapPass]
+            [FCopyToCanvasPass]
+            note right of FCopyToCanvasPass
+                后处理通道
+                -格式转换
+                -显示输出
+            end note
+        }
+    }
+
+    package "Resource Management" {
+        note as N3
+            资源管理系统
+            -GPU资源池
+            -生命周期管理
+            -依赖关系处理
+        end note
+        
+        [FResourceManager]
+        [ResourceNames]
+    }
+}
+
+' 渲染通道依赖关系
+PrePass ..> BasePass : depth input
+BasePass ..> DynamicLightPass : G-Buffer input
+DynamicLightPass ..> LightingAndShadowPass : shadow maps
+LightingAndShadowPass ..> FCopyToCanvasPass : final output
+
+' 资源管理依赖
+DeferredRenderer --> FResourceManager : manages resources
+PrePass --> FResourceManager : uses
+BasePass --> FResourceManager : uses
+DynamicLightPass --> FResourceManager : uses
+LightingAndShadowPass --> FResourceManager : uses
+FCopyToCanvasPass --> FResourceManager : uses
+
+' 渲染器控制
+DeferredRenderer --> PrePass : controls
+DeferredRenderer --> BasePass : controls
+DeferredRenderer --> DynamicLightPass : controls
+DeferredRenderer --> LightingAndShadowPass : controls
+DeferredRenderer --> FCopyToCanvasPass : controls
+
+@enduml 
