@@ -1,0 +1,128 @@
+@startuml Deferred Rendering Pipeline Sequence
+
+' 设置支持中文的字体
+skinparam defaultFontName "Microsoft YaHei"
+skinparam backgroundColor white
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam handwritten false
+skinparam defaultFontSize 14
+
+' 其他字体相关设置
+skinparam note {
+    FontName "Microsoft YaHei"
+    FontSize 12
+}
+
+skinparam legend {
+    FontName "Microsoft YaHei"
+    FontSize 12
+}
+
+box "几何阶段" #LightBlue
+participant "PrePass" as Pre
+participant "BasePass" as Base
+end box
+
+box "光照阶段" #LightYellow
+participant "DynamicLightPass" as DLight
+participant "LightingAndShadowPass" as LSPass
+end box
+
+box "反射阶段" #LightCyan
+participant "ReflectionPass" as Reflect #LightGray
+note right Reflect #OrangeRed
+    <color:white>待实现</color>
+end note
+end box
+
+box "附加阶段" #Pink
+participant "TransparentPass" as Trans #LightGray
+note right Trans #OrangeRed
+    <color:white>待实现</color>
+    <color:white>半透明处理</color>
+end note
+end box
+
+box "后处理阶段" #LightGreen
+participant "PostProcessPass" as Post #LightGray
+participant "FCopyToCanvasPass" as Copy
+note right Post #OrangeRed
+    <color:white>待实现</color>
+end note
+end box
+
+== 几何处理 ==
+[-> Pre: 场景网格数据
+activate Pre
+note right Pre: 深度预处理\n视锥剔除
+Pre -> Pre: 生成深度缓冲
+Pre -> Base: 深度数据
+deactivate Pre
+
+activate Base
+note right Base: 生成G-Buffer
+Base -> Base: 写入法线、位置\n材质属性等信息
+Base -> DLight: G-Buffer数据
+deactivate Base
+
+== 光照处理 ==
+activate DLight
+note right DLight: 生成阴影贴图
+DLight -> DLight: 计算级联阴影贴图
+DLight -> DLight: <color #OrangeRed>计算点光源阴影（待实现）</color>
+DLight -> DLight: <color #OrangeRed>计算面光源效果（待实现）</color>
+DLight -> LSPass: 阴影数据
+deactivate DLight
+
+activate LSPass
+note right LSPass: 延迟光照计算
+LSPass -> LSPass: PBR光照\n环境光遮蔽\n阴影合成
+LSPass -> Reflect: 光照结果
+deactivate LSPass
+
+== 反射处理 ==
+activate Reflect
+note right Reflect #OrangeRed
+    <color:white>屏幕空间反射</color>
+end note
+Reflect -> Reflect: <color #OrangeRed>计算反射</color>
+Reflect -> Trans: 场景结果
+deactivate Reflect
+
+== 附加处理 ==
+activate Trans
+note right Trans #OrangeRed
+    <color:white>半透明渲染</color>
+end note
+Trans -> Trans: <color #OrangeRed>混合半透明物体</color>
+Trans -> Post: 渲染结果
+deactivate Trans
+
+== 后处理输出 ==
+activate Post
+note right Post #OrangeRed
+    <color:white>后期效果</color>
+end note
+Post -> Post: <color #OrangeRed>色调映射\n泛光等</color>
+Post -> Copy: 处理结果
+deactivate Post
+
+activate Copy
+note right Copy: 格式转换\n显示输出
+Copy -> Copy: 转换到显示格式
+[<- Copy: 输出到画布
+deactivate Copy
+
+legend right
+延迟渲染管线
+==
+1. 几何阶段：生成场景几何信息
+2. 光照阶段：计算光照和阴影
+3. <color #OrangeRed>反射阶段：处理反射效果(待实现)</color>
+4. <color #OrangeRed>附加阶段：半透明渲染(待实现)</color>
+5. 后处理阶段：后期效果(待实现)与输出
+end legend
+
+@enduml 

@@ -1,0 +1,221 @@
+' 通用字体设置，可以放在每个 .puml 文件的开头
+@startuml UI Module Structure
+
+' 设置支持中文的字体
+skinparam defaultFontName "Microsoft YaHei"
+skinparam backgroundColor white
+skinparam sequenceMessageAlign center
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam handwritten false
+skinparam defaultFontSize 14
+
+' 其他字体相关设置
+skinparam note {
+    FontName "Microsoft YaHei"
+    FontSize 12
+}
+
+skinparam legend {
+    FontName "Microsoft YaHei"
+    FontSize 12
+}
+
+' 其他通用样式设置
+skinparam component {
+    BackgroundColor white
+    BorderColor black
+    ArrowColor black
+}
+
+skinparam NoteBackgroundColor #FEFECE
+skinparam NoteBorderColor #A80036
+skinparam NoteFontSize 11
+
+' 设置样式
+skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 60
+
+package "UI Module" {
+    note as N1
+        高度模块化的UI系统
+        -各组件功能独立
+        -统一的数据流管理
+        -可扩展的插件架构
+    end note
+    
+    [UIModel] as UIModule
+
+    package "UI Scene" {
+        note as N2
+            UI场景管理
+            -场景树结构
+            -对象状态管理
+            -用户交互处理
+        end note
+
+        [Scene] as UIScene
+        
+        package "UI Objects" {
+            note as N3
+                UI对象系统
+                -编辑器交互
+                -属性编辑
+                -状态同步
+            end note
+
+            [IObjectBase] as ObjectBase
+            [Object3D]
+            [SceneStaticMesh]
+            [DirectionalLight]
+            [PointLight]
+            [Filter]
+        }
+    }
+
+    package "Components" {
+        note as N4
+            组件化设计
+            -高复用性
+            -低耦合度
+            -可组合性
+        end note
+
+        package "SceneTree" {
+            note as N5
+                场景树视图
+                -拖放支持
+                -多选操作
+                -自定义图标
+            end note
+
+            [SceneTreeBuilder]
+            [TreeItem]
+            [TreeHeader]
+        }
+
+        package "Details" {
+            note as N6
+                属性编辑系统
+                -类型安全
+                -实时更新
+                -自定义编辑器
+            end note
+
+            [DetailBuilder]
+            [Vector3Editor]
+            [ColorEditor]
+            [BooleanEditor]
+            [FloatEditor]
+            [EnumEditor]
+        }
+
+        package "MainContent" {
+            note as N7
+                主视口系统
+                -渲染输出窗口
+                -事件系统
+                -自适应布局
+            end note
+
+            [MainContentBuilder]
+            [ViewportCanvas]
+        }
+
+        package "WorldSettings" {
+            note as N8
+                世界设置系统
+                -参数化配置
+                -实时预览
+                -配置持久化
+            end note
+
+            [WorldSettingsBuilder]
+        }
+    }
+}
+
+package "Renderer Module" #lightgray {
+    note as N9
+        渲染场景系统
+        -GPU资源管理
+        -渲染状态维护
+        -场景数据缓存
+    end note
+
+    [GPUScene] as GPUSceneRef
+    
+    package "GPU Objects" {
+        note as N10
+            GPU对象系统
+            -网格数据
+            -材质参数
+            -变换矩阵
+        end note
+
+        [StaticMesh] as GPUMesh
+        [FDirectionalLight] as GPULight
+    }
+}
+
+' 继承关系
+Object3D -up-|> ObjectBase
+SceneStaticMesh -up-|> Object3D
+DirectionalLight -up-|> Object3D
+PointLight -up-|> Object3D
+Filter -up-|> ObjectBase
+
+' UI 到 GPU 的数据流
+UIScene --> GPUSceneRef : updates
+SceneStaticMesh ..> GPUMesh : syncs with
+DirectionalLight ..> GPULight : syncs with
+PointLight ..> GPULight : syncs with
+
+' 组件依赖关系
+SceneTreeBuilder ..> TreeItem : uses
+SceneTreeBuilder ..> TreeHeader : uses
+DetailBuilder ..> Vector3Editor : uses
+DetailBuilder ..> ColorEditor : uses
+DetailBuilder ..> BooleanEditor : uses
+DetailBuilder ..> FloatEditor : uses
+DetailBuilder ..> EnumEditor : uses
+MainContentBuilder ..> ViewportCanvas : uses
+
+' 模块间依赖关系
+UIModule --> UIScene : manages
+UIScene --> ObjectBase : contains
+UIModule --> SceneTreeBuilder : uses
+UIModule --> DetailBuilder : uses
+UIModule --> MainContentBuilder : uses
+UIModule --> WorldSettingsBuilder : uses
+
+note right of ObjectBase
+    基础对象类
+    -名称
+    -类型
+    -可见性
+end note
+
+note right of Object3D
+    3D对象基类
+    -位置
+    -旋转
+    -缩放
+end note
+
+note right of SceneTreeBuilder
+    场景树构建器
+    -树结构管理
+    -选择管理
+    -拖放操作
+end note
+
+note right of DetailBuilder
+    细节面板构建器
+    -属性编辑
+    -分组显示
+end note
+
+@enduml 
