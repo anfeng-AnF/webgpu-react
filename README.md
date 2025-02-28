@@ -4,7 +4,7 @@
 
 ## 项目预览
 
-### 1. 操作界面
+### 1. 操作界面  （受压缩影响，这个高光看起来颜色不对）
   ![](READMERESOURCE/OperationInterface.gif)
 
   
