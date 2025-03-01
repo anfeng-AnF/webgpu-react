@@ -153,7 +153,10 @@ class ShaderIncluder {
             // 确保路径以 '/Shader' 开头
             const shaderPath = fullPath.startsWith('/Shader/') ? fullPath : `/Shader/${fullPath}`;
             
-            const response = await fetch(shaderPath);
+            // 移除开头的斜杠用于fetch请求
+            const fetchPath = shaderPath.replace(/^\//, '');
+            
+            const response = await fetch(fetchPath);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText} for path: ${shaderPath}`);
             }
