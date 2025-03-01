@@ -303,19 +303,19 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         // mat2 textures
         const BaseColorMetal055 = await loadTexture(
             this._ResourceManager,
-            '/Content/Other/Mat/Metal055A/Metal055A_4K-JPG_Color.jpg'
+            'Content/Other/Mat/Metal055A/Metal055A_4K-JPG_Color.jpg'
         );
         const NormalMetal055 = await loadTexture(
             this._ResourceManager,
-            '/Content/Other/Mat/Metal055A/Metal055A_4K-JPG_NormalDX.jpg'
+            'Content/Other/Mat/Metal055A/Metal055A_4K-JPG_NormalDX.jpg'
         );
         const MetallicMetal055 = await loadTexture(
             this._ResourceManager,
-            '/Content/Other/Mat/Metal055A/Metal055A_4K-JPG_Metalness.jpg'
+            'Content/Other/Mat/Metal055A/Metal055A_4K-JPG_Metalness.jpg'
         );
         const RoughnessMetal055 = await loadTexture(
             this._ResourceManager,
-            '/Content/Other/Mat/Metal055A/Metal055A_4K-JPG_Roughness.jpg'
+            'Content/Other/Mat/Metal055A/Metal055A_4K-JPG_Roughness.jpg'
         );
 
         // mat3 textures
