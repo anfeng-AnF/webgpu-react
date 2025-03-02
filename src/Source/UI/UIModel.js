@@ -232,12 +232,12 @@ class MainPage extends React.Component {
                                     marginBottom: '8px',
                                     color: '#81c784',
                                     fontSize: '16px'
-                                }}>1. 操作：</h4>
+                                }}>1. 操作：（于UE类似）</h4>
                                 <ul style={{paddingLeft: '20px', listStyleType: 'disc'}}>
-                                    <li style={{marginBottom: '5px'}}>右键视口+WASD移动</li>
-                                    <li style={{marginBottom: '5px'}}>右键视口+鼠标移动旋转</li>
-                                    <li style={{marginBottom: '5px'}}>右键视口+滚轮调整移动速度</li>
-                                    <li style={{marginBottom: '5px'}}>右键视口+QE垂直移动</li>
+                                    <li style={{marginBottom: '5px'}}>右键长按视口+WASD移动</li>
+                                    <li style={{marginBottom: '5px'}}>右键长按视口+鼠标移动旋转</li>
+                                    <li style={{marginBottom: '5px'}}>右键长按视口+滚轮调整移动速度</li>
+                                    <li style={{marginBottom: '5px'}}>右键长按视口+QE垂直移动</li>
                                 </ul>
                             </div>
                             

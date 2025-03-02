@@ -16,134 +16,197 @@ import PointLight from './Source/Scene/UI/Object/PointLight';
 
 class Main {
     static ModuleManager = null;
+    static backgroundMusic = null;
+    static audioContext = null;
+    static audioSource = null;
+    static audioBuffer = null;
 
     static async Initialize() {
         try {
             // 获取模块管理器实例
             Main.ModuleManager = FModuleManager.GetInstance();
             await Main.ModuleManager.Initialize();
-/*
-            // 创建测试场景
-            const testScene = new Scene();
-            testScene.Name = "TestScene";
-
-            // 创建 Actors 过滤器
-            const actorsFilter = new Filter("Actors");
-            testScene.AddChild(actorsFilter.Name, actorsFilter);
-
-            // 创建 Scenes 过滤器作为 Actors 的子节点
-            const scenesFilter = new Filter("Scenes");
-            actorsFilter.AddChild(scenesFilter.Name, scenesFilter);
-
-            // 创建 BaseScene 过滤器作为 Scenes 的子节点
-            const baseSceneFilter = new Filter("BaseScene");
-            scenesFilter.AddChild(baseSceneFilter.Name, baseSceneFilter);
-
-            // 添加一些静态网格到 BaseScene
-            const staticMeshes = [
-                "Grass01",
-                "ruins01",
-                "ruins03_竜遺者の旅跡_mesh_007",
-                "ruins04",
-                "terrainRef_竜遺者の旅跡_mesh_003",
-                "Water"
-            ];
-
-            staticMeshes.forEach(meshName => {
-                const mesh = new SceneStaticMesh(meshName);
-                baseSceneFilter.AddChild(mesh.Name, mesh);
-            });
-
-            // 创建其他顶级过滤器
-            const topLevelFilters = [
-                "Rocks",
-                "Terrain",
-                "Atmosphere",
-                "Lights"
-            ];
-
-            topLevelFilters.forEach(filterName => {
-                const filter = new Filter(filterName);
-                testScene.AddChild(filter.Name, filter);
-            });
-
-            // 获取Lights过滤器并添加光源
-            const lightsFilter = testScene.Children.get('Lights');
-
-            // 添加方向光
-            const mainDirectionalLight = new DirectionalLight('MainDirectionalLight');
-            mainDirectionalLight.SetLightData({
-                color: new THREE.Color(1, 0.95, 0.8),
-                intensity: 1.5,
-                castShadow: true,
-                rotation: new THREE.Euler(-Math.PI / 4, Math.PI / 4, 0)
-            }, 'main_directional_light');
-            lightsFilter.AddChild(mainDirectionalLight.Name, mainDirectionalLight);
-
-            // 添加环境补光
-            const fillDirectionalLight = new DirectionalLight('FillDirectionalLight');
-            fillDirectionalLight.SetLightData({
-                color: new THREE.Color(0.6, 0.7, 1),
-                intensity: 0.5,
-                castShadow: false,
-                rotation: new THREE.Euler(-Math.PI / 6, -Math.PI / 4, 0)
-            }, 'fill_directional_light');
-            lightsFilter.AddChild(fillDirectionalLight.Name, fillDirectionalLight);
-
-            // 添加一些点光源
-            const pointLights = [
-                {
-                    name: 'PointLight_1',
-                    data: {
-                        color: new THREE.Color(1, 0.8, 0.5),
-                        intensity: 2,
-                        distance: 10,
-                        decay: 2,
-                        castShadow: true
-                    }
-                },
-                {
-                    name: 'PointLight_2',
-                    data: {
-                        color: new THREE.Color(0.5, 0.8, 1),
-                        intensity: 1.5,
-                        distance: 15,
-                        decay: 2,
-                        castShadow: true
-                    }
-                }
-            ];
-
-            pointLights.forEach((lightInfo, index) => {
-                const pointLight = new PointLight(lightInfo.name);
-                pointLight.SetLightData(
-                    lightInfo.data,
-                    `point_light_${index}`
-                );
-                lightsFilter.AddChild(pointLight.Name, pointLight);
-            });
-
-            // 获取 UIModel 模块并更新场景树
-            const uiModel = Main.ModuleManager.GetModule('UIModule');
-            if (!uiModel) {
-                throw new Error('UIModel module not found');
-            }
-
-            testScene.Update();
-            console.log('Test scene initialized with lights');
-            const loader = new BlenderSceneLoaderFbx();
-            const scene = await loader.load(
-                'Content/Module/Scene/liyue/海灯节广场.fbx', 
-                'Content/Module/Scene/liyue/scene_structure.json'
-            );
-            scene.Update();
             
-            console.log('Scene loaded:', scene);
-            */
-
+            // 初始化音频系统
+            //await Main.initAudioSystem();
+            
         } catch (Error) {
             console.error('Initialization failed:', Error);
         }
+    }
+    
+    /**
+     * 初始化音频系统
+     */
+    static async initAudioSystem() {
+        try {
+            // 检查浏览器是否支持 Web Audio API
+            if (!window.AudioContext && !window.webkitAudioContext) {
+                console.warn('当前浏览器不支持 Web Audio API，无法播放背景音乐');
+                return;
+            }
+            
+            // 创建音频上下文
+            Main.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 使用正确的文件路径
+            const audioFile = '/Content/BGM/HOYO-MiX-使一颗心免于哀伤（伴奏）.mp3';
+            
+            console.log('加载 MP3 格式背景音乐:', audioFile);
+            
+            try {
+                // 尝试使用 HTML5 Audio 元素作为备选方案
+                Main.backgroundMusic = new Audio(audioFile);
+                Main.backgroundMusic.loop = true;
+                Main.backgroundMusic.volume = 0.3;
+                
+                // 添加加载事件监听器
+                Main.backgroundMusic.addEventListener('canplaythrough', () => {
+                    console.log('背景音乐加载成功（HTML5 Audio），等待用户交互后播放');
+                    document.addEventListener('click', Main.playBackgroundMusicHTML5, { once: true });
+                    document.addEventListener('keydown', Main.playBackgroundMusicHTML5, { once: true });
+                });
+                
+                // 添加错误事件监听器
+                Main.backgroundMusic.addEventListener('error', async (e) => {
+                    console.warn('HTML5 Audio 加载失败，尝试使用 Web Audio API:', e);
+                    
+                    try {
+                        // 加载音频文件
+                        const response = await fetch(audioFile);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        
+                        const arrayBuffer = await response.arrayBuffer();
+                        
+                        // 解码音频数据
+                        Main.audioBuffer = await Main.audioContext.decodeAudioData(arrayBuffer);
+                        
+                        console.log('背景音乐加载成功（Web Audio API），等待用户交互后播放');
+                        
+                        // 添加用户交互事件监听器
+                        document.addEventListener('click', Main.playBackgroundMusic, { once: true });
+                        document.addEventListener('keydown', Main.playBackgroundMusic, { once: true });
+                        
+                    } catch (error) {
+                        console.error('Web Audio API 音频加载失败:', error);
+                        console.warn('背景音乐将不会播放');
+                    }
+                });
+                
+                // 开始加载
+                Main.backgroundMusic.load();
+                
+            } catch (error) {
+                console.error('音频初始化失败:', error);
+                console.warn('背景音乐将不会播放');
+            }
+        } catch (error) {
+            console.error('音频系统初始化失败:', error);
+        }
+    }
+    
+    /**
+     * 使用 HTML5 Audio 播放背景音乐
+     */
+    static playBackgroundMusicHTML5() {
+        if (Main.backgroundMusic) {
+            Main.backgroundMusic.play()
+                .then(() => {
+                    console.log('背景音乐开始播放（HTML5 Audio）');
+                })
+                .catch(error => {
+                    console.error('背景音乐播放失败（HTML5 Audio）:', error);
+                    // 如果 HTML5 Audio 播放失败，尝试使用 Web Audio API
+                    if (Main.audioBuffer) {
+                        Main.playBackgroundMusic();
+                    }
+                });
+        }
+    }
+    
+    /**
+     * 使用 Web Audio API 播放背景音乐
+     */
+    static playBackgroundMusic() {
+        // 如果音频上下文被暂停（浏览器策略），恢复它
+        if (Main.audioContext && Main.audioContext.state === 'suspended') {
+            Main.audioContext.resume();
+        }
+        
+        // 如果音频未初始化或已经在播放，返回
+        if (!Main.audioBuffer || Main.audioSource) {
+            return;
+        }
+        
+        try {
+            // 创建音频源
+            Main.audioSource = Main.audioContext.createBufferSource();
+            Main.audioSource.buffer = Main.audioBuffer;
+            
+            // 设置循环播放
+            Main.audioSource.loop = true;
+            
+            // 创建音量控制
+            const gainNode = Main.audioContext.createGain();
+            gainNode.gain.value = 0.3; // 设置音量 (0.0 到 1.0)
+            
+            // 连接节点
+            Main.audioSource.connect(gainNode);
+            gainNode.connect(Main.audioContext.destination);
+            
+            // 开始播放
+            Main.audioSource.start(0);
+            
+            console.log('背景音乐开始播放（Web Audio API）');
+        } catch (error) {
+            console.error('背景音乐播放失败（Web Audio API）:', error);
+            Main.audioSource = null;
+        }
+    }
+    
+    /**
+     * 暂停背景音乐
+     */
+    static pauseBackgroundMusic() {
+        // 尝试暂停 HTML5 Audio
+        if (Main.backgroundMusic) {
+            Main.backgroundMusic.pause();
+            console.log('背景音乐已暂停（HTML5 Audio）');
+        }
+        
+        // 尝试暂停 Web Audio API
+        if (Main.audioSource) {
+            Main.audioSource.stop();
+            Main.audioSource = null;
+            console.log('背景音乐已暂停（Web Audio API）');
+        }
+    }
+    
+    /**
+     * 调整背景音乐音量
+     * @param {number} volume - 音量值 (0.0 到 1.0)
+     */
+    static setBackgroundMusicVolume(volume) {
+        volume = Math.max(0, Math.min(1, volume));
+        
+        // 调整 HTML5 Audio 音量
+        if (Main.backgroundMusic) {
+            Main.backgroundMusic.volume = volume;
+        }
+        
+        // 调整 Web Audio API 音量
+        if (Main.audioContext && Main.audioSource) {
+            const gainNode = Main.audioContext.createGain();
+            gainNode.gain.value = volume;
+            
+            Main.audioSource.disconnect();
+            Main.audioSource.connect(gainNode);
+            gainNode.connect(Main.audioContext.destination);
+        }
+        
+        console.log(`背景音乐音量已设置为: ${volume}`);
     }
 }
 
