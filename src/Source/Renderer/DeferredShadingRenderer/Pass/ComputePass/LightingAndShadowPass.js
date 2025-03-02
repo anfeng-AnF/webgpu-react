@@ -13,7 +13,7 @@ class LightingAndShadowPass extends FPass {
     // 定义调试渲染结果的输出纹理名称（可在 resourceName 中配置）
     renderTargetName = 'LightingAndShadowPassRT';
 
-    constructor(hdrTexturePath = '/Content/Other/Mat/HDR/FireFlySceneHDR1.hdr') {
+    constructor(hdrTexturePath = 'Content/Other/Mat/HDR/FireFlySceneHDR1.hdr') {
         super();
         this._Name = 'LightingAndShadowPass';
         this.bCanvasReady = false;
