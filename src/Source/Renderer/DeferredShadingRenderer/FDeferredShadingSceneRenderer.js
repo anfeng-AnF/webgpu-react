@@ -283,85 +283,85 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         // mat1 textures
         const BaseColorTexture = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Foil002/Foil002_4K-JPG_Color.jpg'
+            'Content/Texture/Foil002/Foil002_1K-JPG_Color.jpg'
         );
         const NormalTexture = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Foil002/Foil002_4K-JPG_NormalDX.jpg'
+            'Content/Texture/Foil002/Foil002_1K-JPG_NormalDX.jpg'
         );
         //const MetallicTexture = await loadTexture(this._ResourceManager, 'public/Texture/Metallic.png');
         const RoughnessTexture = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Foil002/Foil002_4K-JPG_Roughness.jpg'
+            'Content/Texture/Foil002/Foil002_1K-JPG_Roughness.jpg'
         );
         const MetallicTexture = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Foil002/Foil002_4K-JPG_Metalness.jpg'
+            'Content/Texture/Foil002/Foil002_1K-JPG_Metalness.jpg'
         );
         //const SpecularTexture = await loadTexture(this._ResourceManager, 'public/Texture/Specular.png');
 
         // mat2 textures
         const BaseColorMetal055 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Metal055A/Metal055A_4K-JPG_Color.jpg'
+            'Content/Texture/Metal055A/Metal055A_1K-JPG_Color.jpg'
         );
         const NormalMetal055 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Metal055A/Metal055A_4K-JPG_NormalDX.jpg'
+            'Content/Texture/Metal055A/Metal055A_1K-JPG_NormalDX.jpg'
         );
         const MetallicMetal055 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Metal055A/Metal055A_4K-JPG_Metalness.jpg'
+            'Content/Texture/Metal055A/Metal055A_1K-JPG_Metalness.jpg'
         );
         const RoughnessMetal055 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Metal055A/Metal055A_4K-JPG_Roughness.jpg'
+            'Content/Texture/Metal055A/Metal055A_1K-JPG_Roughness.jpg'
         );
 
         // mat3 textures
         const BaseColorTexturePavingStones085 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/PavingStones085/PavingStones085_4K-JPG_Color.jpg'
+            'Content/Texture/PavingStones085/PavingStones085_1K-JPG_Color.jpg'
         );
         const NormalTexturePavingStones085 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/PavingStones085/PavingStones085_4K-JPG_NormalDX.jpg'
+            'Content/Texture/PavingStones085/PavingStones085_1K-JPG_NormalDX.jpg'
         );
         const RoughnessPavingStones085 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/PavingStones085/PavingStones085_4K-JPG_Roughness.jpg'
+            'Content/Texture/PavingStones085/PavingStones085_1K-JPG_Roughness.jpg'
         );
 
         // mat4 textures
         const BaseColorTextureMetal034 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Metal034/Metal034_4K-JPG_Color.jpg'
+            'Content/Texture/Metal034/Metal034_1K-JPG_Color.jpg'
         );
         const NormalTextureMetal034 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Metal034/Metal034_4K-JPG_NormalDX.jpg'
+            'Content/Texture/Metal034/Metal034_1K-JPG_NormalDX.jpg'
         );
         const RoughnessMetal034 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Metal034/Metal034_4K-JPG_Roughness.jpg'
+            'Content/Texture/Metal034/Metal034_1K-JPG_Roughness.jpg'
         );
         const MetallicMetal034 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Metal034/Metal034_4K-JPG_Metalness.jpg'
+            'Content/Texture/Metal034/Metal034_1K-JPG_Metalness.jpg'
         );
 
         // mat5 textures
         const BaseColorTextureRock017 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Rock017/Rock017_4K-JPG_Color.jpg'
+            'Content/Texture/Rock017/Rock017_1K-JPG_Color.jpg'
         );
         const NormalTextureRock017 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Rock017/Rock017_4K-JPG_NormalDX.jpg'
+            'Content/Texture/Rock017/Rock017_1K-JPG_NormalDX.jpg'
         );
         const RoughnessRock017 = await loadTexture(
             this._ResourceManager,
-            'Content/Texture/Rock017/Rock017_4K-JPG_Roughness.jpg'
+            'Content/Texture/Rock017/Rock017_1K-JPG_Roughness.jpg'
         );
 
         const BaseColorTextureSampler = this._ResourceManager.CreateResource(
