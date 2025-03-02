@@ -1,0 +1,29 @@
+{
+  "files": {
+    "main.css": "/webgpu-react/static/css/main.3c55990c.css",
+    "main.js": "/webgpu-react/static/js/main.4119ddbc.js",
+    "static/css/320.947ea6e2.chunk.css": "/webgpu-react/static/css/320.947ea6e2.chunk.css",
+    "static/js/320.39e0e056.chunk.js": "/webgpu-react/static/js/320.39e0e056.chunk.js",
+    "static/css/987.7cc7a560.chunk.css": "/webgpu-react/static/css/987.7cc7a560.chunk.css",
+    "static/js/987.f6aaf7a8.chunk.js": "/webgpu-react/static/js/987.f6aaf7a8.chunk.js",
+    "static/js/64.6d33951d.chunk.js": "/webgpu-react/static/js/64.6d33951d.chunk.js",
+    "static/js/408.c801fdd4.chunk.js": "/webgpu-react/static/js/408.c801fdd4.chunk.js",
+    "static/js/646.3618acc9.chunk.js": "/webgpu-react/static/js/646.3618acc9.chunk.js",
+    "static/js/82.3e45d2c0.chunk.js": "/webgpu-react/static/js/82.3e45d2c0.chunk.js",
+    "index.html": "/webgpu-react/index.html",
+    "main.3c55990c.css.map": "/webgpu-react/static/css/main.3c55990c.css.map",
+    "main.4119ddbc.js.map": "/webgpu-react/static/js/main.4119ddbc.js.map",
+    "320.947ea6e2.chunk.css.map": "/webgpu-react/static/css/320.947ea6e2.chunk.css.map",
+    "320.39e0e056.chunk.js.map": "/webgpu-react/static/js/320.39e0e056.chunk.js.map",
+    "987.7cc7a560.chunk.css.map": "/webgpu-react/static/css/987.7cc7a560.chunk.css.map",
+    "987.f6aaf7a8.chunk.js.map": "/webgpu-react/static/js/987.f6aaf7a8.chunk.js.map",
+    "64.6d33951d.chunk.js.map": "/webgpu-react/static/js/64.6d33951d.chunk.js.map",
+    "408.c801fdd4.chunk.js.map": "/webgpu-react/static/js/408.c801fdd4.chunk.js.map",
+    "646.3618acc9.chunk.js.map": "/webgpu-react/static/js/646.3618acc9.chunk.js.map",
+    "82.3e45d2c0.chunk.js.map": "/webgpu-react/static/js/82.3e45d2c0.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.3c55990c.css",
+    "static/js/main.4119ddbc.js"
+  ]
+}

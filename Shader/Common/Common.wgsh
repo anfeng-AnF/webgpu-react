@@ -1,0 +1,37 @@
+// include 基本变量common后再 include 这个文件
+
+
+const pi: f32 = 3.14159265358979323846264338327950288;
+
+// 从深度值和屏幕坐标重建世界位置
+fn ReconstructWorldPositionFromDepth(depth: f32, uv: vec2<f32>) -> vec3<f32> {
+    // 转换为NDC坐标 [-1, 1]
+    let ndc = vec4<f32>(
+        uv.x * 2.0 - 1.0,
+        1.0 - uv.y * 2.0,  // 翻转Y轴
+        depth,
+        1.0
+    );
+
+    // 逆投影变换到视图空间
+    let viewPos = scene.projMatrixInv * ndc;
+    let viewPosPerspective = viewPos / viewPos.w;
+
+    // 逆视图变换到世界空间
+    let worldPos = scene.viewMatrixInv * viewPosPerspective;
+    return worldPos.xyz;
+}
+
+struct StaticMeshVertexInput {
+    @location(0) position: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) tangent: vec3<f32>,
+    @location(3) uv0: vec2<f32>,
+    @location(4) uv1: vec2<f32>,
+    @location(5) uv2: vec2<f32>,
+    @location(6) uv3: vec2<f32>,
+}
+
+
+
+
