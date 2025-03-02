@@ -135,7 +135,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         const DetailBuilder = UIModule.WorldSettingsBuilder;
         DetailBuilder.addProperties({
             '渲染.缓冲显示': {
-                value: resourceName.PrePass.depthTexture, // 设置初始值为深度纹理
+                value: 'LightingAndShadowPassRT', // 设置初始值为深度纹理
                 label: '缓冲显示',
                 type: 'enum',
                 options: [
@@ -215,7 +215,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
         }
 
         // 初始化复制Pass，使用PrePass的深度纹理作为初始源
-        this._CopyPass = new FCopyToCanvasPass(resourceName.PrePass.depthTexture, Canvas);
+        this._CopyPass = new FCopyToCanvasPass('LightingAndShadowPassRT', Canvas);
         await this._CopyPass.Initialize();
         this.canvas = Canvas;
         this._bCanvasReady = true;
@@ -739,7 +739,7 @@ class FDeferredShadingSceneRenderer extends FSceneRenderer {
                 metallic: 0.0,
                 roughness: 0.8,
             },
-        ], new THREE.Vector3(-10, 0, 0));
+        ], new THREE.Vector3(-30, 0, 0));
 
         // 天空球材质
         const skyboxBaseColorTexture = await loadTexture(

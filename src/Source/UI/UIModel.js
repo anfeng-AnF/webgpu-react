@@ -208,7 +208,94 @@ class MainPage extends React.Component {
                         </div>
                         <div className="category-icons"></div>
                         <div className="actor-list">
-
+                        {/* 临时功能描述开始 */}
+                        <div style={{
+                            padding: '15px',
+                            fontSize: '14px',
+                            lineHeight: '1.6',
+                            color: '#e0e0e0',
+                            backgroundColor: 'rgba(30, 30, 30, 0.7)',
+                            borderRadius: '8px',
+                            border: '1px solid #444'
+                        }}>
+                            <h3 style={{
+                                fontSize: '18px',
+                                fontWeight: 'bold',
+                                marginBottom: '12px',
+                                color: '#4fc3f7',
+                                textShadow: '0 0 2px rgba(79, 195, 247, 0.5)'
+                            }}>该区域用于放置Actor，当前版本临时用于功能描述：</h3>
+                            
+                            <div style={{marginBottom: '18px'}}>
+                                <h4 style={{
+                                    fontWeight: 'bold', 
+                                    marginBottom: '8px',
+                                    color: '#81c784',
+                                    fontSize: '16px'
+                                }}>1. 操作：</h4>
+                                <ul style={{paddingLeft: '20px', listStyleType: 'disc'}}>
+                                    <li style={{marginBottom: '5px'}}>右键视口+WASD移动</li>
+                                    <li style={{marginBottom: '5px'}}>右键视口+鼠标移动旋转</li>
+                                    <li style={{marginBottom: '5px'}}>右键视口+滚轮调整移动速度</li>
+                                    <li style={{marginBottom: '5px'}}>右键视口+QE垂直移动</li>
+                                </ul>
+                            </div>
+                            
+                            <div style={{marginBottom: '18px'}}>
+                                <h4 style={{
+                                    fontWeight: 'bold', 
+                                    marginBottom: '8px',
+                                    color: '#81c784',
+                                    fontSize: '16px'
+                                }}>2. 世界场景设置：</h4>
+                                <div style={{paddingLeft: '20px'}}>
+                                    <h5 style={{
+                                        fontWeight: 'bold', 
+                                        marginBottom: '8px',
+                                        color: '#ffb74d',
+                                        fontSize: '15px'
+                                    }}>2.1 缓冲显示：</h5>
+                                    <ul style={{paddingLeft: '20px', listStyleType: 'circle'}}>
+                                        <li style={{marginBottom: '5px'}}>场景深度</li>
+                                        <li style={{marginBottom: '5px'}}>世界法线（<span style={{color: '#ff8a65'}}>GBufferA</span>）</li>
+                                        <li style={{marginBottom: '5px'}}>SMR（<span style={{color: '#ff8a65'}}>GBufferB</span>）：Specular，metallic，roughness 分别占用一个RGB通道</li>
+                                        <li style={{marginBottom: '5px'}}>BaseColor（<span style={{color: '#ff8a65'}}>GBufferC</span>）</li>
+                                        <li style={{marginBottom: '5px'}}>additional（<span style={{color: '#ff8a65'}}>GBufferD</span>）：暂时未使用</li>
+                                        <li style={{marginBottom: '5px'}}>光照和阴影</li>
+                                    </ul>
+                                    
+                                    <h5 style={{
+                                        fontWeight: 'bold', 
+                                        marginTop: '12px', 
+                                        marginBottom: '8px',
+                                        color: '#ffb74d',
+                                        fontSize: '15px'
+                                    }}>2.2 camera：</h5>
+                                    <p style={{paddingLeft: '20px'}}>当前视口camera信息</p>
+                                </div>
+                            </div>
+                            
+                            <div style={{marginBottom: '18px'}}>
+                                <h4 style={{
+                                    fontWeight: 'bold', 
+                                    marginBottom: '8px',
+                                    color: '#81c784',
+                                    fontSize: '16px'
+                                }}>3. 细节：</h4>
+                                <p style={{paddingLeft: '20px'}}>显示当前单个选择的Object信息——配合右上角场景树使用</p>
+                            </div>
+                            
+                            <div style={{marginBottom: '10px'}}>
+                                <h4 style={{
+                                    fontWeight: 'bold', 
+                                    marginBottom: '8px',
+                                    color: '#81c784',
+                                    fontSize: '16px'
+                                }}>4. 场景树：</h4>
+                                <p style={{paddingLeft: '20px'}}>选中单个物体在其下显示细节信息（暂未实现选中描边）</p>
+                            </div>
+                        </div>
+                        {/* 临时功能描述结束 */}
                         </div>
                     </div>
 
