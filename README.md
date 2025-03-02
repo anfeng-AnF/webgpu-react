@@ -4,6 +4,14 @@
 
 ## 项目预览
 
+### 访问[在线网页](https://anfeng-anf.github.io/webgpu-react/)直接查看
+  - 提示(ᗜ ˰ ᗜ)：
+  - 当前版本对配置较低的设备不太友好（我塞了一堆4k贴图+默认使用8k shadowmap）
+  - 网页加载需要一点时间，4k贴图总计约260MB，这可能需要一些时间
+  - 启用浏览器webgpu支持，可以获得更好的体验，当前仅推荐edge、chrome
+    - 如edge ：edge://flags/#enable-unsafe-webgpu
+    - 如chrome ：chrome://flags/#enable-unsafe-webgpu
+
 ### 1. 操作界面  （受压缩影响，这个高光看起来颜色不对）
   ![](READMERESOURCE/OperationInterface.gif)
 
