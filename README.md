@@ -1,6 +1,6 @@
 # WebGPU Deferred Rendering
 
-一个基于 WebGPU 的延迟渲染项目。
+一个基于 WebGPU 的延迟渲染学习项目。
 
 ## 项目预览
 
